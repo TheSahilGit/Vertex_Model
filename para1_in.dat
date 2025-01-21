@@ -6,14 +6,15 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-5.0d6            ! totT
+1.0d3            ! totT
 2.5d-3           ! dt
 0.1              ! min_d_T1
 0.5              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
-1000            ! it_dump (unit of it)
+10               ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
+10               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
 0.04d0              ! etas_max ! (motility)
 0.0              ! etas_min ! (motility)

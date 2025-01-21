@@ -27,6 +27,7 @@ program vertexmain
 
 
   Total_T1_count = 0
+  Total_T2_count = 0
 
 
   if(if_motility_gradient)then
@@ -37,10 +38,6 @@ program vertexmain
   mot0 = mot
 
 
-!  call find_T2
-!  call find_T2_Affected
-!  write(*,*)cellNoT2
-!  write(*,*)ik
 
 
 
@@ -65,6 +62,15 @@ program vertexmain
         call Do_T1
       end do
     end if
+
+
+    if(modulo(it,T2_time_interval).eq.0.0d0)then
+      do iki= 1, 1
+        call Do_T2
+      end do
+    end if
+
+
 
 
 
@@ -100,6 +106,7 @@ program vertexmain
 
 
   write(*,*)"Total T1 count", Total_T1_count
+  write(*,*)"Total T2 count", Total_T2_count
 
   write(*,*)"**********End******************"
 
