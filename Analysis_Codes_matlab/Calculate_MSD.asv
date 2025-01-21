@@ -1,0 +1,9 @@
+function Calculate_MSD(it, v, inn, num)
+
+
+for i = 1:Lx*Ly
+        vx=v(inn(i,1:num(i)),1);
+        vy=v(inn(i,1:num(i)),2);
+end
+
+end 
