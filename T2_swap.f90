@@ -12,6 +12,7 @@ module T2_swap
     subroutine find_T2
       implicit none
 
+
       cell_no = 0
       ver_no = 0
       area_val = 0
@@ -36,14 +37,14 @@ module T2_swap
       end do
 
 
-      if(count_T2>0)then
-        call random_number(rr)
-        chosen_index = int(rr*count_T2+1)
-        !cellNoT2 = cell_no(chosen_index)
-        cellNoT2 = 111  !cell_no(chosen_index)
-      else
-        T2_pass = .false.
-      end if
+!      if(count_T2>0)then
+!        call random_number(rr)
+!        chosen_index = int(rr*count_T2+1)
+!        !cellNoT2 = cell_no(chosen_index)
+!        cellNoT2 = 111  !cell_no(chosen_index)
+!      else
+!        T2_pass = .false.
+!      end if
 
 
     end subroutine find_T2
