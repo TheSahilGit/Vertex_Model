@@ -111,6 +111,7 @@ module Force
 
   end subroutine Motile_Force_Calculation
 
+
   subroutine Give_Motility_Gradient
 
     implicit none
@@ -227,7 +228,7 @@ subroutine Apply_bottom_border_Fixed
   fxx(bottom_border(1:bottom_border_count)) = 0.0d0
   fxx_ran(bottom_border(1:bottom_border_count)) = 0.0d0
   fyy(bottom_border(1:bottom_border_count)) = 0.0d0
-  fxx_ran(bottom_border(1:bottom_border_count)) = 0.0d0
+  fyy_ran(bottom_border(1:bottom_border_count)) = 0.0d0
 
 
 end subroutine  Apply_bottom_border_Fixed

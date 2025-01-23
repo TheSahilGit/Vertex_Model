@@ -17,13 +17,10 @@ program vertexmain
   use Force
   use Stress
 
-!call cpu_time(startTime)
 
   call read_input
   call allocate_arrays
   call read_data   ! Initialization
-
-
 
 
   Total_T1_count = 0
@@ -36,9 +33,6 @@ program vertexmain
      mot = etas_max
   end if
   mot0 = mot
-
-
-
 
 
   do it = 1,totT
@@ -80,6 +74,11 @@ program vertexmain
     if(if_Fixed_boundary)then
       call Apply_Fixed_Boundary
     end if
+
+     if(if_bottom_borders_fixed)then
+       call Apply_bottom_border_Fixed
+     end if
+
 
 
 

@@ -321,10 +321,6 @@ module allocation
        close(iunit_v)
        close(iunit_force)
 
-    
-
-
-
     end subroutine write_output
 
 
