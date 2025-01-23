@@ -31,7 +31,7 @@ nrun = 2;
 
 %filepath = '../';
 
-for it = 50000
+for it = 1000000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
@@ -67,17 +67,17 @@ close(mov)
 
 
 
-% 
-% fname_energy = sprintf('../data/Energy.dat');
-% fid = fopen(fname_energy);
-% dum4 = fread(fid,1,'float32');
-% energy = fread(fid,100000000,'float64');
-% 
-% 
-% fname_ST = sprintf('../data/ShearStress.dat');
-% fid = fopen(fname_ST);
-% dum4 = fread(fid,1,'float32');
-% ShearStress = fread(fid,100000000,'float64');
+
+fname_energy = sprintf('../data/Energy.dat');
+fid = fopen(fname_energy);
+dum4 = fread(fid,1,'float32');
+energy = fread(fid,100000000,'float64');
+
+
+fname_ST = sprintf('../data/ShearStress.dat');
+fid = fopen(fname_ST);
+dum4 = fread(fid,1,'float32');
+ShearStress = fread(fid,100000000,'float64');
 
 
 
@@ -119,7 +119,7 @@ for j = 1:Ly:(Lx*Ly)
         % % Interpolate the RGB value from the colormap
         % rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
         %plot(pl, FaceColor=rgb, FaceAlpha=0.01, LineWidth=1.5)
-        plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
+        plot(pl,EdgeColor='k',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
     end
 end
@@ -136,15 +136,14 @@ cb.Label.String = 'Motility';
 hold on;
 
 
-% for i=130
-%     num(i)
-%     inn(i,1:num(i))
-%     vx=v(inn(i,1:6),1);
-%     vy=v(inn(i,1:6),2);
+% for i=158
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
 %     pl = polyshape(vx,vy);
 %     plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
 %     hold on;
 % end
+
 
 % for i=Ly
 %     vx=v(inn(i,1:num(i)),1);

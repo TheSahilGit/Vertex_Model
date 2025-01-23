@@ -11,8 +11,8 @@ module allocation
       real*8 :: totTr
       real*8 :: min_d_T1, min_area_T2
       integer :: count_T1, cellNoT1, verNoT1, verNoNextT1
-      integer :: count_T2, cellNoT2
-      integer :: Total_T1_count
+      integer :: count_T2, cellNoT2, verNoT2
+      integer :: Total_T1_count, Total_T2_count
 
       integer :: next_idx, prev_idx, chosen_index
       real*8 :: len_d,len_d_sq, dx, dy, rr
@@ -47,9 +47,9 @@ module allocation
       real*8 :: totalarea
       real*8 ::  pi, rann
 
-      integer*4 :: num_dim, inn_dim1,inn_dim2, v_dim1, v_dim2, borderver_dim
+      integer*4 :: num_dim, inn_dim1,inn_dim2, v_dim1, v_dim2
 
-      integer*4, dimension(:), allocatable :: mainarea,insidebulk,leftP,rightP,topP,bottomP,corners,boundary
+      integer*4, dimension(:), allocatable :: mainarea,leftP,rightP,topP,bottomP,corners,boundary
       integer, dimension(:), allocatable :: inside1, inside2
       integer*4, dimension(:), allocatable :: GleftP,GrightP,GtopP,GbottomP,Gcorners,Gboundary
 
@@ -58,7 +58,7 @@ module allocation
       character(100) :: fname_inn2, fname_num2, fname_v2
       integer*4 :: iunit_inn, iunit_num, iunit_v
 
-      integer*4 :: it_dump, T1_time_interval
+      integer*4 :: it_dump, T1_time_interval, T2_time_interval
 
       real*8, allocatable, dimension(:) ::  mot, mot0
       real*8 :: etas_max, etas_min, mot_Lc
@@ -110,7 +110,6 @@ module allocation
      read(121,*) v_dim2
      read(121,*) inn_dim1
      read(121,*) inn_dim2
-     read(121,*) borderver_dim
 
      read(112,*) nrun
      read(112,*) nrun2_initialTime_r
@@ -128,6 +127,7 @@ module allocation
      read(112,*) if_bottom_borders_fixed
      read(112,*) it_dump
      read(112,*) T1_time_interval
+     read(112,*) T2_time_interval
      read(112,*) if_motility_gradient
      read(112,*) etas_max
      read(112,*) etas_min
@@ -181,7 +181,6 @@ module allocation
      allocate(workingzone(Lx*Ly+2*Lx+2*Ly+4))
      allocate(mainarea(Lx*Ly),leftP(Ly),rightP(Ly),topP(Lx),bottomP(Lx),corners(4))
      allocate(boundary(2*Lx + 2*Ly))
-     allocate(insidebulk(Lx*Ly - 4*Lx - 4*Ly + 16)) 
      allocate(GleftP(Ly),GrightP(Ly),GtopP(Lx),GbottomP(Lx),Gcorners(4))
      allocate(Gboundary(2*Lx + 2*Ly + 4))
      allocate(inside1((Lx - 2) * (Ly - 2)))
@@ -213,7 +212,6 @@ module allocation
        open(1, file='num_in.dat',status='old')
        open(2, file='v_in.dat', status='old')
        open(3, file='inn_in.dat', status='old')
-       open(1901, file='inside_in.dat', status = 'old')
 
        
        
@@ -221,14 +219,12 @@ module allocation
        read(1,*)num
        read(2,*)v
        read(3,*)inn
-       read(1901,*)insidebulk
 
     
     
        close(1)
        close(2)
        close(3)
-       close(1901)
 
      elseif(nrun.eq.2)then
 
@@ -324,10 +320,6 @@ module allocation
        close(iunit_num)
        close(iunit_v)
        close(iunit_force)
-
-    
-
-
 
     end subroutine write_output
 

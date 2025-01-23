@@ -17,16 +17,14 @@ program vertexmain
   use Force
   use Stress
 
-!call cpu_time(startTime)
 
   call read_input
   call allocate_arrays
   call read_data   ! Initialization
 
 
-
-
   Total_T1_count = 0
+  Total_T2_count = 0
 
 
   if(if_motility_gradient)then
@@ -35,13 +33,6 @@ program vertexmain
      mot = etas_max
   end if
   mot0 = mot
-
-
-!  call find_T2
-!  call find_T2_Affected
-!  write(*,*)cellNoT2
-!  write(*,*)ik
-
 
 
   do it = 1,totT
@@ -67,6 +58,15 @@ program vertexmain
     end if
 
 
+    if(modulo(it,T2_time_interval).eq.0.0d0)then
+      do iki= 1, 1
+        call Do_T2
+      end do
+    end if
+
+
+
+
 
     call Force_Calculation
     call Motile_Force_Calculation
@@ -74,6 +74,11 @@ program vertexmain
     if(if_Fixed_boundary)then
       call Apply_Fixed_Boundary
     end if
+
+     if(if_bottom_borders_fixed)then
+       call Apply_bottom_border_Fixed
+     end if
+
 
 
 
@@ -100,6 +105,7 @@ program vertexmain
 
 
   write(*,*)"Total T1 count", Total_T1_count
+  write(*,*)"Total T2 count", Total_T2_count
 
   write(*,*)"**********End******************"
 
