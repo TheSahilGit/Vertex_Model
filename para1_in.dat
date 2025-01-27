@@ -16,7 +16,11 @@
 1                ! T1_time_interval  (unit of it)
 10               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
+<<<<<<< Updated upstream
 1.0d-4           ! etas_max ! (motility)
+=======
+0.02d0           ! etas_max ! (motility)
+>>>>>>> Stashed changes
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay

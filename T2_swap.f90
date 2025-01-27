@@ -186,6 +186,8 @@ module T2_swap
    subroutine Do_T2
      implicit none
 
+     integer :: im, il
+
      T2_pass = .true.
 
 
