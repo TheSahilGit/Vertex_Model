@@ -12,7 +12,7 @@ module allocation
       real*8 :: min_d_T1, min_area_T2
       integer :: count_T1, cellNoT1, verNoT1, verNoNextT1
       integer :: count_T2, cellNoT2, verNoT2
-      integer :: Total_T1_count, Total_T2_count
+      real*8, allocatable, dimension(:) :: Total_T1_count, Total_T2_count
 
       integer :: next_idx, prev_idx, chosen_index
       real*8 :: len_d,len_d_sq, dx, dy, rr
@@ -188,6 +188,7 @@ module allocation
      allocate(coefficients(6))
      allocate(Energy(totT))
      allocate(msdt(totT))
+     allocate(Total_T1_count(totT), Total_T2_count(totT))
      allocate(cellCentInit(Lx*Ly-4*Lx - 4*Ly +16))
      allocate(borderver(v_dim2)) 
      allocate(mot(v_dim2),mot0(v_dim2))
@@ -314,6 +315,18 @@ module allocation
          write(715)ShearStress
          close(715)
        end if
+       if(it.eq.totT)then
+         open(unit = 717, file='data/T1_count.dat', form='unformatted',  status='unknown')
+         write(717)Total_T1_count
+         close(717)
+       end if
+
+       if(it.eq.totT)then
+         open(unit = 719, file='data/T2_count.dat', form='unformatted',  status='unknown')
+         write(719)Total_T2_count
+         close(719)
+       end if
+
  
  
        close(iunit_inn)

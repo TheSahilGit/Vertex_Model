@@ -1,9 +1,9 @@
-clear; clc ;close all;
+clear; clc ;
+%close all;
 
 
 para2 = load("../para2_in.dat");
 etas = load("../motility_in.dat");
-
 
 
 
@@ -80,6 +80,20 @@ dum4 = fread(fid,1,'float32');
 ShearStress = fread(fid,100000000,'float64');
 
 
+fname_T1 = sprintf('../data/T1_count.dat');
+fid = fopen(fname_T1);
+dum4 = fread(fid,1,'float32');
+T1_count = fread(fid,100000000,'float64');
+cumsum_T1 = cumsum(T1_count);
+
+fname_T2 = sprintf('../data/T2_count.dat');
+fid = fopen(fname_T2);
+dum4 = fread(fid,1,'float32');
+T2_count = fread(fid,100000000,'float64');
+cumsum_T2 = cumsum(T2_count);
+
+
+
 
 function [cmX, cmY] = calculate_cellCentre(Lx,Ly,v,inn,num)
 for i = 1:Lx*Ly
@@ -119,7 +133,7 @@ for j = 1:Ly:(Lx*Ly)
         % % Interpolate the RGB value from the colormap
         % rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
         %plot(pl, FaceColor=rgb, FaceAlpha=0.01, LineWidth=1.5)
-        plot(pl,EdgeColor='k',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
+        plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
     end
 end

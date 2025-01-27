@@ -368,8 +368,8 @@ module T1_swap
       if(T1_pass)then
           call find_T1_Affected
           call T1_core    
-          write(*,*)"T1 Happened"
-          Total_T1_count = Total_T1_count + 1
+          write(*,*)"T1 Happened at it = ", it
+          Total_T1_count(it) = Total_T1_count(it) + 1
         end if
 
 
