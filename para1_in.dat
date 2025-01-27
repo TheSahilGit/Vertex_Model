@@ -12,20 +12,20 @@
 0.1              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .true.          ! if_bottom_borders_fixed
-1000             ! it_dump (unit of it)
+5000             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 10               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
-0.0d0           ! etas_max ! (motility)
+1.0d-4           ! etas_max ! (motility)
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay
 10000            ! motility_decay_timeScale (unit of dt)
 .true.           ! if_Shear_tissue ( Make it true for any kind of shearing experiment)
-.false.          ! if_Sudden_Shearing
-1.0d0            ! sudden_shearStrength
+.true.          ! if_Sudden_Shearing
+1.0d-3            ! sudden_shearStrength
 1                ! sudden_shearWhen
-.true.          ! if_Oscillatory_Shearing
+.false.          ! if_Oscillatory_Shearing
 0.1              ! Oscl_shearStrength
 1                ! Oscl_shearWhen
 1.0d1            ! Oscl_freq_wo

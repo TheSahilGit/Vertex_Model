@@ -1,11 +1,11 @@
-%clear; clc; close all; 
+clear; clc; close all; 
 
-nrun = 1; 
+nrun = 2; 
 
 [~,~,v_in,inn_in,num_in, forces_in] = LoadData(1, nrun);
 
 ct = 1;
-for it = 5000:5000:5000000
+for it = 5000:5000:1000000
 
     it
 
@@ -21,27 +21,27 @@ mean_MSD = mean(MSD,2);
 %%
 
 
-X = log(time(1:10));
-Y = log(mean_MSD(1:10));
-p = polyfit(X, Y, 1)
-
-
-figure()
-loglog(time, mean_MSD, '-o');
-hold on
-%loglog(time, exp(p(2))*time.^p(1))
-axis square
-legend("FontSize",18)
-xlabel("time")
-ylabel("MSD")
-axis square
-set(gca, 'FontSize', 28,'LineWidth',1);
-set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
+%X = log(time(1:10));
+%Y = log(mean_MSD(1:10));
+%p = polyfit(X, Y, 1)
+%
+%
+%figure()
+%loglog(time, mean_MSD, '-o');
+%hold on
+%%loglog(time, exp(p(2))*time.^p(1))
+%axis square
+%legend("FontSize",18)
+%xlabel("time")
+%ylabel("MSD")
+%axis square
+%set(gca, 'FontSize', 28,'LineWidth',1);
+%set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
 
 
 %%
 
-%writematrix([time' mean_MSD], 'msd1e-2.dat')
+writematrix([time' mean_MSD], 'msd.dat')
 
 
 

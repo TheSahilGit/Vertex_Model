@@ -104,8 +104,8 @@ program vertexmain
 
 
 
-  write(*,*)"Total T1 count", Total_T1_count
-  write(*,*)"Total T2 count", Total_T2_count
+!  write(*,*)"Total T1 count", Total_T1_count
+!  write(*,*)"Total T2 count", Total_T2_count
 
   write(*,*)"**********End******************"
 

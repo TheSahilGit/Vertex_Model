@@ -195,7 +195,7 @@ module T2_swap
     if(T2_pass)then
        call find_T2_Affected
        call T2_core
-       Total_T2_count = Total_T2_count + 1
+       Total_T2_count(it) = Total_T2_count(it) + 1
      end if
 
 
