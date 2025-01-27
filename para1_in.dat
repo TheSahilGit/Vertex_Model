@@ -1,4 +1,4 @@
-2                ! nrun
+1                ! nrun
 1000000          ! nrun2_initialTime ! will take this time(it) data from nrun1 as initial for nrun2 
 1.0d0            ! Ao
 0.0d0            ! Co
@@ -6,21 +6,17 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d6            ! totT
+1.0d2            ! totT
 2.5d-3           ! dt
 0.1              ! min_d_T1
 0.1              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .true.          ! if_bottom_borders_fixed
-5000             ! it_dump (unit of it)
+10             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 10               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
-<<<<<<< Updated upstream
 1.0d-4           ! etas_max ! (motility)
-=======
-0.02d0           ! etas_max ! (motility)
->>>>>>> Stashed changes
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay
