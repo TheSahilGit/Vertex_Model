@@ -184,13 +184,33 @@ module T2_swap
     end subroutine T2_core
 
    subroutine Do_T2
+
      implicit none
+
+     integer :: im, il
 
      T2_pass = .true.
 
 
 
     call find_T2
+
+    if(T2_pass.and.if_Fixed_boundary)then
+
+      call find_T2_Affected
+      call Get_Boundary_info
+
+
+      do im = 1, size(boundary)
+        do il = 1, size(Affected_T2)
+          if(boundary(im).eq.Affected_T2(il))then
+            T2_pass = .false.
+            write(*,*)"Boundary Ignored T2"
+          end if
+        end do
+      end do
+
+    end if
     
     if(T2_pass)then
        call find_T2_Affected

@@ -31,7 +31,7 @@ nrun = 2;
 
 %filepath = '../';
 
-for it = 1000000
+for it = 5000000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
