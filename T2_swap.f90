@@ -13,6 +13,7 @@ module T2_swap
 
     subroutine find_T2
       implicit none
+      integer :: im, il
 
 
       cell_no = 0
