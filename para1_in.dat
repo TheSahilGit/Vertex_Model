@@ -23,7 +23,7 @@
 10000            ! motility_decay_timeScale (unit of dt)
 .true.           ! if_Shear_tissue ( Make it true for any kind of shearing experiment)
 .true.          ! if_Sudden_Shearing
-1.0d-3            ! sudden_shearStrength
+1.0d0            ! sudden_shearStrength
 1                ! sudden_shearWhen
 .false.          ! if_Oscillatory_Shearing
 0.1              ! Oscl_shearStrength
