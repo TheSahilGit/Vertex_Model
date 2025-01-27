@@ -95,13 +95,6 @@ module Stress
 
      if(if_Sudden_Shearing)then
        if(it.eq.sudden_shearWhen)then
-
-         call CellCentre
-
-!          v(1,:) = v(1,:) + sudden_shearStrength * v(2,:) &
-!                           - sudden_shearStrength * global_cellCenY  ! Not letting the global cell centre 
-!                                                                      !to shift due to shear. 
-!          v(2,:) = v(2,:) 
            
           v(1,:) = v(1,:) + sudden_shearStrength * v(2,:)
           v(2,:) = v(2,:)
@@ -112,7 +105,6 @@ module Stress
               v(1,bottom_border(1:bottom_border_count)) - &
               sudden_shearStrength * v(2,bottom_border(1:bottom_border_count))
           end if
-
 
        end if
      end if 
