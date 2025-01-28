@@ -27,11 +27,11 @@ ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
 
-nrun = 2;
+nrun = 1;
 
 %filepath = '../';
 
-for it = 3000
+for it = 1000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    

@@ -339,12 +339,15 @@ module T1_swap
       call find_T1
 
       if(T1_pass.and.if_Fixed_boundary)then
+        call find_T1_Affected
         call Get_Boundary_info
         do im = 1, size(boundary)
-          if(boundary(im).eq.cellNoT1)then
-              T1_pass = .false.
-              write(*,*)'Boundary Ignored'
-          end if
+          do il = 1, size(Affected)
+            if(boundary(im).eq.Affected(il))then
+                T1_pass = .false.
+                write(*,*)'Boundary Ignored'
+            end if
+          end do
         end do
       end if
 
