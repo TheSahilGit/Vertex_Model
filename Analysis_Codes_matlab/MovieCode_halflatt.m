@@ -20,9 +20,9 @@ inndim2 = para2(7);
 
 mov = VideoWriter("Movie1_test.avi");
 mov.FrameRate = 24;
-open(mov); % Open the video file before entering the loop
+open(mov); % Open the video file    before entering the loop
 
-%fig = figure('Position', [100, 100, Lx*50, Ly*50]);
+fig = figure('Position', [100, 100, Lx*50, Ly*50]);
 ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
@@ -30,15 +30,17 @@ interv = 50000;
 nrun = 1;
 
 %filepath = '../';
-
-for it = 1000
+boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
+];
+for it = 232
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
     f(ct) = sqrt(max(forces(:,1))^2 + max(forces(:,2))^2);      
 
-    TisuePlot(Lx,Ly,v,inn,num,etas)
+    TisuePlot(Lx,Ly,v,inn,num,etas,boundary_)
 
+    num(119)
 
     
 
@@ -106,7 +108,7 @@ end
 
 
 
-function TisuePlot(Lx,Ly,v,inn,num,etas)
+function TisuePlot(Lx,Ly,v,inn,num,etas,boundary_)
 etas = etas*1000;
 etasmax = max(etas);
 etasmin = min(etas);
@@ -150,13 +152,14 @@ cb.Label.String = 'Motility';
 hold on;
 
 
-% for i=158
-%     vx=v(inn(i,1:num(i)),1);
-%     vy=v(inn(i,1:num(i)),2);
-%     pl = polyshape(vx,vy);
-%     plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
-%     hold on;
-% end
+for ii=1:length(boundary_)
+    i = boundary_(ii)
+    vx=v(inn(i,1:num(i)),1);
+    vy=v(inn(i,1:num(i)),2);
+    pl = polyshape(vx,vy);
+    plot(pl,FaceColor='g', FaceAlpha=1, LineWidth=1.5)
+    hold on;
+end
 
 
 % for i=Ly
@@ -278,7 +281,7 @@ hold on;
 % cb.Label.String = 'Motility';
 
 pbaspect([Lx/plottill 1 1])
-axis([-6 Lx+6 -6 plottill+6])
+%axis([-6 Lx+6 -6 plottill+6])
 axis("off")
 
 end

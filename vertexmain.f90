@@ -35,6 +35,7 @@ program vertexmain
   mot0 = mot
 
 
+
   do it = 1,totT
 
     
@@ -48,21 +49,23 @@ program vertexmain
 !******************************************************************
    
 
+   if(modulo(it,T2_time_interval).eq.0.0d0)then
+     do iki= 1, 1
+!       call Do_T2
+     end do
+   end if
 
 
     if(modulo(it,T1_time_interval).eq.0.0d0.or.it.eq.1)then
 !    if(it==1)then
       do iki = 1,100
         call Do_T1
-      end do
-    end if
-
-
-    if(modulo(it,T2_time_interval).eq.0.0d0)then
-      do iki= 1, 1
         call Do_T2
       end do
     end if
+
+
+
 
 
 
