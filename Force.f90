@@ -45,9 +45,9 @@ module Force
          prev_idx = num(ic)
        end if 
 
-!       if(prev_idx.eq.0)then
-!         write(*,*)'OOPS!!!', ic, jc, num(ic), inn(1:num(ic), ic)
-!       end if
+       if(prev_idx.eq.0)then
+         write(*,*)'OOPS!!!', ic, jc, num(ic), inn(1:num(ic), ic)
+       end if
 
         grad_area_X = 0.5d0 * (vy(prev_idx) - vy(next_idx))
         grad_area_Y = 0.5d0 * (vx(next_idx) - vx(prev_idx))
@@ -207,14 +207,21 @@ subroutine Apply_Fixed_Boundary
 
   implicit none
 
-  call Get_Boundary_info
+  integer :: im
+
+  if(sum(Total_T2_count(1:it)).gt.0)then
+     call Find_boundary_dynamic
+   else 
+     call Get_Boundary_info
+   end if
+
   do ii = 1,size(boundary)
-     i = boundary(ii)
-     nn = num(i)
-     fxx(inn(1:nn, i)) = 0.0d0
-     fxx_ran(inn(1:nn, i)) = 0.0d0
-     fyy(inn(1:nn, i)) = 0.0d0
-     fyy_ran(inn(1:nn, i)) = 0.0d0
+     im = boundary(ii)
+     nn = num(im)
+     fxx(inn(1:nn, im)) = 0.0d0
+     fxx_ran(inn(1:nn, im)) = 0.0d0
+     fyy(inn(1:nn, im)) = 0.0d0
+     fyy_ran(inn(1:nn, im)) = 0.0d0
    end do
 
 
@@ -223,7 +230,7 @@ end subroutine Apply_Fixed_Boundary
 subroutine Apply_bottom_border_Fixed
   implicit none
 
-  call FindBorderVertices
+!  call Find_boundary_dynamic
 
   fxx(bottom_border(1:bottom_border_count)) = 0.0d0
   fxx_ran(bottom_border(1:bottom_border_count)) = 0.0d0

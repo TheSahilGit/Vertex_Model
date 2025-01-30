@@ -23,7 +23,7 @@ module T1_swap
       count_T1 = 0
       do ic = 1, Lx*Ly
 
-        if(num(ic).le.3)cycle
+!        if(num(ic).le.3)cycle
 
         vx = v(1, inn(1:num(ic), ic))
         vy = v(2, inn(1:num(ic), ic))
@@ -126,10 +126,10 @@ module T1_swap
      call find_unique_sorted(temp_array, ik, Affected, Occurrences)
 
 !     write(*,*)size(Affected)
-     T1_pass = .true.
-     if(size(Affected).ne.4)then
+!     T1_pass = .true.
+!     if(size(Affected).ne.4)then
 !       T1_pass = .false.
-     end if
+!     end if
 
 
    end subroutine find_T1_Affected
@@ -177,6 +177,7 @@ module T1_swap
     
       if(Occurrences(ik).eq.2)then   ! These will lose.
         inn_temp = 0
+        inn_affected = 0
 
         cellNo = Affected(ik)
         inn_affected(1:num(cellNo)) = inn(1:num(cellNo), cellNo)
@@ -250,6 +251,9 @@ module T1_swap
 
 
       else if(Occurrences(ik).eq.1)then  ! These will gain. 
+        
+       inn_temp = 0
+       inn_affected = 0
 
        verNo_in1_indx = 0
        verNo_in2_indx = 0
@@ -338,23 +342,34 @@ module T1_swap
       
       call find_T1
 
-      if(T1_pass.and.if_Fixed_boundary)then
-        call find_T1_Affected
-        call Get_Boundary_info
-        do im = 1, size(boundary)
-          do il = 1, size(Affected)
-            if(boundary(im).eq.Affected(il))then
-                T1_pass = .false.
-                write(*,*)'Boundary Ignored'
-            end if
+      if(T1_pass)then
+        if(if_Fixed_boundary)then
+          call find_T1_Affected
+
+
+       if(sum(Total_T2_count(1:it)).gt.0)then
+         call Find_boundary_dynamic
+       else
+         call Get_Boundary_info
+       end if
+
+
+
+          do im = 1, size(boundary)
+            do il = 1, size(Affected)
+              if(boundary(im).eq.Affected(il))then
+                  T1_pass = .false.
+                  write(*,*)'Boundary Ignored T1'
+              end if
+            end do
           end do
-        end do
+       end if
       end if
 
       
 
       if(T1_pass.and.if_bottom_borders_fixed)then
-      call FindBorderVertices
+      call Find_boundary_dynamic
         do im = 1, bottom_border_count
           if(bottom_border(im).eq.inn(verNoT1, cellNoT1) &
             .or.bottom_border(im).eq.inn(verNoT1+1, cellNoT1))then

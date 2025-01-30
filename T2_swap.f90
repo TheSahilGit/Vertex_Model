@@ -198,7 +198,13 @@ module T2_swap
      if(T2_pass.and.if_Fixed_boundary)then
  
        call find_T2_Affected
-       call Get_Boundary_info
+
+      if(sum(Total_T2_count(1:it)).gt.0)then
+        call Find_boundary_dynamic
+      else
+        call Get_Boundary_info
+      end if
+
  
  
        do im = 1, size(boundary)
