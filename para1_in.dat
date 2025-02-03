@@ -10,8 +10,8 @@
 2.5d-3           ! dt
 0.1              ! min_d_T1
 0.25              ! min_area_T2
-.true.          ! if_Fixed_boundary
-.false.          ! if_bottom_borders_fixed
+.false.          ! if_Fixed_boundary
+.true.          ! if_bottom_borders_fixed
 1             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 10               ! T2_time_interval (unit of it)
