@@ -12,7 +12,7 @@
 0.25              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .true.          ! if_bottom_borders_fixed
-1             ! it_dump (unit of it)
+10             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 10               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
