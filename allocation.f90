@@ -30,6 +30,7 @@ module allocation
       integer*4, dimension(:), allocatable :: borderver
       integer*4 :: borderdim
       integer*4, allocatable, dimension(:) :: coordNum, bound
+      integer :: boundary_count
    
    
       real*8 :: eta, lambda, beta, gamm, Ao, Co,  dt
@@ -49,7 +50,7 @@ module allocation
 
       integer*4 :: num_dim, inn_dim1,inn_dim2, v_dim1, v_dim2
 
-      integer*4, dimension(:), allocatable :: mainarea,leftP,rightP,topP,bottomP,corners,boundary
+      integer*4, dimension(:), allocatable :: mainarea,leftP,rightP,topP,bottomP,corners,boundary, boundary_occ
       integer, dimension(:), allocatable :: inside1, inside2
       integer*4, dimension(:), allocatable :: GleftP,GrightP,GtopP,GbottomP,Gcorners,Gboundary
 
@@ -326,6 +327,9 @@ module allocation
          write(719)Total_T2_count
          close(719)
        end if
+
+
+
 
  
  

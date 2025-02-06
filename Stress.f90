@@ -100,7 +100,7 @@ module Stress
           v(2,:) = v(2,:)
 
           if(if_bottom_borders_fixed)then
-            call FindBorderVertices
+            call Find_boundary_dynamic
             v(1, bottom_border(1:bottom_border_count)) = &
               v(1,bottom_border(1:bottom_border_count)) - &
               sudden_shearStrength * v(2,bottom_border(1:bottom_border_count))

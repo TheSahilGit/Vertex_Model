@@ -1,5 +1,9 @@
 module Geometry 
 
+  use array_info
+
+
+
   contains
 
    subroutine CalculateDistance(x1,y1,x2,y2,distance)
@@ -201,10 +205,16 @@ module Geometry
 
 
 
- subroutine FindBorderVertices
+ subroutine Find_boundary_dynamic
 
    use allocation
    implicit none
+
+   logical :: is_boundary
+   integer :: im
+   integer:: boundary_temp(Lx*Ly*6)
+
+   
 
   ! bottom_border, top_border, left_border, right_border
 
@@ -216,7 +226,6 @@ module Geometry
        nn = num(ic)
        do jc = 1,nn
          vertex_occurance_count(inn(jc,ic)) = vertex_occurance_count(inn(jc,ic)) + 1
-
        end do
      end do
 
@@ -267,13 +276,36 @@ module Geometry
          right_border_count = right_border_count + 1
          right_border(right_border_count) = all_borders(jc)
        end if
-
-
      end do
 
 
+      boundary_count = 0
+      do ic = 1, Lx * Ly
+        nn = num(ic)
+        is_boundary = .false.
 
- end subroutine FindBorderVertices
+        do jc = 1, nn
+          do im = 1, all_border_count
+
+          if (all_borders(im) == inn(jc,ic)) then
+            is_boundary = .true.
+            boundary_count = boundary_count + 1
+            boundary_temp(boundary_count) = ic
+            exit  ! If found, mark the cell as a boundary
+          end if
+
+        end do
+        end do
+
+
+      end do
+
+     call find_unique_sorted(boundary_temp, boundary_count, boundary, boundary_occ)
+
+
+
+
+ end subroutine Find_boundary_dynamic
 
 
 
