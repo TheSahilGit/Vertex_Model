@@ -113,7 +113,7 @@ module Stress
        if(it.gt.Oscl_shearWhen)then
 
 
-         strainRate = Oscl_shearStrength * cos(Oscl_freq_wo * it * dt)
+         strainRate = Oscl_shearStrength * Oscl_freq_wo* cos(Oscl_freq_wo * it * dt)
 
          v(1,:) = v(1,:) + dt * strainRate * v(2,:)      
     

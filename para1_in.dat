@@ -6,7 +6,7 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d4           ! totT
+1.0d6           ! totT
 2.5d-3           ! dt
 0.1              ! min_d_T1
 0.25              ! min_area_T2
