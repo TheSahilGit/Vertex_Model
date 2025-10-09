@@ -98,8 +98,14 @@ program vertexmain
       call Calculate_StressTensor
     end if
 
+    if(if_limb_force)then
+      call Apply_Limb_Force
+    end if
 
-   write(*,*)'it= ', it
+
+    write(*,'(A,I0,A,I0)', advance='no') achar(13)//'Step: ', it, '/', totT
+
+!   write(*,*)'it= ', it
 !   write(*,*)'tttttttttttttttttttttttttttttttt'
 
 

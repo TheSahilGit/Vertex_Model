@@ -272,5 +272,39 @@ subroutine Apply_perturbation
 end subroutine Apply_perturbation
 
 
+subroutine Apply_Limb_Force
+! Limb force at four spots near the boundary, towards outward.  
+
+
+  implicit none 
+
+  integer :: ic, ip
+
+  integer, dimension(4) :: applyforce_at
+
+
+    applyforce_at = (/ 4, Ly-4, Lx*Ly-Ly+1+4,  Lx*Ly-4 /)
+
+    do ip =  1, size(applyforce_at)
+      ic = applyforce_at(ip)
+      nn = num(ic)
+
+      if(ic .lt. int(Lx*Ly/2))then   ! Cheap way
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (-1.0d0)
+      else 
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (1.0d0)
+      end if
+
+    end do
+
+
+
+
+
+
+
+end subroutine Apply_Limb_Force
+
+
 
 end module Force

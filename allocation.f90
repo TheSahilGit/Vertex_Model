@@ -94,6 +94,9 @@ module allocation
       
       integer, allocatable, dimension(:) :: vertex_occurance_count
 
+      logical :: if_limb_force
+      real*8 :: limb_force_strength
+
    contains 
 
    subroutine read_input
@@ -151,6 +154,8 @@ module allocation
      read(112,*) if_dirac_comb
      read(112,*) comb_onPeriod
      read(112,*) comb_offPeriod
+     read(112,*) if_limb_force
+     read(112,*) limb_force_strength
 
      
 
