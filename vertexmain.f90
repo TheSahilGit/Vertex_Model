@@ -29,6 +29,8 @@ program vertexmain
 
   if(if_motility_gradient)then
      call Give_Motility_Gradient
+  elseif(if_motility_hotspot)then
+    call Give_Motility_Hotspot
   else
      mot = etas_max
   end if

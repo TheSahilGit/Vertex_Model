@@ -97,6 +97,9 @@ module allocation
       logical :: if_limb_force
       real*8 :: limb_force_strength
 
+      logical :: if_motility_hotspot
+
+
    contains 
 
    subroutine read_input
@@ -138,6 +141,7 @@ module allocation
      read(112,*) mot_Lc
      read(112,*) if_motility_decay
      read(112,*) motility_decay_timeScale
+     read(112,*) if_motility_hotspot
      read(112,*) if_Shear_tissue
      read(112,*) if_Sudden_Shearing
      read(112,*) sudden_shearStrength
@@ -333,6 +337,13 @@ module allocation
          close(719)
        end if
 
+
+       if(it.eq.1)then
+         open(unit=720, file='data/motility_store.dat', form='unformatted',status='unknown')
+         write(720)(mot(i), i = 1, v_dim2)
+         close(720)
+
+       end if
 
 
 
