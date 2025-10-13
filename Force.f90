@@ -203,6 +203,52 @@ module Force
 end subroutine Give_Motility_Gradient
 
 
+subroutine Give_Motility_Hotspot
+
+  implicit none
+  integer :: ic, jc, ip, jp
+
+  integer, parameter :: number_of_hotspot = 4
+  integer, dimension(number_of_hotspot) :: hotspot_location  ! Cell index
+  real*8, dimension(number_of_hotspot) :: xCM, yCM
+
+  real*8 :: sigma_hotspot
+  real*8 :: xij, yij, rij
+
+
+  hotspot_location = (/ 4, Ly-4, Lx*Ly-Ly+1+4,  Lx*Ly-4 /)
+
+  do jp = 1, number_of_hotspot
+    ip = hotspot_location(jp)
+    xCM(jp) = sum(v(1,inn(1:num(ip),ip)))/dble(num(ip))
+    yCM(jp) = sum(v(2,inn(1:num(ip),ip)))/dble(num(ip))
+  end do
+
+!  print*, hotspot_location
+!  print*, xCM
+!  print*, yCM
+
+  sigma_hotspot = 3.0d0
+
+  do ic  = 1, Lx*Ly
+    do jc = 1, num(ic) 
+      
+      do ip = 1, number_of_hotspot
+
+        
+        xij = v(1,inn(jc,ic)) - xCM(ip)
+        yij = v(2,inn(jc,ic)) - yCM(ip)
+        rij = xij**2 + yij**2
+    
+        mot(inn(jc,ic)) = mot(inn(jc,ic)) + & 
+          etas_max * exp(-(rij)/sigma_hotspot**2) / 3.0d0
+      end do
+
+    end do
+  end do
+
+end subroutine Give_Motility_Hotspot
+
 subroutine Apply_Fixed_Boundary
 
   implicit none

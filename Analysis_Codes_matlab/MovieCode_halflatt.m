@@ -3,8 +3,14 @@ clear; clc ;
 
 
 para2 = load("../para2_in.dat");
-etas = load("../motility_in.dat");
+%etas_in = load("../motility_in.dat");
 
+
+
+fname_etas = sprintf('../data/motility_store.dat');
+fid = fopen(fname_etas);
+dum4 = fread(fid,1,'float32');
+etas = fread(fid,100000000,'float64');
 
 
 %%
@@ -32,7 +38,7 @@ nrun = 1;
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 100000
+for it = 2089400
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
@@ -123,19 +129,19 @@ for j = 1:Ly:(Lx*Ly)
 
      %   polyarea(vx,vy)
 
-        % r = mean(etas(inn(i,1:num(i))));
-        % if etasmax ~=0
-        %     r = r/etasmax;
-        % end
-        % index = round(r * 99) + 1; % 100 colors in the colormap
-        % % If index is out of bounds, set it to the first or last color index
-        % index = max(min(index, 100), 1);
-        % 
-        % cmap = [flipud(jet(100)); 0 0 0];
-        % % Interpolate the RGB value from the colormap
-        % rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
-        %plot(pl, FaceColor=rgb, FaceAlpha=0.01, LineWidth=1.5)
-        plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
+        r = mean(etas(inn(i,1:num(i))));
+        if etasmax ~=0
+            r = r/etasmax;
+        end
+        index = round(r * 99) + 1; % 100 colors in the colormap
+        % If index is out of bounds, set it to the first or last color index
+        index = max(min(index, 100), 1);
+
+        cmap = [flipud(jet(100)); 0 0 0];
+        % Interpolate the RGB value from the colormap
+        rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
+        plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
+        %plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
     end
 end
@@ -152,14 +158,14 @@ cb.Label.String = 'Motility';
 hold on;
 
 
-for ii=1:length(boundary_)
-    i = boundary_(ii)
-    vx=v(inn(i,1:num(i)),1);
-    vy=v(inn(i,1:num(i)),2);
-    pl = polyshape(vx,vy);
-    plot(pl,FaceColor='g', FaceAlpha=1, LineWidth=1.5)
-    hold on;
-end
+% for ii=1:length(boundary_)
+%     i = boundary_(ii)
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
+%     pl = polyshape(vx,vy);
+%     plot(pl,FaceColor='g', FaceAlpha=1, LineWidth=1.5)
+%     hold on;
+% end
 
 
 % for i=Ly
