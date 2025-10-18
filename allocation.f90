@@ -3,6 +3,7 @@ module allocation
    implicit none
 !   save
 
+      integer :: Nc
       integer :: nrun, nrun2_initialTime
       real*8 :: nrun2_initialTime_r
       integer*4 :: i,j,k,it,jp,jm,n,nn,totT
@@ -20,6 +21,8 @@ module allocation
       real*8, dimension(:), allocatable :: d_val
       real*8, dimension(:), allocatable :: area_val
 
+
+      logical :: if_Do_T1, if_Do_T2
 
       real*8 :: len_d_T1
       integer*4 :: Lx,Ly
@@ -99,6 +102,11 @@ module allocation
 
       logical :: if_motility_hotspot
 
+      logical :: if_cell_division
+
+      integer, allocatable, dimension(:) :: chosen_cell
+      integer :: chosen_cell_count
+
 
    contains 
 
@@ -128,7 +136,9 @@ module allocation
      read(112,*) eta
      read(112,*) totTr
      read(112,*) dt
+     read(112,*) if_Do_T1
      read(112,*) min_d_T1
+     read(112,*) if_Do_T2
      read(112,*) min_area_T2
      read(112,*) if_Fixed_boundary
      read(112,*) if_bottom_borders_fixed
@@ -160,6 +170,7 @@ module allocation
      read(112,*) comb_offPeriod
      read(112,*) if_limb_force
      read(112,*) limb_force_strength
+     read(112,*) if_cell_division
 
      
 
@@ -214,6 +225,7 @@ module allocation
      allocate(TotalSigma(2,2))
      allocate(ShearStress(totT))
 
+     allocate(chosen_cell(v_dim2))
 
     end subroutine allocate_arrays
 

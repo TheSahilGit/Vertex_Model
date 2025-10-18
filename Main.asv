@@ -22,10 +22,10 @@ v(end+16,:) = 0;
 num  = num';
 
 
-inn(end+32, end+16) = 0; % Extending the dimension of n because in fortran array dimension is static.
+inn(end+16, end+32) = 0; % Extending the dimension of n because in fortran array dimension is static.
 
-Ln = length(num); Li = size(inn,1);
-num(Ln+1 : Li) = 0;
+Ln = length(num); Li = size(inn,2)
+num(Ln+1 : length(+length(inn,2)-length(num)) = 0;
 
 para = [Lx;Ly;length(num); length(v(1,:)); length(v(:,1));length(inn(1,:));...
     length(inn(:,1))];

@@ -22,7 +22,7 @@ module T2_swap
 
       count_T2 = 0
 
-      do ic = 1, Lx*Ly
+      do ic = 1, Nc !Lx*Ly
         if(num(ic).eq.3)then
           vx = v(1,inn(1:num(ic),ic))
           vy = v(2,inn(1:num(ic),ic))
@@ -54,14 +54,14 @@ module T2_swap
 
     subroutine find_T2_Affected
       implicit none
-      integer :: temp_array(Lx*Ly)
+      integer :: temp_array(Nc) !(Lx*Ly)
 
       integer :: ik
 
       !write(*,*)cellNoT2
 
       ik = 0
-      do ic = 1,Lx*Ly
+      do ic = 1, Nc !Lx*Ly
         do jc = 1, num(ic)
 
          ! write(*,*)inn(1,cellnoT2)
@@ -222,7 +222,9 @@ module T2_swap
     if(T2_pass)then
        call find_T2_Affected
        call T2_core
+       Nc = Nc - 1
        Total_T2_count(it) = Total_T2_count(it) + 1
+       print*, 'T2_happened, Nc = ', Nc
      end if
 
 

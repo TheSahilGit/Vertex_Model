@@ -22,7 +22,7 @@ module Force
     beta = beta/(lambda*Ao)
     gamm = gamm/(lambda*(Ao)**1.5)
 
-    do ic = 1,Lx*Ly
+    do ic = 1, Nc !Lx*Ly
       
       nn = num(ic)
 
@@ -134,7 +134,7 @@ module Force
     verry = 0
 
     ! Loop over the cells
-    do ic = 1, Lx * Ly
+    do ic = 1, Nc !Lx * Ly
         do jc = 1, num(ic)
             verry(inn(jc, ic)) = v(2, inn(jc, ic))
             verryCount(inn(jc, ic)) = 1
@@ -183,7 +183,7 @@ module Force
 
     ! Loop over patches
     do ip = 1, numver
-        do ic = 1, Lx * Ly
+        do ic = 1, Nc !Lx * Ly
             do jc = 1, num(ic)
                 vy = v(2, inn(jc, ic))
                 if (lowpatch <= vy .and. vy < highpatch) then
@@ -230,7 +230,7 @@ subroutine Give_Motility_Hotspot
 
   sigma_hotspot = 3.0d0
 
-  do ic  = 1, Lx*Ly
+  do ic  = 1, Nc !Lx*Ly
     do jc = 1, num(ic) 
       
       do ip = 1, number_of_hotspot
