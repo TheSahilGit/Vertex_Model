@@ -474,7 +474,9 @@ subroutine Find_Bisector_Intersections(vx, vy, nn, x1, y1, x2, y2, xi, yi, &
 end subroutine Find_Bisector_Intersections
 
 
-subroutine SplitPolygon(inn_ic, nn, pair1, pair2, new_idx1, new_idx2, inn_new1, n1, inn_new2, n2)
+
+subroutine SplitPolygon(inn_ic, nn, pair1, pair2, new_idx1, new_idx2, &
+    inn_new1, n1, inn_new2, n2)
   implicit none
   integer, intent(in)  :: nn
   integer, intent(in)  :: inn_ic(nn)
@@ -578,92 +580,102 @@ subroutine SplitPolygon(inn_ic, nn, pair1, pair2, new_idx1, new_idx2, inn_new1, 
   inn_new2(n2) = pair1(2)
 
   deallocate(in_between)
+
   return
+
+
+
 end subroutine SplitPolygon
 
 
-!subroutine SplitPolygon(inn_ic, nn, pair1, pair2, new_idx1, new_idx2, inn_new1, n1, inn_new2, n2)
-!  implicit none
-!  integer, intent(in) :: nn
-!  integer, intent(in) :: inn_ic(nn)
-!  integer, intent(in) :: pair1(2), pair2(2)
-!  integer, intent(in) :: new_idx1, new_idx2
-!  integer, intent(out) :: inn_new1(nn+2), inn_new2(nn+2)
-!  integer, intent(out) :: n1, n2
-!
-!  integer :: i, idx
-!  integer :: posA, posB, posC, posD
-!  integer :: count
-!
-!
-!
-!  print*, 'inn', inn_ic
-!  print*, 'pair1', pair1
-!  print*, 'pair2', pair2
-!  print*, 'new index', new_idx1, new_idx2
-!
-!
-!
-!  ! Initialize
-!  n1 = 0
-!  n2 = 0
-!  inn_new1 = 0
-!  inn_new2 = 0
-!
-!  ! Find positions of chord vertices
-!  do i = 1, nn
-!     if (inn_ic(i) == pair1(1)) posA = i
-!     if (inn_ic(i) == pair1(2)) posB = i
-!     if (inn_ic(i) == pair2(1)) posC = i
-!     if (inn_ic(i) == pair2(2)) posD = i
-!  end do
-!
-!  print*, 'posABCD', posA, posB, posC, posD
-!
-!  ! -----------------------
-!  ! Build inn_new1
-!  ! [ start → pair1(1) ] + [new1,new2] + [ pair2(2) → end ]
-!  ! -----------------------
-!  n1 = 0
-!  ! part 1: start → pair1(1)
-!  do i = 1, posA
-!     n1 = n1 + 1
-!     inn_new1(n1) = inn_ic(i)
-!  end do
-!
-!  n1 = n1 + 1; inn_new1(n1) = new_idx1
-!  n1 = n1 + 1; inn_new1(n1) = new_idx2
-!  ! part 2: pair2(2) → end
-!  i = posD
-!  do
-!     n1 = n1 + 1
-!     inn_new1(n1) = inn_ic(i)
-!     i = i + 1
-!     if (i > nn) exit
-!  end do
-!
-!  ! -----------------------
-!  ! Build inn_new2
-!  ! [ after pair1(2) → pair2(1) ] + [new2,new1] + [pair1(2)]
-!  ! -----------------------
-!  n2 = 0
-!  ! part 1: after pair1(2) → pair2(1)
-!  i = posB + 1
-!  if (i > nn) i = 1
-!  do
-!     n2 = n2 + 1
-!     inn_new2(n2) = inn_ic(i)
-!     if (i == posC) exit
-!     i = i + 1
-!     if (i > nn) i = 1
-!  end do
-!  ! insert new vertices reversed
-!  n2 = n2 + 1; inn_new2(n2) = new_idx2
-!  n2 = n2 + 1; inn_new2(n2) = new_idx1
-!  ! append pair1(2) to close polygon
-!  n2 = n2 + 1; inn_new2(n2) = pair1(2)
-!
-!end subroutine SplitPolygon
+subroutine UpdateNeighborPolygons(inn_old1, n1, inn_old2, n2, &
+                                  edge1, edge2, new_idx1, new_idx2, &
+                                  inn_new1, n1_new, inn_new2, n2_new)
+  implicit none
+  integer, intent(in) :: n1, n2, new_idx1, new_idx2
+  integer, intent(in) :: inn_old1(:), inn_old2(:)
+  integer, intent(in) :: edge1(2), edge2(2)
+  integer, intent(out) :: inn_new1(size(inn_old1)+2), inn_new2(size(inn_old2)+2)
+  integer, intent(out) :: n1_new, n2_new
+
+  integer :: i, a, b
+  integer :: tmp(size(inn_old1)+2), tmp2(size(inn_old2)+2)
+  integer :: m, m2
+
+  ! init outputs
+  n1_new = 0
+  n2_new = 0
+  inn_new1 = 0
+  inn_new2 = 0
+
+  ! -------------------------------
+  ! Update first neighbor: check BOTH edges
+  ! -------------------------------
+  m = 0
+  do i = 1, n1
+     ! copy current vertex
+     m = m + 1
+     tmp(m) = inn_old1(i)
+
+     ! determine next vertex (cyclic)
+     if (i == n1) then
+        a = inn_old1(i)
+        b = inn_old1(1)
+     else
+        a = inn_old1(i)
+        b = inn_old1(i+1)
+     end if
+
+     ! if this edge matches edge1 (either orientation) insert new_idx1 AFTER a
+     if ( (a == edge1(1) .and. b == edge1(2)) .or. (a == edge1(2) .and. b == edge1(1)) ) then
+        m = m + 1
+        tmp(m) = new_idx1
+     end if
+
+     ! if this edge matches edge2 (either orientation) insert new_idx2 AFTER a
+     if ( (a == edge2(1) .and. b == edge2(2)) .or. (a == edge2(2) .and. b == edge2(1)) ) then
+        m = m + 1
+        tmp(m) = new_idx2
+     end if
+  end do
+
+  n1_new = m
+  inn_new1(1:n1_new) = tmp(1:n1_new)
+
+  ! -------------------------------
+  ! Update second neighbor: check BOTH edges
+  ! -------------------------------
+  m2 = 0
+  do i = 1, n2
+     m2 = m2 + 1
+     tmp2(m2) = inn_old2(i)
+
+     if (i == n2) then
+        a = inn_old2(i)
+        b = inn_old2(1)
+     else
+        a = inn_old2(i)
+        b = inn_old2(i+1)
+     end if
+
+     if ( (a == edge1(1) .and. b == edge1(2)) .or. (a == edge1(2) .and. b == edge1(1)) ) then
+        m2 = m2 + 1
+        tmp2(m2) = new_idx1
+     end if
+
+     if ( (a == edge2(1) .and. b == edge2(2)) .or. (a == edge2(2) .and. b == edge2(1)) ) then
+        m2 = m2 + 1
+        tmp2(m2) = new_idx2
+     end if
+  end do
+
+  n2_new = m2
+  inn_new2(1:n2_new) = tmp2(1:n2_new)
+
+end subroutine UpdateNeighborPolygons
+
+
+
 
 
 subroutine ArrangeVertices(v, v_dim1, v_dim2, inn_new1, n1, inn_new2, n2)
@@ -779,6 +791,8 @@ subroutine rotate_array_to_k(arr, k, n)
   arr = tmp
   deallocate(tmp)
 end subroutine rotate_array_to_k
+
+
 
 
 
