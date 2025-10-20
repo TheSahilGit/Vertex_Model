@@ -10,7 +10,7 @@ module Proliferation
 
       implicit none
 
-      real*8 :: area_0
+      !real*8 :: area_0
       real*8 :: prin_axis_x1, prin_axis_y1
       real*8 :: prin_axis_x2, prin_axis_y2
       real*8 :: x_intersection(2), y_intersection(2)
@@ -19,7 +19,7 @@ module Proliferation
       integer :: ic
       
 
-      area_0 = 1.25d0*Ao
+      !area_0 = 1.25d0*Ao
 
       call  Find_Proliferation(area_0, v, inn, num, Nc, chosen_cell, chosen_cell_count)
 
@@ -186,6 +186,7 @@ module Proliferation
       call ArrangeVertices(v, v_dim1, v_dim2, inn_new1, n1, inn_new2, n2)
     
 
+       !print*, othercells(1:othercells_count)
 
        inn_neighbor1(1:num(othercells(1))) = inn(1:num(othercells(1)), othercells(1))
        inn_neighbor2(1:num(othercells(2))) = inn(1:num(othercells(2)), othercells(2))

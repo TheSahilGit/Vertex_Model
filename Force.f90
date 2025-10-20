@@ -230,6 +230,7 @@ subroutine Give_Motility_Hotspot
 
   sigma_hotspot = 5.0d0
 
+
   do ic  = 1, Nc !Lx*Ly
     do jc = 1, num(ic) 
       

@@ -38,7 +38,7 @@ nrun = 1;
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 1000000
+for it = 1000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
@@ -142,7 +142,7 @@ for i = 1:idx-1
         cmap = [flipud(jet(100)); 0 0 0];
         % Interpolate the RGB value from the colormap
         rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
-        plot(pl, FaceColor=rgb, FaceAlpha=0.01, LineWidth=1.5)
+        plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
         %plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
     %end
@@ -177,13 +177,13 @@ hold on;
 % end
 % % 
 % 
-for i=19
-    vx=v(inn(i,1:num(i)),1);
-    vy=v(inn(i,1:num(i)),2);
-    pl = polyshape(vx,vy);
-    plot(pl,FaceColor='r', FaceAlpha=0.5, LineWidth=1.5)
-    hold on;
-end
+% for i=19
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
+%     pl = polyshape(vx,vy);
+%     plot(pl,FaceColor='r', FaceAlpha=0.5, LineWidth=1.5)
+%     hold on;
+% end
 
 
 % for ii=1:length(boundary_)
@@ -196,20 +196,20 @@ end
 % end
 
 
-for i = 34
-    vx=v(inn(i,1:num(i)),1);
-    vy=v(inn(i,1:num(i)),2);
-    pl = polyshape(vx,vy);
-    plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
-    hold on;
-end
-for i = 36
-    vx=v(inn(i,1:num(i)),1);
-    vy=v(inn(i,1:num(i)),2);
-    pl = polyshape(vx,vy);
-    plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
-    hold on;
-end
+% for i = 34
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
+%     pl = polyshape(vx,vy);
+%     plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
+%     hold on;
+% end
+% for i = 36
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
+%     pl = polyshape(vx,vy);
+%     plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
+%     hold on;
+% end
 
 %
 % for i=Lx*Ly

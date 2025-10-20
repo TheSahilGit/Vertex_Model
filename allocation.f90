@@ -103,6 +103,7 @@ module allocation
       logical :: if_motility_hotspot
 
       logical :: if_cell_division
+      real*8 :: area_0
 
       integer, allocatable, dimension(:) :: chosen_cell
       integer :: chosen_cell_count
@@ -171,6 +172,7 @@ module allocation
      read(112,*) if_limb_force
      read(112,*) limb_force_strength
      read(112,*) if_cell_division
+     read(112,*) area_0
 
      
 

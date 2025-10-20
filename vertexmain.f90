@@ -27,10 +27,13 @@ program vertexmain
   Total_T1_count = 0
   Total_T2_count = 0
 
+  Nc = Lx*Ly
 
   if(if_motility_gradient)then
-     call Give_Motility_Gradient
+    print*, 'Motility Gradient'
+    call Give_Motility_Gradient
   elseif(if_motility_hotspot)then
+    print*, 'Motility Hotspot'
     call Give_Motility_Hotspot
   else
      mot = etas_max
@@ -38,7 +41,6 @@ program vertexmain
   mot0 = mot
 
 
-  Nc = Lx*Ly
 
 
   do it = 1,totT
