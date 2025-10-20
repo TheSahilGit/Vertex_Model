@@ -24,6 +24,8 @@
 .false.          ! if_motility_decay ! (temporal decay)
 10000            ! motility_decay_timeScale (unit of dt)
 .true.          ! if_motility_hotspot !(localised motility enhancement)
+1                 ! number_of_hotspot
+15.0d0                 !sigma_hotspot
 .false.          ! if_Shear_tissue ( Make it true for any kind of shearing experiment)
 .false.          ! if_Sudden_Shearing
 1.0d0            ! sudden_shearStrength

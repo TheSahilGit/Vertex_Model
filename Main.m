@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-Lx = 16; % Number of points along x-axis
+Lx = 32; % Number of points along x-axis
 Ly = 64; % Number of points along y-
 
 israndom = true;

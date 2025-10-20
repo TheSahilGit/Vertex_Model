@@ -101,6 +101,8 @@ module allocation
       real*8 :: limb_force_strength
 
       logical :: if_motility_hotspot
+      integer :: number_of_hotspot
+      real*8 :: sigma_hotspot
 
       logical :: if_cell_division
       real*8 :: area_0
@@ -153,6 +155,8 @@ module allocation
      read(112,*) if_motility_decay
      read(112,*) motility_decay_timeScale
      read(112,*) if_motility_hotspot
+     read(112,*) number_of_hotspot
+     read(112,*) sigma_hotspot
      read(112,*) if_Shear_tissue
      read(112,*) if_Sudden_Shearing
      read(112,*) sudden_shearStrength

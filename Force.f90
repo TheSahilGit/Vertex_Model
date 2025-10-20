@@ -208,27 +208,43 @@ subroutine Give_Motility_Hotspot
   implicit none
   integer :: ic, jc, ip, jp
 
-  integer, parameter :: number_of_hotspot = 4
-  integer, dimension(number_of_hotspot) :: hotspot_location  ! Cell index
+!  integer, parameter :: number_of_hotspot = 4
+  integer, dimension(:), allocatable :: hotspot_location  ! Cell index
   real*8, dimension(number_of_hotspot) :: xCM, yCM
 
-  real*8 :: sigma_hotspot
+!  real*8 :: sigma_hotspot
   real*8 :: xij, yij, rij
 
+  print*, number_of_hotspot, sigma_hotspot
 
-  hotspot_location = (/ 12, Ly-12, Lx*Ly-Ly+1+12,  Lx*Ly-12 /)
+  if(number_of_hotspot.eq.4)then
+
+    allocate(hotspot_location(1:number_of_hotspot))
+    hotspot_location = (/ 12, Ly-12, Lx*Ly-Ly+1+12,  Lx*Ly-12 /)
+
+  elseif(number_of_hotspot.eq.2)then
+
+    allocate(hotspot_location(1:number_of_hotspot))
+    hotspot_location = (/ 12, Lx*Ly-12/)
+
+  elseif(number_of_hotspot.eq.1)then
+
+    allocate(hotspot_location(1:number_of_hotspot))
+    hotspot_location = (/ int(dble(Ly)/2.0d0)/)
+
+  end if
+
+!  print*, hotspot_location
+!  print*, xCM
+!  print*, yCM
 
   do jp = 1, number_of_hotspot
     ip = hotspot_location(jp)
     xCM(jp) = sum(v(1,inn(1:num(ip),ip)))/dble(num(ip))
     yCM(jp) = sum(v(2,inn(1:num(ip),ip)))/dble(num(ip))
   end do
-
-!  print*, hotspot_location
-!  print*, xCM
-!  print*, yCM
-
-  sigma_hotspot = 5.0d0
+  
+ ! sigma_hotspot = 5.0d0
 
 
   do ic  = 1, Nc !Lx*Ly

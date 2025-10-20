@@ -231,6 +231,12 @@ module Proliferation
       num(Nc+1) = n2
 
 
+      ! Assigning motility (being lazy)
+
+      mot(maxinn + 1) = mot(inn(1,ic)) 
+      mot(maxinn + 2) = mot(inn(1,ic)) 
+
+
 !      print*, 'after inn1', inn(1:num(ic), ic)
 !      print*, 'after inn2', inn(1:num(Nc+1), Nc+1)
 !      
