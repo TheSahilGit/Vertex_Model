@@ -216,7 +216,7 @@ subroutine Give_Motility_Hotspot
   real*8 :: xij, yij, rij
 
 
-  hotspot_location = (/ 4, Ly-4, Lx*Ly-Ly+1+4,  Lx*Ly-4 /)
+  hotspot_location = (/ 12, Ly-12, Lx*Ly-Ly+1+12,  Lx*Ly-12 /)
 
   do jp = 1, number_of_hotspot
     ip = hotspot_location(jp)
@@ -228,7 +228,7 @@ subroutine Give_Motility_Hotspot
 !  print*, xCM
 !  print*, yCM
 
-  sigma_hotspot = 3.0d0
+  sigma_hotspot = 5.0d0
 
   do ic  = 1, Nc !Lx*Ly
     do jc = 1, num(ic) 

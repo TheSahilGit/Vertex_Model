@@ -64,6 +64,7 @@ program vertexmain
     if(modulo(it,T1_time_interval).eq.0.0d0.or.it.eq.1)then
 !    if(it==1)then
       do iki = 1,100
+<<<<<<< HEAD
 
         if(if_Do_T1)then
           call Do_T1
@@ -73,6 +74,8 @@ program vertexmain
           call Do_T2
         end if
 
+=======
+>>>>>>> Limb_Formation
       end do
     end if
 
