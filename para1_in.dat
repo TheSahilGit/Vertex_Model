@@ -6,11 +6,7 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-<<<<<<< HEAD
 1.0d6          ! totT
-=======
-1.0d5           ! totT
->>>>>>> Limb_Formation
 2.5d-3           ! dt
 .true.           !if_Do_T1 
 0.1              ! min_d_T1
@@ -18,19 +14,11 @@
 0.25d0              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
-<<<<<<< HEAD
-1000             ! it_dump (unit of it)
-=======
 10000             ! it_dump (unit of it)
->>>>>>> Limb_Formation
 1                ! T1_time_interval  (unit of it)
 1               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
-<<<<<<< HEAD
 0.05d0           ! etas_max ! (motility)
-=======
-0.04d0           ! etas_max ! (motility)
->>>>>>> Limb_Formation
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay ! (temporal decay)
