@@ -62,7 +62,7 @@ program vertexmain
 !    if(it==1)then
       do iki = 1,100
         call Do_T1
-        call Do_T2
+!        call Do_T2
       end do
     end if
 

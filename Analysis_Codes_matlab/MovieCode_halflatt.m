@@ -33,20 +33,20 @@ ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
 
-nrun = 1;
+nrun = 2;
 
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 2089400
-    [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
+for it = 1000
+    [Lx, Ly, v, inn, num, forces] = LoadData(it, nrun);
 
    
     f(ct) = sqrt(max(forces(:,1))^2 + max(forces(:,2))^2);      
 
     TisuePlot(Lx,Ly,v,inn,num,etas,boundary_)
 
-    num(119)
+    %num(119)
 
     
 
@@ -63,6 +63,10 @@ for it = 2089400
     globalmeanY = mean(cmY);
 
     title(num2str(it))
+
+   filename = sprintf('fig_%07d.png', it);
+   exportgraphics(gcf, filename, 'Resolution', 300);
+
     F = getframe(gcf); % Get the frame
     writeVideo(mov, F); % Add frame to the video file
 
@@ -128,6 +132,8 @@ for j = 1:Ly:(Lx*Ly)
         pl = polyshape(vx,vy);
 
      %   polyarea(vx,vy)
+        
+        %etas(inn(i,1:num(i)))
 
         r = mean(etas(inn(i,1:num(i))));
         if etasmax ~=0
@@ -138,9 +144,11 @@ for j = 1:Ly:(Lx*Ly)
         index = max(min(index, 100), 1);
 
         cmap = [flipud(jet(100)); 0 0 0];
+        
+
         % Interpolate the RGB value from the colormap
         rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
-        plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
+        plot(pl, FaceColor = rgb, FaceAlpha=0.5, LineWidth=1.5)
         %plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
     end
