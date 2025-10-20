@@ -16,6 +16,7 @@ program vertexmain
   use T2_Swap
   use Force
   use Stress
+  use Proliferation
 
 
   call read_input
@@ -36,6 +37,8 @@ program vertexmain
   end if
   mot0 = mot
 
+
+  Nc = Lx*Ly
 
 
   do it = 1,totT
@@ -61,8 +64,15 @@ program vertexmain
     if(modulo(it,T1_time_interval).eq.0.0d0.or.it.eq.1)then
 !    if(it==1)then
       do iki = 1,100
-        call Do_T1
-        call Do_T2
+
+        if(if_Do_T1)then
+          call Do_T1
+        end if
+
+        if(if_Do_T2)then
+          call Do_T2
+        end if
+
       end do
     end if
 
@@ -102,6 +112,10 @@ program vertexmain
 
     if(if_limb_force)then
       call Apply_Limb_Force
+    end if
+
+    if(if_cell_division)then
+      call Do_Proliferation
     end if
 
 

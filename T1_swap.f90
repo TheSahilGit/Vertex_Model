@@ -21,9 +21,10 @@ module T1_swap
 
 
       count_T1 = 0
-      do ic = 1, Lx*Ly
+      do ic = 1, Nc !Lx*Ly
 
-!        if(num(ic).le.3)cycle
+        if(num(ic).le.3)cycle
+
 
         vx = v(1, inn(1:num(ic), ic))
         vy = v(2, inn(1:num(ic), ic))
@@ -90,14 +91,14 @@ module T1_swap
      implicit none
 
      integer :: ik, jcNext
-     integer :: temp_array(Lx*Ly)
+     integer :: temp_array(Nc) !(Lx*Ly)
      
 
     ! write(*,*)inn(verNoT1,cellNoT1), inn(verNoNextT1, cellNoT1)
      
 
     ik = 0
-     do ic = 1, Lx*Ly
+     do ic = 1, Nc !Lx*Ly
        do jc = 1, num(ic)
          if((inn(jc,ic)==inn(verNoT1,cellNoT1)).or. & 
            inn(jc,ic)==inn(verNoNextT1,cellNoT1))then

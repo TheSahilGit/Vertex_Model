@@ -6,17 +6,19 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d6           ! totT
+1.0d6          ! totT
 2.5d-3           ! dt
+.true.           !if_Do_T1 
 0.1              ! min_d_T1
-0.25              ! min_area_T2
+.true.           ! if_Do_T2
+0.25d0              ! min_area_T2
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
-100             ! it_dump (unit of it)
+1000             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
-10               ! T2_time_interval (unit of it)
+1               ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility
-0.0d0           ! etas_max ! (motility)
+0.05d0           ! etas_max ! (motility)
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay ! (temporal decay)
@@ -38,5 +40,6 @@
 .false.          ! if_dirac_comb
 100              ! comb_onPeriod (unit of it) 
 1000             ! comb_offPeriod (unit of it) 
-.false.           ! if_limb_force
+.false.          ! if_limb_force
 0.0d0            ! limb_force_strength
+.true.           ! if_cell_division

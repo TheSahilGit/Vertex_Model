@@ -14,7 +14,7 @@ module System_Info
 
       En = 0.0d0
 
-      do ic = 1, Lx*Ly
+      do ic = 1, Nc !Lx*Ly
 
         nn = num(ic)
         
@@ -44,7 +44,7 @@ module System_Info
 !     use Geometry
      use allocation
 
-     do ic = 1,Lx*Ly
+     do ic = 1, Nc !Lx*Ly
 
        vx = v(1, inn(1:num(ic),ic))
        vy = v(2, inn(1:num(ic),ic))
@@ -54,8 +54,8 @@ module System_Info
 
       end do
 
-      global_cellCenX = sum(cellcen(:,1))/dble(Lx*Ly)
-      global_cellCenY = sum(cellcen(:,2))/dble(Lx*Ly)
+      global_cellCenX = sum(cellcen(:,1))/dble(Nc) ! Lx*Ly
+      global_cellCenY = sum(cellcen(:,2))/dble(Nc) ! Lx*Ly
 
       
 

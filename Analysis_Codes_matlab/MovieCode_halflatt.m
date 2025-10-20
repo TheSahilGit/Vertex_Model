@@ -25,7 +25,7 @@ inndim2 = para2(7);
 
 
 mov = VideoWriter("Movie1_test.avi");
-mov.FrameRate = 24;
+mov.FrameRate = 1;
 open(mov); % Open the video file    before entering the loop
 
 %fig = figure('Position', [100, 100, Lx*50, Ly*50]);
@@ -38,7 +38,7 @@ nrun = 1;
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 2089400
+for it = 1000000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
@@ -46,7 +46,7 @@ for it = 2089400
 
     TisuePlot(Lx,Ly,v,inn,num,etas,boundary_)
 
-    num(119)
+%    num(119)
 
     
 
@@ -119,9 +119,11 @@ etas = etas*1000;
 etasmax = max(etas);
 etasmin = min(etas);
 
-plottill = Ly;
-for j = 1:Ly:(Lx*Ly)
-    for i = j:j+plottill-1
+% plottill = Ly;
+% for j = 1:Ly:(Lx*Ly)
+%     for i = j:j+plottill-1
+idx = find(inn(:,1) == 0, 1, 'first')
+for i = 1:idx-1
 
         vx=v(inn(i,1:num(i)),1);
         vy=v(inn(i,1:num(i)),2);
@@ -140,10 +142,10 @@ for j = 1:Ly:(Lx*Ly)
         cmap = [flipud(jet(100)); 0 0 0];
         % Interpolate the RGB value from the colormap
         rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
-        plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
+        plot(pl, FaceColor=rgb, FaceAlpha=0.01, LineWidth=1.5)
         %plot(pl,EdgeColor='b',FaceColor='r', FaceAlpha=0.01, LineWidth=1.5)
         hold on;
-    end
+    %end
 end
 
 
@@ -158,6 +160,32 @@ cb.Label.String = 'Motility';
 hold on;
 
 
+% plot([3.01583 4.494008], [2.1993 1.7299], 'o-' , ...
+%     'MarkerSize',12, 'MarkerFaceColor','r', 'LineWidth',4, 'Color','r')
+% hold on
+% 
+% plot([3.98372 3.590495], [2.68514 1.446848], '*-' , ...
+%     'MarkerSize',12, 'MarkerFaceColor','g', 'LineWidth',4,'Color', 'g')
+% hold on
+
+% for i = idx-1
+%     vx=v(inn(i,1:num(i)),1);
+%     vy=v(inn(i,1:num(i)),2);
+%     pl = polyshape(vx,vy);
+%     plot(pl,FaceColor='g', FaceAlpha=0.5, LineWidth=1.5)
+%     hold on;
+% end
+% % 
+% 
+for i=19
+    vx=v(inn(i,1:num(i)),1);
+    vy=v(inn(i,1:num(i)),2);
+    pl = polyshape(vx,vy);
+    plot(pl,FaceColor='r', FaceAlpha=0.5, LineWidth=1.5)
+    hold on;
+end
+
+
 % for ii=1:length(boundary_)
 %     i = boundary_(ii)
 %     vx=v(inn(i,1:num(i)),1);
@@ -168,13 +196,21 @@ hold on;
 % end
 
 
-% for i=Ly
-%     vx=v(inn(i,1:num(i)),1);
-%     vy=v(inn(i,1:num(i)),2);
-%     pl = polyshape(vx,vy);
-%     plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
-%     hold on;
-% end
+for i = 34
+    vx=v(inn(i,1:num(i)),1);
+    vy=v(inn(i,1:num(i)),2);
+    pl = polyshape(vx,vy);
+    plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
+    hold on;
+end
+for i = 36
+    vx=v(inn(i,1:num(i)),1);
+    vy=v(inn(i,1:num(i)),2);
+    pl = polyshape(vx,vy);
+    plot(pl,FaceColor='g', FaceAlpha=0.2, LineWidth=1.5)
+    hold on;
+end
+
 %
 % for i=Lx*Ly
 %     vx=v(inn(i,1:num(i)),1);
@@ -286,8 +322,10 @@ hold on;
 % cb.TickLabels = linspace(etasmax, etasmin, 5);
 % cb.Label.String = 'Motility';
 
-pbaspect([Lx/plottill 1 1])
+%pbaspect([Lx/plottill 1 1])
 %axis([-6 Lx+6 -6 plottill+6])
+
+pbaspect([Lx/Ly 1 1])
 axis("off")
 
 end

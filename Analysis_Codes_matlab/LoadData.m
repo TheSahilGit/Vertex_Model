@@ -41,7 +41,7 @@ inn = inn';
 fid = fopen(fname_num);
 dum2 = fread(fid,1,'float32');
 num = fread(fid,numdim,'int');
-num(Lx*Ly+1:end) = [];
+%num(Lx*Ly+1:end) = [];
 
 %
 
