@@ -16,13 +16,13 @@ seed = 9325;
 [v,c,p] = MeshGenerator(Lx,Ly,israndom,isseed,seed) ;
 
 v(1,:)=99999;
-v(end+16,:) = 0;
+v(end+64,:) = 0;
 
 [inn,num] = StoreData(Lx,Ly,v,c);
 num  = num';
 
 
-inn(end+32, end+16) = 0; % Extending the dimension of n because in fortran array dimension is static.
+inn(end+64, end+16) = 0; % Extending the dimension of n because in fortran array dimension is static.
 
 Ln = length(num); Li = size(inn,1);
 num(Ln+1 : Li) = 0;

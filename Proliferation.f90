@@ -19,7 +19,7 @@ module Proliferation
       integer :: ic
       
 
-      area_0 = 1.3d0*Ao
+      area_0 = 1.25d0*Ao
 
       call  Find_Proliferation(area_0, v, inn, num, Nc, chosen_cell, chosen_cell_count)
 
