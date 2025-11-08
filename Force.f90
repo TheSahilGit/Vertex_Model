@@ -215,7 +215,7 @@ subroutine Give_Motility_Hotspot
 !  real*8 :: sigma_hotspot
   real*8 :: xij, yij, rij
 
-  print*, number_of_hotspot, sigma_hotspot
+  print*,'number of hotspot, sigma_hotspot' number_of_hotspot, sigma_hotspot
 
   if(number_of_hotspot.eq.4)then
 

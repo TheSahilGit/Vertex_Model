@@ -44,5 +44,5 @@
 1000             ! comb_offPeriod (unit of it) 
 .false.          ! if_limb_force
 0.0d0            ! limb_force_strength
-.true.           ! if_cell_division
+.false.           ! if_cell_division
 1.30d0           ! area_0 (for cell division)
