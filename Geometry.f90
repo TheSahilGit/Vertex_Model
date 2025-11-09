@@ -1,6 +1,7 @@
 module Geometry 
 
   use array_info
+  use allocation
 
 
 
@@ -792,6 +793,27 @@ subroutine rotate_array_to_k(arr, k, n)
   deallocate(tmp)
 end subroutine rotate_array_to_k
 
+
+
+subroutine Squeeze_Tissue
+  implicit none
+  real*8 :: lowest_vy
+
+
+  print*, 'Squeeze tissue ; percentage squeeze', percent_squeeze, '%'
+
+  call Find_boundary_dynamic
+  
+
+  
+  lowest_vy = minval((v(2,bottom_border(1:bottom_border_count))))
+
+  v(2,:) = (v(2,:) - lowest_vy) * (1.0d0 - percent_squeeze/100.d0) + lowest_vy
+
+
+
+
+end subroutine Squeeze_Tissue
 
 
 

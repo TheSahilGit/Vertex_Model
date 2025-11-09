@@ -295,6 +295,8 @@ subroutine Apply_bottom_border_Fixed
 
 !  call Find_boundary_dynamic
 
+!  print*, 'Bottom border fixed'
+
   fxx(bottom_border(1:bottom_border_count)) = 0.0d0
   fxx_ran(bottom_border(1:bottom_border_count)) = 0.0d0
   fyy(bottom_border(1:bottom_border_count)) = 0.0d0
@@ -302,6 +304,19 @@ subroutine Apply_bottom_border_Fixed
 
 
 end subroutine  Apply_bottom_border_Fixed
+
+subroutine Apply_top_border_Fixed
+  implicit none
+
+!  print*, 'Top border fixed'
+
+  fxx(top_border(1:top_border_count)) = 0.0d0
+  fxx_ran(top_border(1:top_border_count)) = 0.0d0
+  fyy(top_border(1:top_border_count)) = 0.0d0
+  fyy_ran(top_border(1:top_border_count)) = 0.0d0
+
+
+end subroutine Apply_top_border_Fixed
 
 subroutine Apply_perturbation
   implicit none

@@ -41,6 +41,19 @@ program vertexmain
   mot0 = mot
 
 
+  if(if_Fixed_boundary)then
+    print*, "Fixed boundary"
+  end if
+
+   if(if_bottom_borders_fixed)then
+     print*, "Bottom border fixed"
+   end if
+
+   if(if_top_borders_fixed)then
+     print*, "Top border fixed"
+   end if
+
+
 
 
   do it = 1,totT
@@ -96,6 +109,10 @@ program vertexmain
        call Apply_bottom_border_Fixed
      end if
 
+     if(if_top_borders_fixed)then
+       call Apply_top_border_Fixed
+     end if
+
 
 
 
@@ -112,12 +129,20 @@ program vertexmain
       call Calculate_StressTensor
     end if
 
+
+
     if(if_limb_force)then
       call Apply_Limb_Force
     end if
 
     if(if_cell_division)then
       call Do_Proliferation
+    end if
+
+    if(if_squeeze_tissue)then
+      if(it.eq.squeeze_when)then
+        call Squeeze_Tissue
+      end if
     end if
 
 
