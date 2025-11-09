@@ -86,7 +86,7 @@ module allocation
       logical :: if_motility_decay
       real*8 :: motility_decay_timeScale
 
-      logical :: if_bottom_borders_fixed
+      logical :: if_bottom_borders_fixed, if_top_borders_fixed
 
       real*8, allocatable, dimension(:,:) :: cellcen
       real*8 :: global_cellCenX, global_cellCenY
@@ -109,6 +109,10 @@ module allocation
 
       integer, allocatable, dimension(:) :: chosen_cell
       integer :: chosen_cell_count
+
+      logical :: if_squeeze_tissue
+      integer :: squeeze_when
+      real*8 :: percent_squeeze
 
 
    contains 
@@ -145,6 +149,7 @@ module allocation
      read(112,*) min_area_T2
      read(112,*) if_Fixed_boundary
      read(112,*) if_bottom_borders_fixed
+     read(112,*) if_top_borders_fixed
      read(112,*) it_dump
      read(112,*) T1_time_interval
      read(112,*) T2_time_interval
@@ -177,6 +182,9 @@ module allocation
      read(112,*) limb_force_strength
      read(112,*) if_cell_division
      read(112,*) area_0
+     read(112,*) if_squeeze_tissue
+     read(112,*) squeeze_when
+     read(112,*) percent_squeeze
 
      
 
