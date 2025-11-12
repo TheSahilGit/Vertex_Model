@@ -12,10 +12,13 @@ module Force
     integer :: prev_idx, next_idx
     real*8 :: len_d, dx, dy
     real*8 :: grad_perimeter_X, grad_perimeter_Y, grad_area_X, grad_area_Y
+    real*8 :: rann
 
 
     fxx = 0.0d0
     fyy = 0.0d0
+    fxx_active_contr = 0.0d0
+    fyy_active_contr = 0.0d0
 
 
 
@@ -78,6 +81,27 @@ module Force
           - gamm * grad_perimeter_Y
 
 
+
+
+        ! Active contractility !
+
+        if(if_active_contractility)then
+          call random_number(rann)
+          fxx_active_contr(inn(jc,ic)) = fxx_active_contr(inn(jc,ic)) & 
+            - 2.0d0 * beta * (perimeter - Co) * grad_perimeter_X * &
+            active_contr_strength * (2.0d0 * rann - 1.0d0)
+
+          call random_number(rann)
+          fyy_active_contr(inn(jc,ic)) = fyy_active_contr(inn(jc,ic)) & 
+            - 2.0d0 * beta * (perimeter - Co) * grad_perimeter_Y * &
+            active_contr_strength * (2.0d0 * rann - 1.0d0)
+        else
+          fxx_active_contr = 0.0d0
+          fyy_active_contr = 0.0d0
+        end if
+
+
+
       end do
 
    end do
@@ -103,9 +127,9 @@ module Force
 
     do ic = 1,size(mot)
       call random_number(rann)
-      fxx_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann-1)
+      fxx_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann - 1.0d0)
       call random_number(rann)
-      fyy_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann-1)
+      fyy_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann - 1.0d0)
     end do
 
 
@@ -374,11 +398,6 @@ subroutine Apply_Limb_Force
       end if
 
     end do
-
-
-
-
-
 
 
 end subroutine Apply_Limb_Force

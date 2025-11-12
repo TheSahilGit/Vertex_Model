@@ -53,6 +53,10 @@ program vertexmain
      print*, "Top border fixed"
    end if
 
+   if(if_active_contractility)then
+     print*, 'Active Contractility ; ', 'strength:', active_contr_strength
+   end if
+
 
 
 
@@ -116,8 +120,11 @@ program vertexmain
 
 
 
-    v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta
-    v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta
+    v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
+      sqrt(dt) * fxx_active_contr(:) / eta
+
+    v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta + &
+      sqrt(dt) * fyy_active_contr(:) / eta
 
     
     if(if_Perturb_tissue)then

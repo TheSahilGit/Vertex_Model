@@ -115,6 +115,11 @@ module allocation
       real*8 :: percent_squeeze
 
 
+      logical :: if_active_contractility
+      real*8 :: active_contr_strength 
+      real*8, dimension(:), allocatable:: fxx_active_contr, fyy_active_contr
+
+
    contains 
 
    subroutine read_input
@@ -185,6 +190,8 @@ module allocation
      read(112,*) if_squeeze_tissue
      read(112,*) squeeze_when
      read(112,*) percent_squeeze
+     read(112,*) if_active_contractility
+     read(112,*) active_contr_strength
 
      
 
@@ -210,6 +217,7 @@ module allocation
      allocate(inn(inn_dim1,inn_dim2))
      allocate(fxx(v_dim2), fyy(v_dim2))
      allocate(fxx_ran(v_dim2), fyy_ran(v_dim2))
+     allocate(fxx_active_contr(v_dim2), fyy_active_contr(v_dim2))
      allocate(fxx_temp(v_dim2), fyy_temp(v_dim2))
      allocate(edgelength(Lx*Ly*inn_dim1))
      allocate(edgelengthIn(Lx*Ly*inn_dim1))
