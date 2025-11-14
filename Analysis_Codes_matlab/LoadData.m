@@ -21,7 +21,7 @@ inndim2 = para2(7);
 
 
 if nrun==1
-    fname_inn = sprintf('../data/inn_%08d.dat', it)
+    fname_inn = sprintf('../data/inn_%08d.dat', it);
     fname_num = sprintf('../data/num_%08d.dat', it);
     fname_v = sprintf('../data/v_%08d.dat', it);
     fname_force = sprintf('../data/force_%08d.dat', it);
@@ -53,12 +53,18 @@ v = v';
 
 
 
+% fid = fopen(fname_force);
+% dum4 = fread(fid,1,'float32');
+% forces = fread(fid,vdim1*vdim2,'float64');
+% forces = reshape(forces,[vdim1,vdim2]);
+% forces = forces';
+
+
 fid = fopen(fname_force);
 dum4 = fread(fid,1,'float32');
-forces = fread(fid,vdim1*vdim2,'float64');
-forces = reshape(forces,[vdim1,vdim2]);
+forces = fread(fid,8*vdim2,'float64');
+forces = reshape(forces,[8,vdim2]);
 forces = forces';
-
 
 
 

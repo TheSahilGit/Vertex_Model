@@ -363,7 +363,9 @@ module allocation
        write(iunit_inn)((inn(i,j),i=1,inn_dim1),j=1,inn_dim2)
        write(iunit_num)(num(i), i=1,num_dim)
        write(iunit_v)((v(i,j), i=1,v_dim1),j=1,v_dim2)
-       write(iunit_force)(fxx(i), fyy(i), i = 1, v_dim2)
+       write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
+        fxx_active_contr(i), fyy_active_contr(i), & 
+        fxx_ABP(i), fyy_ABP(i), i = 1, v_dim2)
       
       
  

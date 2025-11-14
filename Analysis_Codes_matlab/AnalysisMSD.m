@@ -18,7 +18,7 @@ end
 
 mean_MSD = mean(MSD,2);
 
-%%
+%% Comparison with T2
 
 
 X = log(time(1:end));
@@ -37,6 +37,35 @@ ylabel("MSD")
 axis square
 set(gca, 'FontSize', 28,'LineWidth',1);
 set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
+
+%%
+
+
+
+fname_T2 = sprintf('../data/T2_count.dat');
+fid = fopen(fname_T2);
+dum4 = fread(fid,1,'float32');
+T2_count = fread(fid,100000000,'float64');
+cumsum_T2 = cumsum(T2_count);
+
+figure()
+plot(cumsum_T2(20000:10000:end), DisplayName="T2", LineWidth=3)
+hold on
+plot(mean_MSD, DisplayName="MSD", LineWidth=3)
+
+ax = gca;
+
+% --- Set xticks so that each tick gets a gridline ---
+ax.XTick = 0:5:2000;     % <-- choose your own spacing here
+                           % (whatever spacing you want gridlines at)
+
+grid on                   % major grid = gridlines at major ticks
+ax.GridLineWidth = 1.5;
+
+legend(["cumsum T2" "MSD"], Location="northwest")
+set(gca, 'FontSize', 40)
+
+
 
 
 %%

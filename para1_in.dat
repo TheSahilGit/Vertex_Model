@@ -50,8 +50,8 @@
 .false.           ! if_squeeze_tissue
 1                ! squeeze_when (unit of it)
 30.0d0            ! percent_squeeze  
-.false.            ! if_active_contractility
+.true.            ! if_active_contractility
 8.0d-1             ! active_contr_strength
-.true.             ! if_ABP
+.false.             ! if_ABP
 2.50d-1             ! vo
 1.0d0              ! Dr
