@@ -57,6 +57,10 @@ program vertexmain
      print*, 'Active Contractility ; ', 'strength:', active_contr_strength
    end if
 
+   if(if_ABP)then
+     print*, 'Active Brownian ; ', 'vo', vo, 'Dr', Dr
+   end if
+
 
 
 
@@ -117,14 +121,26 @@ program vertexmain
        call Apply_top_border_Fixed
      end if
 
+     if(if_ABP)then
+       call ABP_Force_Calculation
+     end if
+
 
 
 
     v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
-      sqrt(dt) * fxx_active_contr(:) / eta
+      dt * fxx_active_contr(:) / eta + &
+      dt * fxx_ABP(:) / eta
+      
 
     v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta + &
-      sqrt(dt) * fyy_active_contr(:) / eta
+      sqrt(dt) * fyy_active_contr(:) / eta + &
+      dt * fyy_ABP(:) / eta
+
+    if(if_ABP)then
+      theta_ABP(:)  = theta_ABP(:) + dsqrt(dt) * rot_noise(:)
+    end if
+
 
     
     if(if_Perturb_tissue)then
