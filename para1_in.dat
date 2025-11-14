@@ -53,5 +53,5 @@
 .false.            ! if_active_contractility
 8.0d-1             ! active_contr_strength
 .true.             ! if_ABP
-2.5d-1             ! vo
+2.50d-1             ! vo
 1.0d0              ! Dr

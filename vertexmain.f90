@@ -1,5 +1,5 @@
 ! Here what I am not using any fortran library or subroutine to create the initial voronoi structure. 
-! As, I need voronoi only to create the initial sturcture, I do it using matlab ( It is easier their) and write those
+! As, I need voronoi only to create the initial sturcture, I do it using matlab ( It is easier there) and write those
 ! data in a '*.dat' file, and then load those data in this fortran code. 
 ! It would not slow down the speed as we are gonna do it only once at the start and use the data file for the rest.
 ! (The time taken to create voronoi diagram with 100x100 points is approx 30 sec.) 
@@ -60,6 +60,8 @@ program vertexmain
    if(if_ABP)then
      print*, 'Active Brownian ; ', 'vo', vo, 'Dr', Dr
    end if
+
+
 
 
 
@@ -129,7 +131,7 @@ program vertexmain
 
 
     v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
-      dt * fxx_active_contr(:) / eta + &
+      sqrt(dt) * fxx_active_contr(:) / eta + &
       dt * fxx_ABP(:) / eta
       
 
