@@ -38,7 +38,7 @@ nrun = 2;
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 700000 %600000
+for it = 1000000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
 
    
@@ -122,8 +122,8 @@ etasmin = min(etas);
 % plottill = Ly;
 % for j = 1:Ly:(Lx*Ly)
 %     for i = j:j+plottill-1
-idx = find(inn(:,1) == 0, 1, 'first')
-for i = 1:idx-1
+idx = find(num ~= 0, 1, 'last')
+for i = 1:idx
 
         vx=v(inn(i,1:num(i)),1);
         vy=v(inn(i,1:num(i)),2);

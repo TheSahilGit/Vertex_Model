@@ -2,10 +2,10 @@ clear; clc; close all;
 
 nrun = 2; 
 
-[~,~,v_in,inn_in,num_in, forces_in] = LoadData(1, nrun);
+[~,~,v_in,inn_in,num_in, forces_in] = LoadData(10000, nrun);
 
 ct = 1;
-for it = 5000:5000:1000000
+for it = 20000:10000:1000000
 
     it
 
@@ -21,27 +21,27 @@ mean_MSD = mean(MSD,2);
 %%
 
 
-%X = log(time(1:10));
-%Y = log(mean_MSD(1:10));
-%p = polyfit(X, Y, 1)
-%
-%
-%figure()
-%loglog(time, mean_MSD, '-o');
-%hold on
-%%loglog(time, exp(p(2))*time.^p(1))
-%axis square
-%legend("FontSize",18)
-%xlabel("time")
-%ylabel("MSD")
-%axis square
-%set(gca, 'FontSize', 28,'LineWidth',1);
-%set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
+X = log(time(1:end));
+Y = log(mean_MSD(1:end));
+p = polyfit(X, Y, 1)
+
+
+figure()
+loglog(time, mean_MSD, '-o');
+hold on
+loglog(time, exp(p(2))*time.^p(1))
+axis square
+legend("FontSize",18)
+xlabel("time")
+ylabel("MSD")
+axis square
+set(gca, 'FontSize', 28,'LineWidth',1);
+set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
 
 
 %%
 
-writematrix([time' mean_MSD], 'msd.dat')
+%writematrix([time' mean_MSD], 'msd.dat')
 
 
 
@@ -49,9 +49,9 @@ writematrix([time' mean_MSD], 'msd.dat')
 
 
 % figure()
-% %loglog(time, mean_MSD, '-o');
-% %hold on
-% loglog(time, msd_nrun2, '-o')
+% loglog(time, mean_MSD, '-o');
+% hold on
+% %loglog(time, msd_nrun2, '-o')
 % axis square
 % %legend("FontSize",18)
 % xlabel("time")
@@ -59,6 +59,8 @@ writematrix([time' mean_MSD], 'msd.dat')
 % axis square
 % set(gca, 'FontSize', 28,'LineWidth',1);
 % set(findall(gca, 'Type', 'Line'), 'LineWidth', 2);
+
+
 %%
 
 %writematrix([time' mean_MSD msd_nrun2], 'msd.dat')
@@ -88,9 +90,8 @@ function [MSD] = Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num)
     % Loop over each particle
     % for ii = 1:length(inside2)
     %     i = inside2(ii);
-
-    for i = 1:Lx*Ly
-
+    Nc = find(num ~= 0, 1, 'last')
+    for i = 1:Nc
         % Get the current neighbors' positions
         vx = v(inn(i, 1:num(i)), 1); % x-coordinates of neighbors
         vy = v(inn(i, 1:num(i)), 2); % y-coordinates of neighbors

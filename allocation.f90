@@ -117,7 +117,13 @@ module allocation
 
       logical :: if_active_contractility
       real*8 :: active_contr_strength 
-      real*8, dimension(:), allocatable:: fxx_active_contr, fyy_active_contr
+      real*8, dimension(:), allocatable :: fxx_active_contr, fyy_active_contr
+
+
+      logical :: if_ABP
+      real*8 :: vo, Dr
+      real*8, dimension(:), allocatable :: fxx_ABP, fyy_ABP, theta_ABP, rot_noise
+
 
 
    contains 
@@ -192,6 +198,9 @@ module allocation
      read(112,*) percent_squeeze
      read(112,*) if_active_contractility
      read(112,*) active_contr_strength
+     read(112,*) if_ABP
+     read(112,*) vo
+     read(112,*) Dr
 
      
 
@@ -219,6 +228,7 @@ module allocation
      allocate(fxx_ran(v_dim2), fyy_ran(v_dim2))
      allocate(fxx_active_contr(v_dim2), fyy_active_contr(v_dim2))
      allocate(fxx_temp(v_dim2), fyy_temp(v_dim2))
+     allocate(fxx_ABP(v_dim2), fyy_ABP(v_dim2), theta_ABP(v_dim2), rot_noise(v_dim2))
      allocate(edgelength(Lx*Ly*inn_dim1))
      allocate(edgelengthIn(Lx*Ly*inn_dim1))
      allocate(workingzone(Lx*Ly+2*Lx+2*Ly+4))
@@ -248,6 +258,14 @@ module allocation
      allocate(ShearStress(totT))
 
      allocate(chosen_cell(v_dim2))
+
+
+     fxx = 0.0d0; fyy = 0.0d0
+     fxx_ran = 0.0d0; fyy_ran = 0.0d0
+     fxx_active_contr = 0.0d0; fyy_active_contr = 0.0d0
+     fxx_ABP = 0.0d0; fyy_ABP = 0.0d0; theta_ABP = 0.0d0
+     rot_noise = 0.0d0
+
 
     end subroutine allocate_arrays
 

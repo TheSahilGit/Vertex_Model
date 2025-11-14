@@ -135,6 +135,40 @@ module Force
 
   end subroutine Motile_Force_Calculation
 
+  subroutine ABP_Force_Calculation
+    implicit none
+
+    real*8 :: rann
+    
+    if (if_ABP)then
+
+      do ic = 1, Nc
+
+        !call random_number(rann)
+        !rann = 2.0d0 * rann - 1.0d0
+
+        call gaussian_random(rann, 0.0d0, 1.0d0)  ! number, mu, sigma
+
+        do jc = 1, num(ic)
+
+          fxx_ABP(inn(jc,ic)) = vo*dcos(theta_ABP(inn(jc,ic)))
+          fyy_ABP(inn(jc,ic)) = vo*dsin(theta_ABP(inn(jc,ic)))
+          rot_noise(inn(jc,ic)) = sqrt(2.0d0 * Dr) * rann
+
+        end do
+
+      end do
+
+    else
+      fxx_ABP = 0.0d0
+      fyy_ABP = 0.0d0
+      theta_ABP = 0.0d0
+      rot_noise = 0.0d0
+    end if
+
+
+  end subroutine ABP_Force_Calculation
+
 
   subroutine Give_Motility_Gradient
 
@@ -401,6 +435,38 @@ subroutine Apply_Limb_Force
 
 
 end subroutine Apply_Limb_Force
+
+subroutine gaussian_random(rnumber, mu, sigma)
+  implicit none
+  real(8), intent(out) :: rnumber
+  real(8), intent(in), optional :: mu, sigma
+
+  real(8) :: u1, u2, r, theta, z
+  real(8), parameter :: pi = 4.0d0 * datan(1.0d0)
+  real(8) :: mean, std
+
+  ! Set defaults
+  mean = 0.0d0
+  std  = 1.0d0
+  if (present(mu)) mean = mu
+  if (present(sigma)) std = sigma
+
+  ! Generate two uniform random numbers in (0,1)
+  call random_number(u1)
+  call random_number(u2)
+
+  ! Ensure u1 is not zero (log(0) issue)
+  if (u1 < 1.0d-12) u1 = 1.0d-12
+
+  ! Box–Muller transform
+  r = dsqrt(-2.0d0 * dlog(u1))
+  theta = 2.0d0 * pi * u2
+  z = r * dcos(theta)
+
+  ! Scale and shift
+  rnumber = mean + std * z
+
+end subroutine gaussian_random
 
 
 
