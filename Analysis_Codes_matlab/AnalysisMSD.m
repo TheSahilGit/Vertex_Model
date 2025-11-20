@@ -2,21 +2,39 @@ clear; clc; close all;
 
 nrun = 2; 
 
-[~,~,v_in,inn_in,num_in, forces_in] = LoadData(10000, nrun);
+
+it_first = 10000;
+it_start = 20000; 
+it_end = 30000;
+
+[~,~,v_start,inn_start,num_start, forces_start, ~, ~] = LoadData(it_first, nrun);
+[~,~,v_end,inn_end,num_end, forces_end, ~, ~] = LoadData(it_end, nrun);
+
+num_in = num_start;
+v_in = v_start;
+inn_in = inn_start;
 
 ct = 1;
-for it = 20000:10000:1000000
+for it = it_start : 10000 : it_end
 
-    it
+   it
 
-   [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
-   MSD(ct, :) =  Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num);
+   [Lx, Ly, v, inn, num, forces, if_alive, ~] = LoadData(it, nrun);
+   
+   % num_in = num_start(if_alive ~= 0) ;
+   % inn_in = inn_start(if_alive ~= 0, :, :);
+   % v_in = v_start;
+
+
+
+   MSD(ct, :) =  Calculate_MSD(Lx, Ly, v_in, inn_in, num_in, v, inn, num, num_end);
    time(ct) = it*2.5e-3;
    ct = ct + 1;
 
 end
 
-mean_MSD = mean(MSD,2);
+Nc = find(num ~= 0, 1, 'last')
+mean_MSD = mean(MSD(:,1:Nc),2);
 
 %% Comparison with T2
 
@@ -97,7 +115,7 @@ set(gca, 'FontSize', 40)
 
 %%
 
-function [MSD] = Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num)
+function [MSD] = Calculate_MSD(Lx, Ly,v_in, inn_in, num_in, v, inn, num, num_end)
     % Calculate_MSD: Computes the Mean Squared Displacement (MSD) for particles
     %
     % Inputs:
@@ -119,7 +137,7 @@ function [MSD] = Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num)
     % Loop over each particle
     % for ii = 1:length(inside2)
     %     i = inside2(ii);
-    Nc = find(num ~= 0, 1, 'last')
+    Nc = find(num ~= 0, 1, 'last');
     for i = 1:Nc
         % Get the current neighbors' positions
         vx = v(inn(i, 1:num(i)), 1); % x-coordinates of neighbors

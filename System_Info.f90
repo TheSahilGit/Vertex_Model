@@ -42,7 +42,7 @@ module System_Info
 
    subroutine CellCentre
 !     use Geometry
-     use allocation
+!     use allocation
 
      do ic = 1, Nc !Lx*Ly
 
@@ -64,38 +64,6 @@ module System_Info
    end subroutine CellCentre
 
 
-!   subroutine MeanSqDisp(Lx_in,Ly_in,v_in,inn_in,num_in,cellCentInit,avgdisp)
-!!     use allocation
-!      
-!     integer*4 :: ic, jc, nnm
-!      integer*4, dimension(:), allocatable :: num_in
-!      real*8, dimension(:,:), allocatable:: v_in
-!      integer*4, dimension(:,:), allocatable :: inn_in
-!      integer*4 :: Lx_in,Ly_in, working_L
-!      real*8, allocatable, dimension(:) :: cellcen, cellCentInit
-!      real*8, allocatable, dimension(:) :: disp
-!      real*8 :: avgdisp
-!
-!
-!
-!!      write(*,*)'cellcent = ,', cellcen
-!      
-!      working_L = Lx_in*Ly_in - 4*Lx_in - 4*Ly_in + 16
-!      
-!      allocate(cellcen(working_L))
-!      allocate(disp(working_L))
-!      
-!      call CellCentre(Lx_in,Ly_in,v_in,inn_in,num_in,cellcen) 
-!
-!      do i = 1, working_L
-!        disp(i) = (abs(cellcen(i)-cellCentInit(i)))**2
-!      end do
-!
-!      avgdisp = sum(disp)/(working_L)
-!
-!
-!
-!   end subroutine MeanSqDisp
 
 
 end module System_Info

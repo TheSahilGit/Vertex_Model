@@ -1,5 +1,5 @@
 
-function [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun)
+function [Lx, Ly, v,inn,num, forces, if_alive, T2_time] = LoadData(it, nrun)
 
 
 para2 = load("../para2_in.dat");
@@ -40,7 +40,11 @@ inn = inn';
 
 fid = fopen(fname_num);
 dum2 = fread(fid,1,'float32');
-num = fread(fid,numdim,'int');
+num_1 = fread(fid,numdim*3,'int');
+num_1 = reshape(num_1,[3, numdim]);
+num = num_1(1,:);
+if_alive = num_1(2,:);
+T2_time = num_1(3,:);
 %num(Lx*Ly+1:end) = [];
 
 %

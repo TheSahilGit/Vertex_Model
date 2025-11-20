@@ -14,6 +14,7 @@ module allocation
       integer :: count_T1, cellNoT1, verNoT1, verNoNextT1
       integer :: count_T2, cellNoT2, verNoT2
       real*8, allocatable, dimension(:) :: Total_T1_count, Total_T2_count
+      integer, allocatable, dimension(:) :: T2_time
 
       integer :: next_idx, prev_idx, chosen_index
       real*8 :: len_d,len_d_sq, dx, dy, rr
@@ -123,6 +124,9 @@ module allocation
       logical :: if_ABP
       real*8 :: vo, Dr
       real*8, dimension(:), allocatable :: fxx_ABP, fyy_ABP, theta_ABP, rot_noise
+
+      logical, dimension(:), allocatable :: if_alive
+      
 
 
 
@@ -242,12 +246,14 @@ module allocation
      allocate(Energy(totT))
      allocate(msdt(totT))
      allocate(Total_T1_count(totT), Total_T2_count(totT))
+     allocate(T2_time(num_dim))
      allocate(cellCentInit(Lx*Ly-4*Lx - 4*Ly +16))
      allocate(borderver(v_dim2)) 
      allocate(mot(v_dim2),mot0(v_dim2))
      allocate(coordNum(Lx*Ly))
      allocate(bound(2*Lx + 2*Ly))
      allocate(cellcen(Lx*Ly, 2))
+     allocate(if_alive(num_dim))
 
      allocate(d_val(Lx*Ly*6))
      allocate(area_val(Lx*Ly))
@@ -265,6 +271,8 @@ module allocation
      fxx_active_contr = 0.0d0; fyy_active_contr = 0.0d0
      fxx_ABP = 0.0d0; fyy_ABP = 0.0d0; theta_ABP = 0.0d0
      rot_noise = 0.0d0
+     if_alive = .true.
+     T2_time = 0
 
 
     end subroutine allocate_arrays
@@ -361,7 +369,7 @@ module allocation
  
  
        write(iunit_inn)((inn(i,j),i=1,inn_dim1),j=1,inn_dim2)
-       write(iunit_num)(num(i), i=1,num_dim)
+       write(iunit_num)(num(i),if_alive(i), T2_time(i), i=1,num_dim)
        write(iunit_v)((v(i,j), i=1,v_dim1),j=1,v_dim2)
        write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
         fxx_active_contr(i), fyy_active_contr(i), & 

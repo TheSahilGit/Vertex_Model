@@ -222,9 +222,11 @@ module T2_swap
     if(T2_pass)then
        call find_T2_Affected
        call T2_core
+       if_alive(cellNoT2) = .false.
        Nc = Nc - 1
        Total_T2_count(it) = Total_T2_count(it) + 1
-       print*, 'T2_happened, Nc = ', Nc
+       T2_time(int(sum(Total_T2_count(1:it)))) =  it
+       print*, 'T2_happened, ic, Nc = ', cellNoT2, Nc
      end if
 
 
