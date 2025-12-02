@@ -117,6 +117,7 @@ module Force
     implicit none
 
     real*8 :: rann
+    integer :: iv
   
 
     if(if_motility_decay)then
@@ -125,13 +126,12 @@ module Force
      mot = mot - dt * mot/motility_decay_timeScale
     end if
 
-    do ic = 1,size(mot)
+    do iv = 1,size(mot)
       call random_number(rann)
-      fxx_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann - 1.0d0)
+      fxx_ran(iv) = sqrt(2*mot(iv)*eta)*(2.0d0 * rann - 1.0d0)
       call random_number(rann)
-      fyy_ran(ic) = sqrt(2*mot(ic)*eta)*(2.0d0 * rann - 1.0d0)
+      fyy_ran(iv) = sqrt(2*mot(iv)*eta)*(2.0d0 * rann - 1.0d0)
     end do
-
 
   end subroutine Motile_Force_Calculation
 
