@@ -1,5 +1,5 @@
 
-function [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun)
+function [Lx, Ly, v,inn,num, forces, biochemdata] = LoadData(it, nrun)
 
 
 para2 = load("../para2_in.dat");
@@ -25,11 +25,14 @@ if nrun==1
     fname_num = sprintf('../data/num_%08d.dat', it);
     fname_v = sprintf('../data/v_%08d.dat', it);
     fname_force = sprintf('../data/force_%08d.dat', it);
+    fname_Myosin = sprintf('../data/Myosin_%08d.dat', it);
 elseif nrun==2
     fname_inn = sprintf('../data/nrun2_inn_%08d.dat', it);
     fname_num = sprintf('../data/nrun2_num_%08d.dat', it);
     fname_v = sprintf('../data/nrun2_v_%08d.dat', it);
     fname_force = sprintf('../data/nrun2_force_%08d.dat', it);
+    fname_Myosin = sprintf('../data/nrun2_Myosin_%08d.dat', it);
+
 end
 
 fid = fopen(fname_inn);
@@ -66,9 +69,11 @@ forces = fread(fid,8*vdim2,'float64');
 forces = reshape(forces,[8,vdim2]);
 forces = forces';
 
-
-
-
+fid = fopen(fname_Myosin);
+dum2 = fread(fid,1,'float32');
+biochemdata = fread(fid,3*numdim,'float64');
+biochemdata = reshape(biochemdata, [3, numdim]);
+biochemdata = biochemdata';
 
 
 end

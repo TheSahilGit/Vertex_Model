@@ -33,6 +33,10 @@ module Force
       vy = v(2,inn(1:nn,ic))
       
 
+      if(if_RhoROCK)then
+        beta = Myosin_Strength * Myosin(ic)/(lambda*Ao)
+      end if
+
 
       call CalculateArea(vx,vy,nn,area)
       call CalculatePerimeter(vx,vy,nn,perimeter)
@@ -467,6 +471,82 @@ subroutine gaussian_random(rnumber, mu, sigma)
   rnumber = mean + std * z
 
 end subroutine gaussian_random
+
+
+subroutine Initialize_RhoROCK
+  implicit none
+
+  real*8 :: rann
+
+  do ic = 1, Nc
+
+    call random_number(rann)
+    !Rho(ic) = rann
+    !Rho(ic) = rann*1.0d-1
+    Rho(ic) = rann*beta
+
+    call random_number(rann)
+    !ROCK(ic) = rann
+    !ROCK(ic) = rann*1.0d-1
+    ROCK(ic) = rann*beta
+
+    call random_number(rann)
+    !Myosin(ic) = rann
+    !Myosin(ic) = rann*1.0d-1
+    Myosin(ic) = rann*beta
+
+  end do
+
+!  Rho = 0.0d0
+!  ROCK = 0.0d0
+!  Myosin = 0.0d0
+
+end subroutine Initialize_RhoROCK
+
+
+subroutine Solve_RhoROCK
+  implicit none
+
+  real*8 :: Rho_RHS(size(num)), ROCK_RHS(size(num)), Myosin_RHS(size(num))
+  real*8 :: area_diff
+  real*8 :: f_Rho, f_ROCK, f_Myosin
+
+
+  
+  do ic = 1, Nc
+
+    nn = num(ic)
+    vx = v(1,inn(1:nn,ic))
+    vy = v(2,inn(1:nn,ic))
+    call CalculateArea(vx,vy,nn,area)
+    area = abs(area)
+    area_diff = area - Ao
+
+    if (area_diff .lt. 0)then
+      f_Rho = 0.0d0
+    else
+      f_Rho = A_Rho * area_diff**nhill /  (K_hill**nhill + area_diff**nhill) 
+    end if
+
+
+    f_ROCK = A_ROCK * Rho(ic)
+    f_Myosin = A_Myosin * ROCK(ic)
+
+    
+    Rho_RHS(ic) = f_Rho * (1 - Rho(ic)) - D_Rho * Rho(ic)
+    ROCK_RHS(ic) = f_ROCK * (1 - ROCK(ic)) - D_ROCK * ROCK(ic)
+    Myosin_RHS(ic) = f_Myosin * (1 - Myosin(ic)) - D_Myosin * Myosin(ic)
+
+  end do
+
+
+  Rho(1:Nc) = Rho(1:Nc) +  dt * Rho_RHS(1:Nc)
+  ROCK(1:Nc) = ROCK(1:Nc) + dt * ROCK_RHS(1:Nc)
+  Myosin(1:Nc) = Myosin(1:Nc) + dt * Myosin_RHS(1:Nc)
+
+
+
+end subroutine Solve_RhoROCK
 
 
 
