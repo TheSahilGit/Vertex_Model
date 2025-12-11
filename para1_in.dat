@@ -4,10 +4,10 @@
 0.0d0            ! Co
 1.0d0            ! lambda
 1.0d-5           ! beta
-1.0d-4           ! gamm
+5.0d-5           ! gamm
 1.0d0            ! eta
-5.0d4         ! totT
-2.5d-3           ! dt
+1.0d5         ! totT
+1.0d-3           ! dt
 .true.           !if_Do_T1 
 0.1              ! min_d_T1
 .true.           ! if_Do_T2
@@ -15,7 +15,7 @@
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
-1000               ! it_dump (unit of it)
+100               ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility.
@@ -56,12 +56,12 @@
 2.50d-1             ! vo
 1.0d0              ! Dr
 .true.             !if_RhoROCK
-2.0d1              ! nhill
-1.0d-1              ! K_hill
-1.0d0             !A_Rho
-5.0d-1              ! A_ROCK
-2.5d-1              ! A_Myosin
-5.0d-1              ! D_rho
-3.0d-1              ! D_ROCK
-2.0d-1              ! D_Myosin
-1.0d0               ! Myosin_Strength
+5.0d0              ! nhill
+1.0d-3              ! K_hill
+2.0d0              !A_Rho
+2.0d0              ! A_ROCK
+2.0d0              ! A_Myosin
+0.5d0              ! D_rho
+0.5d0              ! D_ROCK
+0.5d0              ! D_Myosin
+1.5d-1               ! Myosin_Strength
