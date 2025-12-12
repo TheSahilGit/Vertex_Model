@@ -1,5 +1,5 @@
 
-function [Lx, Ly, v,inn,num, forces, biochemdata] = LoadData(it, nrun)
+function [Lx, Ly, v,inn,num, forces, Myosin] = LoadData(it, nrun)
 
 
 para2 = load("../para2_in.dat");
@@ -71,9 +71,10 @@ forces = forces';
 
 fid = fopen(fname_Myosin);
 dum2 = fread(fid,1,'float32');
-biochemdata = fread(fid,3*numdim,'float64');
+biochemdata = fread(fid,3*numdim,'int');
 biochemdata = reshape(biochemdata, [3, numdim]);
-biochemdata = biochemdata';
+
+
 
 
 end

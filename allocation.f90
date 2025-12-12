@@ -59,6 +59,7 @@ module allocation
 
       real*8, allocatable, dimension(:) :: Energy, ShearStress
       character(100) :: fname_inn, fname_num, fname_v, fname_force
+      character(100) :: fname_Myosin
       character(100) :: fname_inn2, fname_num2, fname_v2
       integer*4 :: iunit_inn, iunit_num, iunit_v
 
@@ -123,6 +124,12 @@ module allocation
       logical :: if_ABP
       real*8 :: vo, Dr
       real*8, dimension(:), allocatable :: fxx_ABP, fyy_ABP, theta_ABP, rot_noise
+
+
+      logical :: if_RhoROCK
+      real*8, dimension(:), allocatable :: Rho, ROCK, Myosin
+      real*8 :: A_Rho, nhill, K_hill, A_ROCK, A_Myosin, D_rho, D_ROCK, D_Myosin
+      real*8 :: Myosin_Strength
 
 
 
@@ -201,6 +208,16 @@ module allocation
      read(112,*) if_ABP
      read(112,*) vo
      read(112,*) Dr
+     read(112,*) if_RhoROCK
+     read(112,*) nhill
+     read(112,*) K_hill 
+     read(112,*) A_Rho
+     read(112,*) A_ROCK 
+     read(112,*) A_Myosin
+     read(112,*) D_rho
+     read(112,*) D_ROCK
+     read(112,*) D_Myosin
+     read(112,*) Myosin_Strength
 
      
 
@@ -259,12 +276,19 @@ module allocation
 
      allocate(chosen_cell(v_dim2))
 
+     allocate(Rho(num_dim), ROCK(num_dim), Myosin(num_dim))
+
 
      fxx = 0.0d0; fyy = 0.0d0
      fxx_ran = 0.0d0; fyy_ran = 0.0d0
      fxx_active_contr = 0.0d0; fyy_active_contr = 0.0d0
      fxx_ABP = 0.0d0; fyy_ABP = 0.0d0; theta_ABP = 0.0d0
      rot_noise = 0.0d0
+
+     Rho = 0.0d0; ROCK = 0.0d0; Myosin = 0.0d0
+
+      
+     
 
 
     end subroutine allocate_arrays
@@ -332,23 +356,27 @@ module allocation
     subroutine write_output
 
       integer :: iunit_inn, iunit_num, iunit_v, iunit_force
+      integer :: iunit_Myosin
 
 
        iunit_inn = 532
        iunit_num = 621
        iunit_v = 958
        iunit_force = 961
+       iunit_Myosin = 966
  
        if(nrun.eq.1)then
          write(fname_inn, '("data/inn_", I8.8,".dat")')(it)
          write(fname_num, '("data/num_", I8.8,".dat")')(it)
          write(fname_v, '("data/v_", I8.8,".dat")')(it)
          write(fname_force, '("data/force_", I8.8,".dat")')(it)
+         write(fname_Myosin, '("data/Myosin_", I8.8,".dat")')(it)
        elseif(nrun.eq.2)then
          write(fname_inn, '("data/nrun2_inn_", I8.8,".dat")')(it)
          write(fname_num, '("data/nrun2_num_", I8.8,".dat")')(it)
          write(fname_v, '("data/nrun2_v_", I8.8,".dat")')(it)
          write(fname_force, '("data/nrun2_force_", I8.8,".dat")')(it)
+         write(fname_Myosin, '("data/nrun2_Myosin_", I8.8,".dat")')(it)
        end if
 
 
@@ -357,6 +385,7 @@ module allocation
        open(unit = iunit_num,file=fname_num, form ='unformatted', status='unknown')
        open(unit = iunit_v, file=fname_v, form='unformatted', status='unknown')
        open(unit = iunit_force, file=fname_force, form='unformatted', status='unknown')
+       open(unit = iunit_Myosin,file=fname_Myosin, form ='unformatted', status='unknown')
        ! open(unit = iunit_force, file=fname_force, status='unknown')
  
  
@@ -366,6 +395,7 @@ module allocation
        write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
         fxx_active_contr(i), fyy_active_contr(i), & 
         fxx_ABP(i), fyy_ABP(i), i = 1, v_dim2)
+       write(iunit_Myosin)(Rho(i), ROCK(i), Myosin(i), i = 1, num_dim)
       
       
  

@@ -33,13 +33,15 @@ ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
 
-nrun = 2;
+nrun = 1;
 
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 10000:10000:1000000
-    [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
+for it = 14000
+    [Lx, Ly, v,inn,num, forces, biochemdata] = LoadData(it, nrun);
+    Myosin = biochemdata(:,3);
+
 
    
     f(ct) = sqrt(max(forces(:,1))^2 + max(forces(:,2))^2);      
@@ -118,7 +120,7 @@ end
 
 
 
-function TisuePlot(Lx,Ly,v,inn,num,etas,boundary_)
+function TisuePlot(Lx,Ly,v,inn,num,etas,boundary_, Myosin)
 etas = etas*1000;
 etasmax = max(etas);
 etasmin = min(etas);
@@ -139,6 +141,9 @@ for i = 1:idx
         if etasmax ~=0
             r = r/etasmax;
         end
+
+
+        
         index = round(r * 99) + 1; % 100 colors in the colormap
         % If index is out of bounds, set it to the first or last color index
         index = max(min(index, 100), 1);
@@ -146,8 +151,8 @@ for i = 1:idx
         cmap = [flipud(jet(100)); 0 0 0];
         % Interpolate the RGB value from the colormap
         rgb = interp1(linspace(1, 0, size(cmap, 1)), cmap, r);
-        %plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
-        plot(pl,EdgeColor='b',FaceColor='b', FaceAlpha=0.1, LineWidth=1.5)
+        plot(pl, FaceColor=rgb, FaceAlpha=0.5, LineWidth=1.5)
+        %plot(pl,EdgeColor='b',FaceColor='b', FaceAlpha=0.1, LineWidth=1.5)
         hold on;
     %end
 end

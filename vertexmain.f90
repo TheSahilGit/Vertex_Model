@@ -62,6 +62,10 @@ program vertexmain
    end if
 
 
+   if(if_RhoROCK)then
+     print*, 'RhoROCK'
+     call  Initialize_RhoROCK
+   end if
 
 
 
@@ -105,6 +109,9 @@ program vertexmain
 
 
 
+    if(if_RhoROCK)then
+      call Solve_RhoROCK
+    end if
 
 
 

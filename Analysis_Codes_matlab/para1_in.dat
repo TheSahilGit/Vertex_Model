@@ -15,7 +15,7 @@
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
-1000               ! it_dump (unit of it)
+100000               ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility.
@@ -55,7 +55,7 @@
 .false.             ! if_ABP
 2.50d-1             ! vo
 1.0d0              ! Dr
-.true.             !if_RhoROCK
+.false.             !if_RhoROCK
 5.0d0              ! nhill
 1.0d-3              ! K_hill
 2.0d0              !A_Rho

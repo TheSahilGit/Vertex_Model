@@ -100,6 +100,7 @@ module T2_swap
       integer :: inn_affected(inn_dim1),inn_temp(inn_dim1)
       integer :: whole_inn_array_temp(inn_dim1, inn_dim2)
       integer :: whole_num_array_temp(num_dim)
+      real*8 ::  Rho_temp(num_dim), ROCK_temp(num_dim), Myosin_temp(num_dim)
 
       integer :: start_index, stop_index
 
@@ -180,6 +181,28 @@ module T2_swap
    
     inn = whole_inn_array_temp
     num = whole_num_array_temp
+
+
+    if(if_RhoROCK)then
+      
+      Rho_temp = 0.0d0
+      ROCK_temp = 0.0d0
+      Myosin_temp = 0.0d0
+
+      Rho_temp(1:cellNoT2-1) = Rho(1:cellNoT2-1)
+      Rho_temp(cellNoT2 : num_dim - 1) = Rho(cellNoT2+1:num_dim)
+      Rho = Rho_temp
+
+      ROCK_temp(1:cellNoT2-1) = ROCK(1:cellNoT2-1)
+      ROCK_temp(cellNoT2 : num_dim - 1) = ROCK(cellNoT2+1:num_dim)
+      ROCK = ROCK_temp
+
+      Myosin_temp(1:cellNoT2-1) = Myosin(1:cellNoT2-1)
+      Myosin_temp(cellNoT2 : num_dim - 1) = Myosin(cellNoT2+1:num_dim)
+      Myosin = Myosin_temp
+
+    end if
+
 
 
     end subroutine T2_core
