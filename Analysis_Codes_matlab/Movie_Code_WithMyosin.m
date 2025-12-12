@@ -1,5 +1,5 @@
-%clear; clc ;
-%close all;
+clear; clc ;
+close all;
 
 
 para2 = load("../para2_in.dat");
@@ -38,12 +38,12 @@ nrun = 1;
 %filepath = '../';
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
-for it = 90000
-    [Lx, Ly, v, inn,num, ~, biochemdata] = LoadData(it, nrun);
+
+for it = 26000
+
+    [Lx, Ly, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
     Myosin = biochemdata(:,3);
 
-
-   
 
     TisuePlot(Lx,Ly,v,inn,num,etas,boundary_, Myosin)
 

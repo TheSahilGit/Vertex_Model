@@ -5,7 +5,7 @@ nrun = 1;
 
 ct = 1;
 
-for it = 1000:1000:100000
+for it = 1000:1000:50000
 
 [~, ~, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
 Nc = find(num ~= 0, 1, 'last');
@@ -22,15 +22,25 @@ Rho_time1(ct) = Rho(1);
 ROCK_time1(ct) = ROCK(1);
 Myosin_time1(ct) = Myosin(1);
 
-[areaE,perimeter] = AverageAreaPerimeter(Nc,v,inn,num);
+[areaE,~] = AverageAreaPerimeter(Nc,v,inn,num);
 %area(ct) =  areaE(1);
 area(ct) = mean(areaE);
+time(ct) = it * 2.5d-4;
+
+area_individual(1, ct) = areaE(randi(Nc));
+area_individual(2, ct) = areaE(randi(Nc));
+area_individual(3, ct) = areaE(randi(Nc));
+area_individual(4, ct) = areaE(randi(Nc));
+area_individual(5, ct) = areaE(randi(Nc));
+
+
 
 
 ct = ct + 1
 
 end
 
+%writematrix([time' area'], "mean_area_time.dat")
 
 
 
@@ -40,10 +50,10 @@ figure('Position',[100 100 1600 800])
 %figure()
 
 subplot(1,3,1)
-semilogx(Rho_time,    'LineWidth', 4, 'DisplayName', 'Rho')
+plot(Rho_time,    'LineWidth', 4, 'DisplayName', 'Rho')
 hold on
-semilogx(ROCK_time,   'LineWidth', 4, 'DisplayName', 'ROCK')
-semilogx(Myosin_time, 'LineWidth', 4, 'DisplayName', 'Myosin')
+plot(ROCK_time,   'LineWidth', 4, 'DisplayName', 'ROCK')
+plot(Myosin_time, 'LineWidth', 4, 'DisplayName', 'Myosin')
 
 
 xlabel('Iteration')
@@ -54,12 +64,12 @@ legend('Location','northeast', 'FontSize', 20)
 axis square
 
 subplot(1,3,2)
-semilogx(area, 'LineWidth', 4,'LineStyle', '--', 'DisplayName', 'Area')
+plot(area, 'LineWidth', 4,'LineStyle', '--', 'DisplayName', 'Area')
 yline(1)
 
 
 xlabel('Iteration')
-ylabel('Area')
+ylabel('Mean Area')
 %subtitle("No coupling")
 set(gca, 'FontSize', 20, 'FontName', 'Serif')
 legend('Location','northeast', 'FontSize', 20)
@@ -83,6 +93,24 @@ ylabel('Mean Rho')
 %subtitle("No coupling")
 set(gca, 'FontSize', 20, 'FontName', 'Serif')
 legend('Location','northeast', 'FontSize', 20)
+
+
+figure;
+
+plot(area_individual(1,:), 'LineWidth', 4, 'DisplayName', 'cell 1');
+hold on;
+plot(area_individual(2,:), 'LineWidth', 4, 'DisplayName', 'cell 2');
+plot(area_individual(3,:), 'LineWidth', 4, 'DisplayName', 'cell 3');   
+hold on;
+plot(area_individual(4,:), 'LineWidth', 4, 'DisplayName', 'cell 4');
+plot(area_individual(5,:), 'LineWidth', 4, 'DisplayName', 'cell 5');
+
+xlabel('time')
+ylabel('area')
+legend('Location','best')
+set(gca, 'FontSize', 32)
+grid on;
+
 
 
 %%
