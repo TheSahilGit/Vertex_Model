@@ -5,7 +5,7 @@ nrun = 1;
 
 ct = 1;
 
-for it = 1000:1000:50000
+for it = 1000:1000:2000000
 
 [~, ~, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
 Nc = find(num ~= 0, 1, 'last');
@@ -50,10 +50,10 @@ figure('Position',[100 100 1600 800])
 %figure()
 
 subplot(1,3,1)
-plot(Rho_time,    'LineWidth', 4, 'DisplayName', 'Rho')
+plot(Rho_time, 'LineWidth', 4, 'DisplayName', 'Rho')
 hold on
 plot(ROCK_time,   'LineWidth', 4, 'DisplayName', 'ROCK')
-plot(Myosin_time, 'LineWidth', 4, 'DisplayName', 'Myosin')
+plot(Myosin_time, '-o', 'LineWidth', 4, 'DisplayName', 'Myosin')
 
 
 xlabel('Iteration')

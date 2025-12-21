@@ -3,11 +3,11 @@
 1.0d0            ! Ao
 0.0d0            ! Co
 1.0d0            ! lambda
-1.0d-5           ! beta
-5.0d-5           ! gamm
+1.0d-1           ! beta
+1.0d-3           ! gamm
 1.0d0            ! eta
 2.0d6         ! totT
-2.5d-4           ! dt
+1.0d-3           ! dt
 .true.           !if_Do_T1 
 0.1              ! min_d_T1
 .true.           ! if_Do_T2
@@ -56,12 +56,13 @@
 2.50d-1             ! vo
 1.0d0              ! Dr
 .true.             !if_RhoROCK
-5.0d0              ! nhill
-1.0d-3              ! K_hill
-2.0d0              !A_Rho
-2.0d0              ! A_ROCK
-2.0d0              ! A_Myosin
-0.5d0              ! D_rho
-0.5d0              ! D_ROCK
-0.5d0              ! D_Myosin
-1.5d-1               ! Myosin_Strength
+.true.             ! if_RK4
+2.0d0              ! nhill
+1.0d-2              ! K_hill
+5.0d0              !A_Rho
+5.0d0              ! A_ROCK
+3.0d0              ! A_Myosin
+0.1d0              ! D_rho
+0.1d0              ! D_ROCK
+0.05d0              ! D_Myosin
+1.0d-1               ! Myosin_Strength
