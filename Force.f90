@@ -35,7 +35,10 @@ module Force
 
       if(if_RhoROCK)then
         beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
+!      else
+!        Myosin(ic) = beta ! Just for writing the data purpose. 
       end if
+
 
 
       call CalculateArea(vx,vy,nn,area)
