@@ -126,10 +126,10 @@ module allocation
       real*8, dimension(:), allocatable :: fxx_ABP, fyy_ABP, theta_ABP, rot_noise
 
 
-      logical :: if_RhoROCK, if_RK4
+      logical :: if_RhoROCK, if_RK4, if_myosin_noise, if_gaussian_noise
       real*8, dimension(:), allocatable :: Rho, ROCK, Myosin
       real*8 :: A_Rho, nhill, K_hill, A_ROCK, A_Myosin, D_rho, D_ROCK, D_Myosin
-      real*8 :: Myosin_Strength
+      real*8 :: Myosin_Coupling_Strength, Myosin_noise_strength
 
 
 
@@ -218,7 +218,10 @@ module allocation
      read(112,*) D_rho
      read(112,*) D_ROCK
      read(112,*) D_Myosin
-     read(112,*) Myosin_Strength
+     read(112,*) Myosin_Coupling_Strength
+     read(112,*) if_myosin_noise
+     read(112,*) if_gaussian_noise
+     read(112,*) Myosin_noise_strength
 
      
 
