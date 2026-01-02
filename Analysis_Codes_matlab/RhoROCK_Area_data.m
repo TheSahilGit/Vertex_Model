@@ -1,11 +1,11 @@
 clear; clc; close all; 
 
 
-nrun = 1; 
+nrun = 2; 
 
 ct = 1;
 
-for it = 1000:1000:50000
+for it = 1000:1000:2000000
 
 [~, ~, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
 Nc = find(num ~= 0, 1, 'last');
@@ -17,6 +17,7 @@ Myosin = biochemdata(:,3);
 Rho_time(ct) = mean(Rho(1:Nc));
 ROCK_time(ct) = mean(ROCK(1:Nc));
 Myosin_time(ct) = mean(Myosin(1:Nc));
+Myosin_time_std(ct) = std(Myosin(1:Nc));
 
 Rho_time1(ct) = Rho(1);
 ROCK_time1(ct) = ROCK(1);
@@ -50,10 +51,21 @@ figure('Position',[100 100 1600 800])
 %figure()
 
 subplot(1,3,1)
-plot(Rho_time,    'LineWidth', 4, 'DisplayName', 'Rho')
+plot(Rho_time, 'LineWidth', 4, 'DisplayName', 'Rho')
 hold on
-plot(ROCK_time,   'LineWidth', 4, 'DisplayName', 'ROCK')
-plot(Myosin_time, 'LineWidth', 4, 'DisplayName', 'Myosin')
+plot(ROCK_time,   'LineWidth', 4, 'DisplayName', 'ROCK');
+hold on
+plot(Myosin_time, '-o', 'LineWidth', 4, 'DisplayName', 'Myosin', 'Color',[0.9 0.69 0.12])
+hold on
+
+% interval = 10;                  % plot error bar every 20 points
+% idx = 1:interval:length(time);  % indices where error bars appear
+% errorbar(idx, Myosin_time(idx), Myosin_time_std(idx), ...
+%     'o', ...
+%     'LineWidth', 2, ...      % thinner error bar lines
+%     'MarkerSize', 6, ...     % smaller markers
+%     'DisplayName', 'Myosin', 'Color',[0.9 0.69 0.12])
+
 
 
 xlabel('Iteration')

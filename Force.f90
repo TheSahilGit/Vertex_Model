@@ -34,7 +34,7 @@ module Force
       
 
       if(if_RhoROCK)then
-        beta = Myosin_Strength * Myosin(ic)/(lambda*Ao)
+        beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
       end if
 
 
@@ -504,13 +504,19 @@ subroutine Initialize_RhoROCK
 end subroutine Initialize_RhoROCK
 
 
-subroutine Solve_RhoROCK
+subroutine Solve_RhoROCK_Euler
   implicit none
 
   real*8 :: Rho_RHS(size(num)), ROCK_RHS(size(num)), Myosin_RHS(size(num))
   real*8 :: area_diff
   real*8 :: f_Rho, f_ROCK, f_Myosin
+  real*8 :: Myosin_noise(Nc)
 
+
+  Myosin_noise = 0.0d0
+  if(if_myosin_noise)then
+    call random_number(Myosin_noise)
+  end if
 
   
   do ic = 1, Nc
@@ -542,11 +548,162 @@ subroutine Solve_RhoROCK
 
   Rho(1:Nc) = Rho(1:Nc) +  dt * Rho_RHS(1:Nc)
   ROCK(1:Nc) = ROCK(1:Nc) + dt * ROCK_RHS(1:Nc)
-  Myosin(1:Nc) = Myosin(1:Nc) + dt * Myosin_RHS(1:Nc)
+  Myosin(1:Nc) = Myosin(1:Nc) + dt * Myosin_RHS(1:Nc) + & 
+    sqrt(dt) * Myosin_noise_strength * Myosin_noise(1:Nc)
 
 
 
-end subroutine Solve_RhoROCK
+end subroutine Solve_RhoROCK_Euler
+
+subroutine Solve_RhoROCK_RK4
+  implicit none
+
+  integer :: ic
+  real*8 :: area, area_diff
+  real*8 :: f_Rho, f_ROCK, f_Myosin
+
+  ! RK4 intermediate arrays
+  real*8 :: k1_Rho(Nc), k2_Rho(Nc), k3_Rho(Nc), k4_Rho(Nc)
+  real*8 :: k1_ROCK(Nc), k2_ROCK(Nc), k3_ROCK(Nc), k4_ROCK(Nc)
+  real*8 :: k1_M(Nc), k2_M(Nc), k3_M(Nc), k4_M(Nc)
+
+  real*8 :: Rho_tmp(Nc), ROCK_tmp(Nc), M_tmp(Nc)
+
+  real*8 :: Myosin_noise1(Nc), Myosin_noise2(Nc), propen_Myosin1(Nc), propen_Myosin2(Nc)
+  real*8, parameter :: eps = 1.0d-3
+
+
+  Myosin_noise1 = 0.0d0
+  propen_Myosin1 = 0.0d0
+  propen_Myosin2 = 0.0d0
+
+  if(if_myosin_noise)then
+    
+    if(if_gaussian_noise)then
+      do ic = 1, Nc
+        call gaussian_random(Myosin_noise1(ic), 0.0d0, 1.0d0)
+        call gaussian_random(Myosin_noise2(ic), 0.0d0, 1.0d0)
+      end do
+    else
+      call random_number(Myosin_noise1)
+      call random_number(Myosin_noise2)
+      Myosin_noise1 = Myosin_noise1 - 0.5d0
+      Myosin_noise2 = Myosin_noise2 - 0.5d0
+    end if
+
+    propen_Myosin1(1:Nc) = A_Myosin * ROCK(1:Nc) * (1.0d0 - Myosin(1:Nc))
+    propen_Myosin2(1:Nc) = D_Myosin * Myosin(1:Nc)
+  end if
+
+
+  ! ============
+  ! RK4 steps
+  ! ============
+
+  ! k1
+  call compute_RHS(Rho, ROCK, Myosin, k1_Rho, k1_ROCK, k1_M)
+
+  ! k2
+  Rho_tmp  = Rho(1:Nc)   + 0.5d0 * dt * k1_Rho
+  ROCK_tmp = ROCK(1:Nc)  + 0.5d0 * dt * k1_ROCK
+  M_tmp    = Myosin(1:Nc) + 0.5d0 * dt * k1_M
+  call compute_RHS(Rho_tmp, ROCK_tmp, M_tmp, k2_Rho, k2_ROCK, k2_M)
+
+  ! k3
+  Rho_tmp  = Rho(1:Nc)   + 0.5d0 * dt * k2_Rho
+  ROCK_tmp = ROCK(1:Nc)  + 0.5d0 * dt * k2_ROCK
+  M_tmp    = Myosin(1:Nc) + 0.5d0 * dt * k2_M
+  call compute_RHS(Rho_tmp, ROCK_tmp, M_tmp, k3_Rho, k3_ROCK, k3_M)
+
+  ! k4
+  Rho_tmp  = Rho(1:Nc)   + dt * k3_Rho
+  ROCK_tmp = ROCK(1:Nc)  + dt * k3_ROCK
+  M_tmp    = Myosin(1:Nc) + dt * k3_M
+  call compute_RHS(Rho_tmp, ROCK_tmp, M_tmp, k4_Rho, k4_ROCK, k4_M)
+
+  ! Final RK4 update
+  Rho(1:Nc) = Rho(1:Nc)   + (dt/6.0d0) * (k1_Rho + 2*k2_Rho + 2*k3_Rho + k4_Rho) 
+  ROCK(1:Nc) = ROCK(1:Nc)  + (dt/6.0d0) * (k1_ROCK + 2*k2_ROCK + 2*k3_ROCK + k4_ROCK)
+  Myosin(1:Nc) = Myosin(1:Nc) + (dt/6.0d0) * (k1_M + 2*k2_M + 2*k3_M + k4_M) &
+    + sqrt(dt) * Myosin(1:Nc) * (1.0d0 - Myosin(1:Nc)) * & 
+    Myosin_noise_strength * Myosin_noise1(1:Nc)
+
+
+!! -----------------------------------------------------------------------------------------
+!  Myosin(1:Nc) = Myosin(1:Nc) + (dt/6.0d0) * (k1_M + 2*k2_M + 2*k3_M + k4_M) &
+!    + sqrt(dt) * sqrt(Propen_Myosin1(1:Nc)) * Myosin_noise_strength * Myosin_noise1(1:Nc) &
+!    - sqrt(dt) * sqrt(Propen_Myosin2(1:Nc)) * Myosin_noise_strength * Myosin_noise2(1:Nc)
+
+!do ic = 1, Nc
+!  if(Myosin(ic) .lt. eps) then
+!    Myosin(ic) = Myosin(ic) + (dt/6.0d0) * (k1_M(ic) + 2*k2_M(ic) + 2*k3_M(ic) + k4_M(ic)) &
+!     + sqrt(dt) * sqrt(Propen_Myosin1(ic)) * Myosin_noise_strength * Myosin_noise1(ic) 
+
+! elseif(Myosin(ic) .gt. 1.0d0 - eps)then
+!    Myosin(ic) = Myosin(ic) + (dt/6.0d0) * (k1_M(ic) + 2*k2_M(ic) + 2*k3_M(ic) + k4_M(ic)) &
+!      - sqrt(dt) * sqrt(Propen_Myosin2(ic)) * Myosin_noise_strength * Myosin_noise2(ic)
+
+!  else
+!    Myosin(ic) = Myosin(ic) + (dt/6.0d0) * (k1_M(ic) + 2*k2_M(ic) + 2*k3_M(ic) + k4_M(ic)) &
+!     + sqrt(dt) * sqrt(Propen_Myosin1(ic)) * Myosin_noise_strength * Myosin_noise1(ic) &
+!      - sqrt(dt) * sqrt(Propen_Myosin2(ic)) * Myosin_noise_strength * Myosin_noise2(ic)
+!  end if
+
+!  if (Myosin(ic) .lt. 0.0d0 .or. Myosin(ic) .gt. 1.0d0) then
+!    print*, 'out of bounds', ic, Myosin(ic)
+!  end if
+
+!end do
+
+!!--- Applying reflecting BC. 
+
+!  do ic = 1, Nc
+!    if(Myosin(ic) .gt. 1.0d0) then
+!      Myosin(ic) = 2.0d0 - Myosin(ic)
+!    end if
+!    if(Myosin(ic) .lt. 0.0d0) then
+!      Myosin(ic) =  - Myosin(ic)
+!    end if
+!  end do
+
+!! -----------------------------------------------------------------------------------------
+
+end subroutine Solve_RhoROCK_RK4
+
+subroutine compute_RHS(Rho_in, ROCK_in, M_in, Rho_out, ROCK_out, M_out)
+  real*8, intent(in)  :: Rho_in(Nc), ROCK_in(Nc), M_in(Nc)
+  real*8, intent(out) :: Rho_out(Nc), ROCK_out(Nc), M_out(Nc)
+  real*8 :: area_diff
+
+  do ic = 1, Nc
+    nn = num(ic)
+    vx = v(1, inn(1:nn,ic))
+    vy = v(2, inn(1:nn,ic))
+
+    call CalculateArea(vx,vy,nn,area)
+    area = abs(area)
+    area_diff = area - Ao
+
+    ! Rho production
+    if (area_diff .lt. 0.0d0) then
+        f_Rho = 0.0d0
+    else
+        f_Rho = A_Rho * area_diff**nhill / (K_hill**nhill + area_diff**nhill)
+    end if
+
+    ! ROCK and Myosin production
+    f_ROCK   = A_ROCK   * Rho_in(ic)
+    f_Myosin = A_Myosin * ROCK_in(ic)
+
+    ! RHS
+    Rho_out(ic)  = f_Rho   * (1.0d0 - Rho_in(ic))  - D_Rho   * Rho_in(ic)
+    ROCK_out(ic) = f_ROCK  * (1.0d0 - ROCK_in(ic)) - D_ROCK  * ROCK_in(ic)
+    M_out(ic)    = f_Myosin * (1.0d0 - M_in(ic))    - D_Myosin * M_in(ic)
+  end do
+
+end subroutine compute_RHS
+
+
 
 
 

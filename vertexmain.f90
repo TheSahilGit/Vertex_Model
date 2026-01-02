@@ -110,7 +110,11 @@ program vertexmain
 
 
     if(if_RhoROCK)then
-      call Solve_RhoROCK
+      if(if_RK4)then
+        call Solve_RhoROCK_RK4
+      else
+        call Solve_RhoROCK_Euler
+      end if
     end if
 
 
