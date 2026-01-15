@@ -4,9 +4,9 @@
 0.0d0            ! Co
 1.0d0            ! lambda
 1.0d-1           ! beta
-0.06d0    !1.0d-3           ! gamm
+1.0d-3           ! gamm
 1.0d0            ! eta
-2.0d6            ! totT
+4.0d6            ! totT
 1.0d-3           ! dt
 .true.           ! if_Do_T1 
 0.1              ! min_d_T1
@@ -59,13 +59,15 @@
 .true.             ! if_RK4
 2.0d0              ! nhill
 1.0d-2             ! K_hill
-5.0d0              ! A_Rho
-5.0d0              ! A_ROCK
-3.0d0              ! A_Myosin
+10.0d0              ! A_Rho
+7.0d0              ! A_ROCK
+5.0d0              ! A_Myosin
 0.1d0              ! D_rho
 0.1d0              ! D_ROCK
-0.05d0             ! D_Myosin
-0.05d0             ! Myosin_Coupling_Strength
-.true.             ! if_myosin_noise
+0.1d0             ! D_Myosin
+0.1d0             ! Myosin_Coupling_Strength
+.false.             ! if_myosin_noise
 .false.            ! if_gaussian_noise
 10.0d0              ! Myosin_noise_strength
+.true.              ! if_coupling_noise
+1.0d0               ! coupling_noise_strength

@@ -34,9 +34,13 @@ module Force
       
 
       if(if_RhoROCK)then
-        beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
-!      else
-!        Myosin(ic) = beta ! Just for writing the data purpose. 
+        if(if_coupling_noise)then
+          call random_number(rann)
+          rann = rann - 0.5d0
+          beta = Myosin_Coupling_Strength * Myosin(ic) + coupling_noise_strength * rann
+        else 
+          beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
+        end if
       end if
 
 

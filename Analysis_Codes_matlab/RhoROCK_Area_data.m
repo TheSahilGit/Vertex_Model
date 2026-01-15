@@ -5,7 +5,7 @@ nrun = 2;
 
 ct = 1;
 
-for it = 1000:1000:2000000
+for it = 1000:1000:104000
 
 [~, ~, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
 Nc = find(num ~= 0, 1, 'last');
