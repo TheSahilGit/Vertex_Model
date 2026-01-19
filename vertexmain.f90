@@ -29,6 +29,7 @@ program vertexmain
 
   Nc = Lx*Ly
 
+
   if(if_motility_gradient)then
     print*, 'Motility Gradient'
     call Give_Motility_Gradient

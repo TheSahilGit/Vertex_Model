@@ -101,6 +101,7 @@ module T2_swap
       integer :: whole_inn_array_temp(inn_dim1, inn_dim2)
       integer :: whole_num_array_temp(num_dim)
       real*8 ::  Rho_temp(num_dim), ROCK_temp(num_dim), Myosin_temp(num_dim)
+      character(500) :: cell_identity_temp(num_dim)
 
       integer :: start_index, stop_index
 
@@ -203,6 +204,11 @@ module T2_swap
 
     end if
 
+
+    cell_identity_temp = 'cell_0'
+    cell_identity_temp(1:cellNoT2-1) = cell_identity(1:cellNoT2-1)
+    cell_identity_temp(cellNoT2 : num_dim-1) = cell_identity(cellNoT2+1:num_dim)
+    cell_identity = cell_identity_temp
 
 
     end subroutine T2_core

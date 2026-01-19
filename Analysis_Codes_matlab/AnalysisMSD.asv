@@ -2,23 +2,23 @@ clear; clc; close all;
 
 nrun = 2; 
 
-[~,~,v_in,inn_in,num_in, forces_in] = LoadData(10000, nrun);
+[~,~,v_in,inn_in,num_in, forces_in] = LoadData(1000, nrun);
 
 ct = 1;
-for it = 20000:10000:1000000
+for it = 1000:1000:160000
 
     it
 
    [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
    MSD(ct, :) =  Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num);
-   time(ct) = it*2.5e-3;
+   time(ct) = it*1e-3;
    ct = ct + 1;
 
 end
 
 mean_MSD = mean(MSD,2);
 
-%% C
+%% Comparison with T2
 
 
 X = log(time(1:end));
@@ -27,7 +27,7 @@ p = polyfit(X, Y, 1)
 
 
 figure()
-loglog(time, mean_MSD, '-o');
+loglog(time, mean_MSD, 'o');
 hold on
 loglog(time, exp(p(2))*time.^p(1))
 axis square

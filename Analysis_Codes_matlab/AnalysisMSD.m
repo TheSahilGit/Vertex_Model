@@ -2,21 +2,40 @@ clear; clc; close all;
 
 nrun = 2; 
 
-[~,~,v_in,inn_in,num_in, forces_in] = LoadData(10000, nrun);
+[~,~,v_in,inn_in,num_in, forces_in] = LoadData(1000, nrun);
 
 ct = 1;
-for it = 20000:10000:1000000
+for it = 1000:1000:400000
 
     it
 
    [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
    MSD(ct, :) =  Calculate_MSD(Lx,Ly,v_in, inn_in, num_in, v, inn, num);
-   time(ct) = it*2.5e-3;
+   time(ct) = it*1e-3;
    ct = ct + 1;
 
 end
 
 mean_MSD = mean(MSD,2);
+
+%%
+
+figure("Position",[100 100 800 800])
+
+loglog(time, mean_MSD,'o', "LineWidth",3, 'MarkerSize',20);
+hold on; 
+loglog(time, 5e-4*time.^2, "LineWidth",3, 'DisplayName',"t^2");
+hold on; 
+loglog(time, 2e-3*time, "LineWidth",3, "DisplayName",'t')
+
+
+xlabel("Time");
+ylabel("MSD")
+set(gca, "FontSize", 32)
+axis square
+legend()
+
+
 
 %% Comparison with T2
 
@@ -27,7 +46,7 @@ p = polyfit(X, Y, 1)
 
 
 figure()
-loglog(time, mean_MSD, '-o');
+loglog(time, mean_MSD, 'o', 'MarkerSize',20);
 hold on
 loglog(time, exp(p(2))*time.^p(1))
 axis square

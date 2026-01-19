@@ -3,8 +3,8 @@
 1.0d0            ! Ao
 0.0d0            ! Co
 1.0d0            ! lambda
-1.0d-1           ! beta
-1.0d-3           ! gamm
+0.05d0           ! beta
+0.06d0           ! gamm
 1.0d0            ! eta
 4.0d6            ! totT
 1.0d-3           ! dt
@@ -19,7 +19,7 @@
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility.
-0.0d0            ! etas_max ! (motility)
+0.00d0            ! etas_max ! (motility)
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
 .false.          ! if_motility_decay ! (temporal decay)
@@ -50,13 +50,13 @@
 .false.            ! if_squeeze_tissue
 1                  ! squeeze_when (unit of it)
 30.0d0             ! percent_squeeze  
-.false.            ! if_active_contractility
+.true.            ! if_active_contractility
 8.0d-1             ! active_contr_strength
 .false.            ! if_ABP
 2.50d-1            ! vo
 1.0d0              ! Dr
-.true.             ! if_RhoROCK
-.true.             ! if_RK4
+.false.             ! if_RhoROCK
+.false.             ! if_RK4
 2.0d0              ! nhill
 1.0d-2             ! K_hill
 10.0d0              ! A_Rho
@@ -69,5 +69,5 @@
 .false.             ! if_myosin_noise
 .false.            ! if_gaussian_noise
 10.0d0              ! Myosin_noise_strength
-.true.              ! if_coupling_noise
+.false.              ! if_coupling_noise
 1.0d0               ! coupling_noise_strength
