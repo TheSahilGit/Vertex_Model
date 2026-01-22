@@ -9,12 +9,36 @@ nrun = 2;
 
 itInit = 1000; 
 interval = 1000; 
-itfinal = 400000; 
+itfinal = 10000000; 
 
-ac = 0.7; 
+ac = 1; 
 [time, Qt] = CalculateQt(itInit,interval, itfinal, dt, nrun, ac);
 
-%writematrix([time' Qt'], 'Q-time_lowmot.dat');
+
+writematrix([time' Qt'], 'Qt.dat');
+
+
+
+% % Full path of the current file
+% filePath = matlab.desktop.editor.getActiveFilename;
+% 
+% % Directory containing the file
+% scriptDir = fileparts(filePath);
+% 
+% % Parent directory
+% parentDir = fileparts(scriptDir);
+% 
+% % Extract folder name safely (no dot issues)
+% parts = split(parentDir, filesep);
+% parentName = parts{end};
+% 
+% % Construct filename
+% fname = sprintf('Q-time_%s.dat', parentName)
+% 
+% % Write file
+% writematrix([time' Qt'], fullfile(scriptDir, fname));
+
+
 
 
 

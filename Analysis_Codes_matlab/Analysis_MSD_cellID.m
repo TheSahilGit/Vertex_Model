@@ -17,7 +17,7 @@ for i = 1:Lx*Ly
     initPos(key) = [cmX_init(i), cmY_init(i)];
 end
 
-it_times = (1000:1000:620000);
+it_times = (1000:1000:10000000);
 MSD = zeros(length(it_times),1);
 times = it_times * dt; 
 tidx = 0;
@@ -47,6 +47,7 @@ for it = it_times
     MSD(tidx) = msd_sum / count;
 end
 
+writematrix([times' MSD],"msd.dat");
 
 %%
 
