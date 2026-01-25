@@ -3,29 +3,20 @@ Flat profile:
 Each sample counts as 0.01 seconds.
   %   cumulative   self              self     total           
  time   seconds   seconds    calls   s/call   s/call  name    
- 62.04      0.67     0.67   100000     0.00     0.00  __t1_swap_MOD_find_t1
- 17.59      0.86     0.19   100112     0.00     0.00  __t1_swap_MOD_find_t1_affected
- 11.11      0.98     0.12   100000     0.00     0.00  __t1_swap_MOD_do_t1
-  2.78      1.01     0.03   102000     0.00     0.00  __geometry_MOD_get_boundary_info
-  2.78      1.04     0.03     1000     0.00     0.00  __force_MOD_motile_force_calculation
-  1.85      1.06     0.02     1000     0.00     0.00  __system_info_MOD_calculate_energy
-  0.93      1.07     0.01     1000     0.00     0.00  __allocation_MOD_write_output
-  0.93      1.08     0.01     1000     0.00     0.00  __force_MOD_force_calculation
-  0.00      1.08     0.00   800000     0.00     0.00  __geometry_MOD_calculatearea
-  0.00      1.08     0.00   656000     0.00     0.00  __geometry_MOD_calculateperimeter
-  0.00      1.08     0.00   100112     0.00     0.00  __array_info_MOD_find_unique_sorted
-  0.00      1.08     0.00   100112     0.00     0.00  __array_info_MOD_quicksort_recursive
-  0.00      1.08     0.00     1000     0.00     0.00  __force_MOD_apply_fixed_boundary
-  0.00      1.08     0.00     1000     0.00     0.00  __stress_MOD_calculate_stresstensor
-  0.00      1.08     0.00     1000     0.00     0.00  __stress_MOD_sheartissue
-  0.00      1.08     0.00      112     0.00     0.00  __geometry_MOD_perpendicularbisector2
-  0.00      1.08     0.00      112     0.00     0.00  __t1_swap_MOD_t1_core
-  0.00      1.08     0.00      100     0.00     0.00  __t2_swap_MOD_do_t2
-  0.00      1.08     0.00      100     0.00     0.00  __t2_swap_MOD_find_t2
-  0.00      1.08     0.00        2     0.00     0.00  __allocation_MOD_read_input
-  0.00      1.08     0.00        1     0.00     1.08  MAIN__
-  0.00      1.08     0.00        1     0.00     0.00  __allocation_MOD_allocate_arrays
-  0.00      1.08     0.00        1     0.00     0.00  __allocation_MOD_read_data
+ 90.89     83.64    83.64 10000000     0.00     0.00  __t1_swap_MOD_find_t1
+  4.23     87.53     3.89   100000     0.00     0.00  __force_MOD_force_calculation
+  1.66     89.06     1.53 10000000     0.00     0.00  __t2_swap_MOD_find_t2
+  1.20     90.16     1.10 51200000     0.00     0.00  __geometry_MOD_calculateperimeter
+  0.80     90.90     0.74        1     0.74    91.84  MAIN__
+  0.52     91.38     0.48 51200000     0.00     0.00  __geometry_MOD_calculatearea
+  0.42     91.77     0.39   100000     0.00     0.00  __system_info_MOD_calculate_energy
+  0.20     91.95     0.18                             _init
+  0.04     91.99     0.04 10000000     0.00     0.00  __t2_swap_MOD_do_t2
+  0.03     92.02     0.03 10000000     0.00     0.00  __t1_swap_MOD_do_t1
+  0.00     92.02     0.00      102     0.00     0.00  __allocation_MOD_write_output
+  0.00     92.02     0.00        2     0.00     0.00  __allocation_MOD_read_input
+  0.00     92.02     0.00        1     0.00     0.00  __allocation_MOD_allocate_arrays
+  0.00     92.02     0.00        1     0.00     0.00  __allocation_MOD_read_data
 
  %         the percentage of the total running time of the
 time       program used by this function.
@@ -54,7 +45,7 @@ name       the name of the function.  This is the minor sort
 	   in parenthesis it shows where it would appear in
 	   the gprof listing if it were to be printed.
 
-Copyright (C) 2012-2024 Free Software Foundation, Inc.
+Copyright (C) 2012-2022 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
@@ -63,119 +54,72 @@ notice and this notice are preserved.
 		     Call graph (explanation follows)
 
 
-granularity: each sample hit covers 4 byte(s) for 0.93% of 1.08 seconds
+granularity: each sample hit covers 4 byte(s) for 0.01% of 92.02 seconds
 
 index % time    self  children    called     name
-                0.00    1.08       1/1           main [2]
-[1]    100.0    0.00    1.08       1         MAIN__ [1]
-                0.12    0.89  100000/100000      __t1_swap_MOD_do_t1 [3]
-                0.03    0.00    1000/1000        __force_MOD_motile_force_calculation [7]
-                0.02    0.00    1000/1000        __system_info_MOD_calculate_energy [8]
-                0.01    0.00    1000/1000        __allocation_MOD_write_output [9]
-                0.01    0.00    1000/1000        __force_MOD_force_calculation [10]
-                0.00    0.00    1000/1000        __force_MOD_apply_fixed_boundary [11]
-                0.00    0.00    1000/1000        __stress_MOD_calculate_stresstensor [12]
-                0.00    0.00    1000/1000        __stress_MOD_sheartissue [23]
-                0.00    0.00     100/100         __t2_swap_MOD_do_t2 [26]
-                0.00    0.00       1/1           __allocation_MOD_read_data [30]
-                0.00    0.00       1/1           __allocation_MOD_allocate_arrays [29]
-                0.00    0.00       1/2           __allocation_MOD_read_input [28]
+                0.74   91.10       1/1           main [2]
+[1]     99.8    0.74   91.10       1         MAIN__ [1]
+                0.03   83.64 10000000/10000000     __t1_swap_MOD_do_t1 [3]
+                3.89    0.79  100000/100000      __force_MOD_force_calculation [5]
+                0.04    1.53 10000000/10000000     __t2_swap_MOD_do_t2 [6]
+                0.39    0.79  100000/100000      __system_info_MOD_calculate_energy [8]
+                0.00    0.00     102/102         __allocation_MOD_write_output [18]
+                0.00    0.00       1/1           __allocation_MOD_read_data [21]
+                0.00    0.00       1/1           __allocation_MOD_allocate_arrays [20]
+                0.00    0.00       1/2           __allocation_MOD_read_input [19]
 -----------------------------------------------
                                                  <spontaneous>
-[2]    100.0    0.00    1.08                 main [2]
-                0.00    1.08       1/1           MAIN__ [1]
+[2]     99.8    0.00   91.84                 main [2]
+                0.74   91.10       1/1           MAIN__ [1]
 -----------------------------------------------
-                0.12    0.89  100000/100000      MAIN__ [1]
-[3]     93.5    0.12    0.89  100000         __t1_swap_MOD_do_t1 [3]
-                0.67    0.00  100000/100000      __t1_swap_MOD_find_t1 [4]
-                0.19    0.00  100112/100112      __t1_swap_MOD_find_t1_affected [5]
-                0.03    0.00  100000/102000      __geometry_MOD_get_boundary_info [6]
-                0.00    0.00     112/112         __t1_swap_MOD_t1_core [25]
+                0.03   83.64 10000000/10000000     MAIN__ [1]
+[3]     90.9    0.03   83.64 10000000         __t1_swap_MOD_do_t1 [3]
+               83.64    0.00 10000000/10000000     __t1_swap_MOD_find_t1 [4]
 -----------------------------------------------
-                0.67    0.00  100000/100000      __t1_swap_MOD_do_t1 [3]
-[4]     62.0    0.67    0.00  100000         __t1_swap_MOD_find_t1 [4]
+               83.64    0.00 10000000/10000000     __t1_swap_MOD_do_t1 [3]
+[4]     90.9   83.64    0.00 10000000         __t1_swap_MOD_find_t1 [4]
 -----------------------------------------------
-                0.19    0.00  100112/100112      __t1_swap_MOD_do_t1 [3]
-[5]     17.6    0.19    0.00  100112         __t1_swap_MOD_find_t1_affected [5]
-                0.00    0.00  100112/100112      __array_info_MOD_find_unique_sorted [21]
+                3.89    0.79  100000/100000      MAIN__ [1]
+[5]      5.1    3.89    0.79  100000         __force_MOD_force_calculation [5]
+                0.55    0.00 25600000/51200000     __geometry_MOD_calculateperimeter [9]
+                0.24    0.00 25600000/51200000     __geometry_MOD_calculatearea [10]
 -----------------------------------------------
-                0.00    0.00    1000/102000      __force_MOD_apply_fixed_boundary [11]
-                0.00    0.00    1000/102000      __stress_MOD_calculate_stresstensor [12]
-                0.03    0.00  100000/102000      __t1_swap_MOD_do_t1 [3]
-[6]      2.8    0.03    0.00  102000         __geometry_MOD_get_boundary_info [6]
+                0.04    1.53 10000000/10000000     MAIN__ [1]
+[6]      1.7    0.04    1.53 10000000         __t2_swap_MOD_do_t2 [6]
+                1.53    0.00 10000000/10000000     __t2_swap_MOD_find_t2 [7]
 -----------------------------------------------
-                0.03    0.00    1000/1000        MAIN__ [1]
-[7]      2.8    0.03    0.00    1000         __force_MOD_motile_force_calculation [7]
+                1.53    0.00 10000000/10000000     __t2_swap_MOD_do_t2 [6]
+[7]      1.7    1.53    0.00 10000000         __t2_swap_MOD_find_t2 [7]
 -----------------------------------------------
-                0.02    0.00    1000/1000        MAIN__ [1]
-[8]      1.9    0.02    0.00    1000         __system_info_MOD_calculate_energy [8]
-                0.00    0.00  256000/800000      __geometry_MOD_calculatearea [19]
-                0.00    0.00  256000/656000      __geometry_MOD_calculateperimeter [20]
+                0.39    0.79  100000/100000      MAIN__ [1]
+[8]      1.3    0.39    0.79  100000         __system_info_MOD_calculate_energy [8]
+                0.55    0.00 25600000/51200000     __geometry_MOD_calculateperimeter [9]
+                0.24    0.00 25600000/51200000     __geometry_MOD_calculatearea [10]
 -----------------------------------------------
-                0.01    0.00    1000/1000        MAIN__ [1]
-[9]      0.9    0.01    0.00    1000         __allocation_MOD_write_output [9]
+                0.55    0.00 25600000/51200000     __system_info_MOD_calculate_energy [8]
+                0.55    0.00 25600000/51200000     __force_MOD_force_calculation [5]
+[9]      1.2    1.10    0.00 51200000         __geometry_MOD_calculateperimeter [9]
 -----------------------------------------------
-                0.01    0.00    1000/1000        MAIN__ [1]
-[10]     0.9    0.01    0.00    1000         __force_MOD_force_calculation [10]
-                0.00    0.00  256000/800000      __geometry_MOD_calculatearea [19]
-                0.00    0.00  256000/656000      __geometry_MOD_calculateperimeter [20]
+                0.24    0.00 25600000/51200000     __system_info_MOD_calculate_energy [8]
+                0.24    0.00 25600000/51200000     __force_MOD_force_calculation [5]
+[10]     0.5    0.48    0.00 51200000         __geometry_MOD_calculatearea [10]
 -----------------------------------------------
-                0.00    0.00    1000/1000        MAIN__ [1]
-[11]     0.0    0.00    0.00    1000         __force_MOD_apply_fixed_boundary [11]
-                0.00    0.00    1000/102000      __geometry_MOD_get_boundary_info [6]
+                                                 <spontaneous>
+[11]     0.2    0.18    0.00                 _init [11]
 -----------------------------------------------
-                0.00    0.00    1000/1000        MAIN__ [1]
-[12]     0.0    0.00    0.00    1000         __stress_MOD_calculate_stresstensor [12]
-                0.00    0.00    1000/102000      __geometry_MOD_get_boundary_info [6]
-                0.00    0.00  288000/800000      __geometry_MOD_calculatearea [19]
-                0.00    0.00  144000/656000      __geometry_MOD_calculateperimeter [20]
+                0.00    0.00     102/102         MAIN__ [1]
+[18]     0.0    0.00    0.00     102         __allocation_MOD_write_output [18]
 -----------------------------------------------
-                0.00    0.00  256000/800000      __system_info_MOD_calculate_energy [8]
-                0.00    0.00  256000/800000      __force_MOD_force_calculation [10]
-                0.00    0.00  288000/800000      __stress_MOD_calculate_stresstensor [12]
-[19]     0.0    0.00    0.00  800000         __geometry_MOD_calculatearea [19]
------------------------------------------------
-                0.00    0.00  144000/656000      __stress_MOD_calculate_stresstensor [12]
-                0.00    0.00  256000/656000      __system_info_MOD_calculate_energy [8]
-                0.00    0.00  256000/656000      __force_MOD_force_calculation [10]
-[20]     0.0    0.00    0.00  656000         __geometry_MOD_calculateperimeter [20]
------------------------------------------------
-                0.00    0.00  100112/100112      __t1_swap_MOD_find_t1_affected [5]
-[21]     0.0    0.00    0.00  100112         __array_info_MOD_find_unique_sorted [21]
-                0.00    0.00  100112/100112      __array_info_MOD_quicksort_recursive [22]
------------------------------------------------
-                             1001120             __array_info_MOD_quicksort_recursive [22]
-                0.00    0.00  100112/100112      __array_info_MOD_find_unique_sorted [21]
-[22]     0.0    0.00    0.00  100112+1001120 __array_info_MOD_quicksort_recursive [22]
-                             1001120             __array_info_MOD_quicksort_recursive [22]
------------------------------------------------
-                0.00    0.00    1000/1000        MAIN__ [1]
-[23]     0.0    0.00    0.00    1000         __stress_MOD_sheartissue [23]
------------------------------------------------
-                0.00    0.00     112/112         __t1_swap_MOD_t1_core [25]
-[24]     0.0    0.00    0.00     112         __geometry_MOD_perpendicularbisector2 [24]
------------------------------------------------
-                0.00    0.00     112/112         __t1_swap_MOD_do_t1 [3]
-[25]     0.0    0.00    0.00     112         __t1_swap_MOD_t1_core [25]
-                0.00    0.00     112/112         __geometry_MOD_perpendicularbisector2 [24]
------------------------------------------------
-                0.00    0.00     100/100         MAIN__ [1]
-[26]     0.0    0.00    0.00     100         __t2_swap_MOD_do_t2 [26]
-                0.00    0.00     100/100         __t2_swap_MOD_find_t2 [27]
------------------------------------------------
-                0.00    0.00     100/100         __t2_swap_MOD_do_t2 [26]
-[27]     0.0    0.00    0.00     100         __t2_swap_MOD_find_t2 [27]
------------------------------------------------
-                0.00    0.00       1/2           __allocation_MOD_allocate_arrays [29]
+                0.00    0.00       1/2           __allocation_MOD_allocate_arrays [20]
                 0.00    0.00       1/2           MAIN__ [1]
-[28]     0.0    0.00    0.00       2         __allocation_MOD_read_input [28]
+[19]     0.0    0.00    0.00       2         __allocation_MOD_read_input [19]
 -----------------------------------------------
                 0.00    0.00       1/1           MAIN__ [1]
-[29]     0.0    0.00    0.00       1         __allocation_MOD_allocate_arrays [29]
-                0.00    0.00       1/2           __allocation_MOD_read_input [28]
+[20]     0.0    0.00    0.00       1         __allocation_MOD_allocate_arrays [20]
+                0.00    0.00       1/2           __allocation_MOD_read_input [19]
 -----------------------------------------------
                 0.00    0.00       1/1           MAIN__ [1]
-[30]     0.0    0.00    0.00       1         __allocation_MOD_read_data [30]
+[21]     0.0    0.00    0.00       1         __allocation_MOD_read_data [21]
 -----------------------------------------------
 
  This table describes the call tree of the program, and was sorted by
@@ -260,7 +204,7 @@ index % time    self  children    called     name
  for that member, how many times it was called from other members of
  the cycle.
 
-Copyright (C) 2012-2024 Free Software Foundation, Inc.
+Copyright (C) 2012-2022 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
@@ -268,11 +212,8 @@ notice and this notice are preserved.
 
 Index by function name
 
-   [1] MAIN__                 [10] __force_MOD_force_calculation [8] __system_info_MOD_calculate_energy
-  [29] __allocation_MOD_allocate_arrays [7] __force_MOD_motile_force_calculation [3] __t1_swap_MOD_do_t1
-  [30] __allocation_MOD_read_data [19] __geometry_MOD_calculatearea [4] __t1_swap_MOD_find_t1
-  [28] __allocation_MOD_read_input [20] __geometry_MOD_calculateperimeter [5] __t1_swap_MOD_find_t1_affected
-   [9] __allocation_MOD_write_output [6] __geometry_MOD_get_boundary_info [25] __t1_swap_MOD_t1_core
-  [21] __array_info_MOD_find_unique_sorted [24] __geometry_MOD_perpendicularbisector2 [26] __t2_swap_MOD_do_t2
-  [22] __array_info_MOD_quicksort_recursive [12] __stress_MOD_calculate_stresstensor [27] __t2_swap_MOD_find_t2
-  [11] __force_MOD_apply_fixed_boundary [23] __stress_MOD_sheartissue
+   [1] MAIN__                  [5] __force_MOD_force_calculation [4] __t1_swap_MOD_find_t1
+  [20] __allocation_MOD_allocate_arrays [10] __geometry_MOD_calculatearea [6] __t2_swap_MOD_do_t2
+  [21] __allocation_MOD_read_data [9] __geometry_MOD_calculateperimeter [7] __t2_swap_MOD_find_t2
+  [19] __allocation_MOD_read_input [8] __system_info_MOD_calculate_energy [11] _init
+  [18] __allocation_MOD_write_output [3] __t1_swap_MOD_do_t1

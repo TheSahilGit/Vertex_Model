@@ -29,6 +29,9 @@ program vertexmain
 
   Nc = Lx*Ly
 
+  if(if_motility)then
+    print*, "Apolar Cell Motility, ", ' etas_max', etas_max
+  end if
 
   if(if_motility_gradient)then
     print*, 'Motility Gradient'
@@ -121,7 +124,10 @@ program vertexmain
 
 
     call Force_Calculation
-    call Motile_Force_Calculation
+
+    if(if_motility)then
+      call Motile_Force_Calculation
+    end if
 
     if(if_Fixed_boundary)then
       call Apply_Fixed_Boundary

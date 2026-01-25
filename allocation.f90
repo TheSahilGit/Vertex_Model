@@ -82,8 +82,10 @@ module allocation
       real*8 :: sigma(2,2)
       real*8, allocatable, dimension(:,:) :: TotalSigma
 
+      logical :: if_motility
 
       logical :: if_motility_gradient, if_Fixed_boundary, if_Sudden_Shearing, if_Oscillatory_Shearing
+      
       logical :: if_motility_decay
       real*8 :: motility_decay_timeScale
 
@@ -175,6 +177,7 @@ module allocation
      read(112,*) it_dump
      read(112,*) T1_time_interval
      read(112,*) T2_time_interval
+     read(112,*) if_motility
      read(112,*) if_motility_gradient
      read(112,*) etas_max
      read(112,*) etas_min
