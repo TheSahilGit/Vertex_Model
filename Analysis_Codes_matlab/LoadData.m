@@ -1,5 +1,5 @@
 
-function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity] = LoadData(it, nrun)
+function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity, stitched_data] = LoadData(it, nrun)
 
 
 para2 = load("../para2_in.dat");
@@ -86,6 +86,87 @@ fclose(fid);
 cell_identity = strtrim(string(cell_identity_raw));
 
 
+%% ---------- Initialize ----------
+energy       = [];
+ShearStress  = [];
+T1_count     = [];
+T2_count     = [];
+cumsum_T1    = [];
+cumsum_T2    = [];
+
+%% ---------- Energy ----------
+fname = '../data/Energy.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');              % dummy header
+    energy = fread(fid,Inf,'float64');
+    fclose(fid);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- Shear Stress ----------
+fname = '../data/ShearStress.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    ShearStress = fread(fid,Inf,'float64');
+    fclose(fid);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- T1 count ----------
+fname = '../data/T1_count.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    T1_count = fread(fid,Inf,'float64');
+    fclose(fid);
+    cumsum_T1 = cumsum(T1_count);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- T2 count ----------
+fname = '../data/T2_count.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    T2_count = fread(fid,Inf,'float64');
+    fclose(fid);
+    cumsum_T2 = cumsum(T2_count);
+else
+    warning('Missing file: %s', fname);
+end
+
+
+
+%% ---------- Stitch column-wise ----------
+data_cells = {energy, ShearStress, cumsum_T1, cumsum_T2};
+labels     = {'Energy', 'ShearStress', 'T1_cumsum', 'T2_cumsum'};
+
+% Remove empty columns
+valid = ~cellfun(@isempty, data_cells);
+data_cells = data_cells(valid);
+labels     = labels(valid);
+
+if isempty(data_cells)
+    stitched_data = [];
+    warning('No data available to stitch.');
+else
+    % Trim all to same length
+    minLen = min(cellfun(@numel, data_cells));
+    for i = 1:numel(data_cells)
+        data_cells{i} = data_cells{i}(1:minLen);
+    end
+
+    stitched_data = [data_cells{:}];
+end
+
+%% ---------- Result ----------
+% stitched_data : N x M numeric array
+% labels        : column names
 
 
 

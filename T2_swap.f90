@@ -44,8 +44,10 @@ module T2_swap
         call random_number(rr)
         chosen_index = int(rr*count_T2+1)
         cellNoT2 = cell_no(chosen_index)
+        T2_found = .true.
       else
-        T2_pass = .false.
+       ! T2_pass = .false.
+        T2_found = .false.
       end if
 
 
@@ -222,7 +224,7 @@ module T2_swap
 
 
 
-    call find_T2
+!    call find_T2
 
      if(T2_pass.and.if_Fixed_boundary)then
  

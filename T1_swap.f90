@@ -65,6 +65,7 @@ module T1_swap
          verNoT1 = ver_no(chosen_index)
          verNoNextT1 = ver_no_next(chosen_index)
          len_d_T1 = d_val(chosen_index)
+         T1_found = .true.
         
       !  cellNoT1 = cell_no(1)
       !  verNoT1 = ver_no(1)
@@ -76,7 +77,8 @@ module T1_swap
         verNoT1 = 0
         verNoNextT1 = 0
         len_d_T1 = 0.0d0
-        T1_pass = .false.
+        !T1_pass = .false.
+        T1_found = .false.
 
       end if
 
@@ -341,7 +343,7 @@ module T1_swap
 
       T1_pass = .true.
       
-      call find_T1
+!      call find_T1
 
       if(T1_pass)then
         if(if_Fixed_boundary)then
@@ -389,7 +391,7 @@ module T1_swap
           call T1_core    
          ! print*, "T1 Happened at it = ", it
           Total_T1_count(it) = Total_T1_count(it) + 1
-        end if
+      end if
 
 
 

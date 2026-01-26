@@ -15,6 +15,8 @@ module allocation
       integer :: count_T2, cellNoT2, verNoT2
       real*8, allocatable, dimension(:) :: Total_T1_count, Total_T2_count
 
+      logical :: T1_found, T2_found
+
       integer :: next_idx, prev_idx, chosen_index
       real*8 :: len_d,len_d_sq, dx, dy, rr
       integer*4, dimension(:), allocatable :: cell_no, ver_no, ver_no_next

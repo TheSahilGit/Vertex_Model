@@ -96,17 +96,25 @@ program vertexmain
 
     if(modulo(it,T1_time_interval).eq.0.0d0.or.it.eq.1)then
 !    if(it==1)then
-      do iki = 1,100
+!      do iki = 1,100
 
         if(if_Do_T1)then
-          call Do_T1
+          do 
+            call find_T1
+            if(.not. T1_found) exit
+            call Do_T1
+          end do
         end if
 
         if(if_Do_T2)then
-          call Do_T2
+          do
+            call find_T2
+            if(.not.T2_found) exit
+            call Do_T2
+          end do
         end if
 
-      end do
+!      end do
     end if
 
 
