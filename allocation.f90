@@ -137,6 +137,11 @@ module allocation
 
       character(500), dimension(:), allocatable :: cell_identity
 
+      logical :: if_polar_motility
+      real*8 :: polar_motility_strength
+      real*8, dimension(:), allocatable :: fxx_Polar, fyy_Polar
+        
+
 
 
    contains 
@@ -232,6 +237,8 @@ module allocation
      read(112,*) Myosin_noise_strength
      read(112,*) if_coupling_noise
      read(112,*) coupling_noise_strength
+     read(112,*) if_polar_motility
+     read(112,*) polar_motility_strength
 
      
 
@@ -259,6 +266,7 @@ module allocation
      allocate(inn(inn_dim1,inn_dim2))
      allocate(fxx(v_dim2), fyy(v_dim2))
      allocate(fxx_ran(v_dim2), fyy_ran(v_dim2))
+     allocate(fxx_Polar(v_dim2), fyy_Polar(v_dim2))
      allocate(fxx_temp(v_dim2), fyy_temp(v_dim2))
      allocate(fxx_ABP(v_dim2), fyy_ABP(v_dim2), theta_ABP(v_dim2), rot_noise(v_dim2))
      allocate(edgelength(Lx*Ly*inn_dim1))
@@ -299,6 +307,7 @@ module allocation
      fxx = 0.0d0; fyy = 0.0d0
      fxx_ran = 0.0d0; fyy_ran = 0.0d0
      fxx_ABP = 0.0d0; fyy_ABP = 0.0d0; theta_ABP = 0.0d0
+     fxx_Polar = 0.0d0; fyy_Polar = 0.0d0
      rot_noise = 0.0d0
 
      Rho = 0.0d0; ROCK = 0.0d0; Myosin = 0.0d0
@@ -417,7 +426,8 @@ module allocation
        write(iunit_num)(num(i), i=1,num_dim)
        write(iunit_v)((v(i,j), i=1,v_dim1),j=1,v_dim2)
        write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
-        fxx_ABP(i), fyy_ABP(i), i = 1, v_dim2)
+        fxx_ABP(i), fyy_ABP(i), & 
+        fxx_Polar(i), fyy_Polar(i), i = 1, v_dim2)
        write(iunit_Myosin)(Rho(i), ROCK(i), Myosin(i), i = 1, num_dim)
        write(iunit_cell_identity)(cell_identity(i),  i=1,num_dim)
       

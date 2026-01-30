@@ -68,8 +68,8 @@ v = v';
 
 fid = fopen(fname_force);
 dum4 = fread(fid,1,'float32');
-forces = fread(fid,6*vdim2,'float64');
-forces = reshape(forces,[6,vdim2]);
+forces = fread(fid,8*vdim2,'float64');
+forces = reshape(forces,[8,vdim2]);
 forces = forces';
 
 fid = fopen(fname_Myosin);

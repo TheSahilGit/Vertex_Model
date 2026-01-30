@@ -72,6 +72,10 @@ program vertexmain
      call  Initialize_RhoROCK
    end if
 
+  if(if_polar_motility)then
+    print*, 'Polar Motility ; ' , 'Strength', polar_motility_strength
+  end if
+
 
 
 
@@ -150,15 +154,22 @@ program vertexmain
        call ABP_Force_Calculation
      end if
 
+    if(if_polar_motility)then
+      call Polar_Motile_Force_Calculation
+    end if
+
+
 
 
 
     v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
-      dt * fxx_ABP(:) / eta
+      dt * fxx_ABP(:) / eta + &
+      sqrt(dt) * fxx_Polar(:)/eta
       
 
     v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta + &
-      dt * fyy_ABP(:) / eta
+      dt * fyy_ABP(:) / eta + &
+      sqrt(dt) * fyy_Polar(:)/eta
 
     if(if_ABP)then
       theta_ABP(:)  = theta_ABP(:) + dsqrt(dt) * rot_noise(:)

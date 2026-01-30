@@ -160,6 +160,30 @@ module Force
 
   end subroutine ABP_Force_Calculation
 
+  subroutine Polar_Motile_Force_Calculation
+     implicit none
+     real*8 :: rann_x, rann_y
+
+     if(if_polar_motility)then
+
+       do ic = 1, Nc
+         call random_number(rann_x)
+         call random_number(rann_y)
+
+         do jc = 1, num(ic)
+           fxx_Polar(inn(jc,ic)) = polar_motility_strength * (rann_x - 0.50d0)
+           fyy_Polar(inn(jc,ic)) = polar_motility_strength * (rann_y - 0.50d0)
+         end do
+       end do
+
+
+     else
+       fxx_Polar = 0.0d0
+       fyy_Polar = 0.0d0
+     end if
+
+
+  end subroutine Polar_Motile_Force_Calculation
 
   subroutine Give_Motility_Gradient
 
