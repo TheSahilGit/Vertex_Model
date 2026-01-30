@@ -27,7 +27,7 @@ nrun = 2;
 %% ---------------------------------------------------------
 %% Compute COM trajectory + physical time
 ct = 1;
-for it = 5000:5000:10000000
+for it = 5000:5000:1000000
 
     [Lx, Ly, v, inn, num, forces] = LoadData(it, nrun);    
 

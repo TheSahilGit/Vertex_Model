@@ -17,8 +17,6 @@ module Force
 
     fxx = 0.0d0
     fyy = 0.0d0
-    fxx_active_contr = 0.0d0
-    fyy_active_contr = 0.0d0
 
 
 
@@ -41,6 +39,10 @@ module Force
         else 
           beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
         end if
+      end if
+
+      if(if_active_contractility)then
+        beta = Myosin(ic) / (lambda * Ao)
       end if
 
 
@@ -90,28 +92,6 @@ module Force
         fyy(inn(jc,ic)) = fyy(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_Y  &
           - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_Y &
           - gamm * grad_perimeter_Y
-
-
-
-
-        ! Active contractility !
-
-        if(if_active_contractility)then
-          call random_number(rann)
-          fxx_active_contr(inn(jc,ic)) = fxx_active_contr(inn(jc,ic)) & 
-            - 2.0d0 * beta * (perimeter - Co) * grad_perimeter_X * &
-            active_contr_strength * (2.0d0 * rann - 1.0d0)
-
-          call random_number(rann)
-          fyy_active_contr(inn(jc,ic)) = fyy_active_contr(inn(jc,ic)) & 
-            - 2.0d0 * beta * (perimeter - Co) * grad_perimeter_Y * &
-            active_contr_strength * (2.0d0 * rann - 1.0d0)
-        else
-          fxx_active_contr = 0.0d0
-          fyy_active_contr = 0.0d0
-        end if
-
-
 
       end do
 
@@ -710,6 +690,25 @@ subroutine compute_RHS(Rho_in, ROCK_in, M_in, Rho_out, ROCK_out, M_out)
 
 end subroutine compute_RHS
 
+subroutine Solve_Myosin_Act_Contr
+
+  implicit none
+  integer :: ic
+  real*8 :: rann
+
+  do ic = 1,Nc 
+
+    call random_number(rann)
+    rann = rann - 0.5d0
+
+    Myosin(ic) = Myosin(ic) - dt * ( Myosin(ic) - beta_0)/tau_contr &
+      + sqrt(dt) * active_contr_strength * rann
+
+  end do
+
+
+end subroutine Solve_Myosin_Act_Contr
+  
 
 
 

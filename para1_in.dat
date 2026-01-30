@@ -3,10 +3,10 @@
 1.0d0            ! Ao
 0.0d0            ! Co
 1.0d0            ! lambda
-0.05d0           ! beta
+0.08d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d5            ! totT
+1.0d7            ! totT
 1.0d-3           ! dt
 .true.           ! if_Do_T1 
 0.1              ! min_d_T1
@@ -51,8 +51,9 @@
 .false.            ! if_squeeze_tissue
 1                  ! squeeze_when (unit of it)
 30.0d0             ! percent_squeeze  
-.false.            ! if_active_contractility (Fluctuating_ontractility)
-8.0d-1             ! active_contr_strength
+.true.            ! if_active_contractility (Fluctuating_ontractility)
+1.0d0             ! tau_contr  (Correlation time for beta)
+0.12d0             ! active_contr_strength
 .false.            ! if_ABP (Polar_motility)
 2.50d-1            ! vo
 1.0d0              ! Dr

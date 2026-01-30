@@ -28,7 +28,7 @@ mov = VideoWriter("Movie1_test.avi");
 mov.FrameRate = 1;
 open(mov); % Open the video file    before entering the loop
 
-%fig = figure('Position', [100, 100, Lx*50, Ly*50]);
+fig = figure('Position', [100, 100, 800, 800]);
 ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
@@ -39,7 +39,7 @@ nrun = 2;
 boundary_ = [      1           2           3           4           5           6           7           8           9          10          11          12          13          14          15          16         241         242         243         244         245         246         247         248         249         250         251         252         253         254         255         256          16          32          48          64          80          96         112         128         144         160         176         192         208         224         240         256           1          17          33          49          65          81          97         113         129         145         161         177         193         209         225         241           1          16         241         256
 ];
 
-for it = 104000
+for it = 10000000
 
     [Lx, Ly, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
     Myosin = biochemdata(:,3);

@@ -17,7 +17,7 @@ for i = 1:Lx*Ly
     initPos(key) = [cmX_init(i), cmY_init(i)];
 end
 
-it_times = (1000:1000:10000000);
+it_times = (5000:5000:2500000);
 MSD = zeros(length(it_times),1);
 times = it_times * dt; 
 tidx = 0;

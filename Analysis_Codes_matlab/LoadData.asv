@@ -1,0 +1,170 @@
+
+function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity] = LoadData(it, nrun)
+
+
+para2 = load("../para2_in.dat");
+etas = load("../motility_in.dat");
+
+
+
+
+%%
+
+Lx = para2(1);
+Ly = para2(2);
+numdim  = para2(3);
+vdim1 = para2(4);
+vdim2 = para2(5);
+inndim1 = para2(6);
+inndim2 = para2(7);
+
+
+
+if nrun==1
+    fname_inn = sprintf('../data/inn_%08d.dat', it);
+    fname_num = sprintf('../data/num_%08d.dat', it);
+    fname_v = sprintf('../data/v_%08d.dat', it);
+    fname_force = sprintf('../data/force_%08d.dat', it);
+    fname_Myosin = sprintf('../data/Myosin_%08d.dat', it);
+    fname_cellid = sprintf('../data/cell_identity_%08d.dat', it);
+
+elseif nrun==2
+    fname_inn = sprintf('../data/nrun2_inn_%08d.dat', it);
+    fname_num = sprintf('../data/nrun2_num_%08d.dat', it);
+    fname_v = sprintf('../data/nrun2_v_%08d.dat', it);
+    fname_force = sprintf('../data/nrun2_force_%08d.dat', it);
+    fname_Myosin = sprintf('../data/nrun2_Myosin_%08d.dat', it);
+    fname_cellid = sprintf('../data/nrun2_cell_identity_%08d.dat', it);
+
+end
+
+fid = fopen(fname_inn);
+dum1 = fread(fid,1,'float32');
+inn = fread(fid,inndim1*inndim2,'int');
+inn = reshape(inn, [inndim1,inndim2]);
+inn = inn';
+
+fid = fopen(fname_num);
+dum2 = fread(fid,1,'float32');
+num = fread(fid,numdim,'int');
+%num(Lx*Ly+1:end) = [];
+
+%
+
+fid = fopen(fname_v);
+dum3 = fread(fid,1,'float32');
+v = fread(fid,vdim1*vdim2,'float64');
+v = reshape(v,[vdim1,vdim2]);
+v = v';
+
+
+
+% fid = fopen(fname_force);
+% dum4 = fread(fid,1,'float32');
+% forces = fread(fid,vdim1*vdim2,'float64');
+% forces = reshape(forces,[vdim1,vdim2]);
+% forces = forces';
+
+
+fid = fopen(fname_force);
+dum4 = fread(fid,1,'float32');
+forces = fread(fid,6*vdim2,'float64');
+forces = reshape(forces,[6,vdim2]);
+forces = forces';
+
+fid = fopen(fname_Myosin);
+dum2 = fread(fid,1,'float32');
+biochemdata = fread(fid,3*numdim,'float64');
+biochemdata = reshape(biochemdata, [3, numdim]);
+biochemdata = biochemdata';
+
+
+fid = fopen(fname_cellid,'rb');
+dum2 = fread(fid,1,'float32');
+cell_identity_raw = fread(fid,[500, numdim],'char=>char')';
+fclose(fid);
+cell_identity = strtrim(string(cell_identity_raw));
+
+
+
+
+%% ---------- Initialize ----------
+energy       = [];
+ShearStress  = [];
+T1_count     = [];
+T2_count     = [];
+cumsum_T1    = [];
+cumsum_T2    = [];
+
+%% ---------- Energy ----------
+fname = '../data/Energy.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');              % dummy header
+    energy = fread(fid,Inf,'float64');
+    fclose(fid);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- Shear Stress ----------
+fname = '../data/ShearStress.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    ShearStress = fread(fid,Inf,'float64');
+    fclose(fid);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- T1 count ----------
+fname = '../data/T1_count.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    T1_count = fread(fid,Inf,'float64');
+    fclose(fid);
+    cumsum_T1 = cumsum(T1_count);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- T2 count ----------
+fname = '../data/T2_count.dat';
+if isfile(fname)
+    fid = fopen(fname,'r');
+    fread(fid,1,'float32');
+    T2_count = fread(fid,Inf,'float64');
+    fclose(fid);
+    cumsum_T2 = cumsum(T2_count);
+else
+    warning('Missing file: %s', fname);
+end
+
+%% ---------- Stitch column-wise ----------
+data_cells = {energy, ShearStress, cumsum_T1, cumsum_T2};
+labels     = {'Energy', 'ShearStress', 'T1_cumsum', 'T2_cumsum'};
+
+% Remove empty columns
+valid = ~cellfun(@isempty, data_cells);
+data_cells = data_cells(valid);
+labels     = labels(valid);
+
+if isempty(data_cells)
+    stitched_data = [];
+    warning('No data available to stitch.');
+else
+    % Trim all to same length
+    minLen = min(cellfun(@numel, data_cells));
+    for i = 1:numel(data_cells)
+        data_cells{i} = data_cells{i}(1:minLen);
+    end
+
+    stitched_data = [data_cells{:}];
+end
+
+
+
+
+end

@@ -58,7 +58,8 @@ program vertexmain
    end if
 
    if(if_active_contractility)then
-     print*, 'Active Contractility ; ', 'strength:', active_contr_strength
+     print*, 'Active Contractility ; ', 'tau', tau_contr, 'strength:', active_contr_strength
+     Myosin = beta_0
    end if
 
    if(if_ABP)then
@@ -121,6 +122,10 @@ program vertexmain
       end if
     end if
 
+    if(if_active_contractility)then
+      call Solve_Myosin_Act_Contr
+    end if
+
 
 
     call Force_Calculation
@@ -149,12 +154,10 @@ program vertexmain
 
 
     v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
-      sqrt(dt) * fxx_active_contr(:) / eta + &
       dt * fxx_ABP(:) / eta
       
 
     v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta + &
-      sqrt(dt) * fyy_active_contr(:) / eta + &
       dt * fyy_ABP(:) / eta
 
     if(if_ABP)then

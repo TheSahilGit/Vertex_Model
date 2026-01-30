@@ -37,6 +37,7 @@ module allocation
    
    
       real*8 :: eta, lambda, beta, gamm, Ao, Co,  dt
+      real*8 :: beta_0
 
       real*8, allocatable, dimension(:) :: coefficients
       real*8, dimension(:),  allocatable ::  fxx_temp, fyy_temp
@@ -119,8 +120,7 @@ module allocation
 
 
       logical :: if_active_contractility
-      real*8 :: active_contr_strength 
-      real*8, dimension(:), allocatable :: fxx_active_contr, fyy_active_contr
+      real*8 :: tau_contr, active_contr_strength
 
 
       logical :: if_ABP
@@ -211,6 +211,7 @@ module allocation
      read(112,*) squeeze_when
      read(112,*) percent_squeeze
      read(112,*) if_active_contractility
+     read(112,*) tau_contr
      read(112,*) active_contr_strength
      read(112,*) if_ABP
      read(112,*) vo
@@ -236,6 +237,7 @@ module allocation
 
 
 
+     beta_0 = beta
 
      totT = int(totTr)
      nrun2_initialTime = int(nrun2_initialTime_r)
@@ -257,7 +259,6 @@ module allocation
      allocate(inn(inn_dim1,inn_dim2))
      allocate(fxx(v_dim2), fyy(v_dim2))
      allocate(fxx_ran(v_dim2), fyy_ran(v_dim2))
-     allocate(fxx_active_contr(v_dim2), fyy_active_contr(v_dim2))
      allocate(fxx_temp(v_dim2), fyy_temp(v_dim2))
      allocate(fxx_ABP(v_dim2), fyy_ABP(v_dim2), theta_ABP(v_dim2), rot_noise(v_dim2))
      allocate(edgelength(Lx*Ly*inn_dim1))
@@ -297,7 +298,6 @@ module allocation
 
      fxx = 0.0d0; fyy = 0.0d0
      fxx_ran = 0.0d0; fyy_ran = 0.0d0
-     fxx_active_contr = 0.0d0; fyy_active_contr = 0.0d0
      fxx_ABP = 0.0d0; fyy_ABP = 0.0d0; theta_ABP = 0.0d0
      rot_noise = 0.0d0
 
@@ -417,7 +417,6 @@ module allocation
        write(iunit_num)(num(i), i=1,num_dim)
        write(iunit_v)((v(i,j), i=1,v_dim1),j=1,v_dim2)
        write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
-        fxx_active_contr(i), fyy_active_contr(i), & 
         fxx_ABP(i), fyy_ABP(i), i = 1, v_dim2)
        write(iunit_Myosin)(Rho(i), ROCK(i), Myosin(i), i = 1, num_dim)
        write(iunit_cell_identity)(cell_identity(i),  i=1,num_dim)

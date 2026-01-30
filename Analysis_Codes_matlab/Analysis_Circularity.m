@@ -8,7 +8,7 @@ nrun = 2;
 
 time = 0;
 ct = 1;
-for it = 1000:1000:10000000
+for it = 10000:10000:10000000
     ct
 
     [Lx, Ly, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
@@ -57,6 +57,7 @@ figure("Position",[100 100 800 800])
 
 plot(time, circularity,'o', "LineWidth",3, 'MarkerSize',20);
 hold on; 
+yline(0.95)
 
 
 xlabel("Time");

@@ -5,7 +5,7 @@ nrun = 2;
 
 ct = 1;
 
-for it = 1000:1000:104000
+for it = 1000:1000:5700000
 
 [~, ~, v, inn, num, ~, biochemdata] = LoadData(it, nrun);
 Nc = find(num ~= 0, 1, 'last');
@@ -123,6 +123,22 @@ legend('Location','best')
 set(gca, 'FontSize', 32)
 grid on;
 
+%% Autocorrelation of beta of a single cell. 
+
+x = Myosin_time1;
+N = length(x);
+[xc,lags] = xcorr(x-mean(x),'normalized');
+
+xc = xc(lags>=0);
+lags = lags(lags>=0);
+
+
+figure()
+plot(lags*1e-3, xc, 'LineWidth',4)
+
+
+idx = find(xc < exp(-1),1);
+tau_estimated = lags(idx)*1e-3
 
 
 %%

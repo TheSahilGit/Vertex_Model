@@ -30,7 +30,7 @@ inndim2 = para2(7);
 nrun = 2;
 
 ct = 1;
-for it = 5000:5000:1000000
+for it = 10000:10000:10000000
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);    
 
     [globalMeanX, globalMeanY] = calculate_globalCentre(v, inn, num) ;
