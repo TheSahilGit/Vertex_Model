@@ -362,7 +362,7 @@ module T1_swap
             do il = 1, size(Affected)
               if(boundary(im).eq.Affected(il))then
                   T1_pass = .false.
-                  write(*,*)'Boundary Ignored T1'
+                  print*, 'Boundary Ignored T1 at', boundary(im)
               end if
             end do
           end do

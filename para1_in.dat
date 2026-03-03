@@ -12,7 +12,7 @@
 0.1              ! min_d_T1
 .true.           ! if_Do_T2
 0.25d0           ! min_area_T2
-.false.          ! if_Fixed_boundary
+.true.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
 1000             ! it_dump (unit of it)

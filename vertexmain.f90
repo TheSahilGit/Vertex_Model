@@ -101,6 +101,7 @@ program vertexmain
         if(if_Do_T1)then
           do 
             call find_T1
+            print*, "Testing back"
             if(.not. T1_found) exit
             call Do_T1
           end do
