@@ -27,26 +27,17 @@ open(mov); % Open the video file    before entering the loop
 
 
 ct = 1; 
-for it = 1000
-
-    [Lx, Ly, v, inn, num, ~, biochemdata, ~, ~] = LoadData(it, nrun);
+for it = 5000
+    
+    [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity] = LoadData(it, nrun);
 
     
     %colordata = rand(1,numdim);
     %colorbar_string = "Nothing";
 
-
-    %%-- For the arrays that are shaped in terms of vertices. 
-
-    %Fcell =  MeanVertexForceMagnitude_Cell(forces(:,1:2), inn, num, numdim); 
-    %Fcell2 =  MeanVertexForceMagnitude_Cell(forces(:,5:6), inn, num, numdim); 
-    %Fcell = Fcell1 + Fcell2;
-
-
-    %colordata =  0.05 + 2 * (rand(1,length(forces(:,1))) - 0.5); 
-
-    colordata = biochemdata(:,3); 
-    colorbar_string = "\beta"; 
+    Fcell =  MeanVertexForceMagnitude_Cell(forces(:,1:2), inn, num, numdim); 
+    colordata = Fcell; 
+    colorbar_string = "Force"; 
 
 
     norm_flag = 'data';
@@ -64,6 +55,8 @@ for it = 1000
     title(num2str(it))
     F = getframe(gcf); % Get the frame
     writeVideo(mov, F); % Add frame to the video file
+
+   % exportgraphics(gcf, 'figure.png', 'Resolution', 300);
 
     hold off;
 
@@ -119,8 +112,7 @@ for i = 1:Nc
  %      'EdgeColor', 'k', ...
  %      'LineWidth', 1.0);
 
- hold on
-
+     hold on;
 
 end
 
@@ -143,9 +135,6 @@ end
 
 function Fcell = MeanVertexForceMagnitude_Cell(forces, inn, num, numdim)
 
-%%-- To convert the array which is written in terms of vertex to cell. 
-
-
 % forces(v,1) = Fx(v)
 % forces(v,2) = Fy(v)
 
@@ -163,8 +152,3 @@ for i = 1:Nc
 end
 
 end
-
-
-
-
-
