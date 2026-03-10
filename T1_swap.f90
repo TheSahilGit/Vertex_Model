@@ -375,11 +375,21 @@ module T1_swap
           if(bottom_border(im).eq.inn(verNoT1, cellNoT1) &
             .or.bottom_border(im).eq.inn(verNoT1+1, cellNoT1))then
             T1_pass = .false.
-            write(*,*)'Bottom Border Ignored'
+            write(*,*)'Bottom Border Ignored T1'
           end if
         end do
       end if
 
+      if(T1_pass.and.if_top_borders_fixed)then
+      call Find_boundary_dynamic
+        do im = 1, top_border_count
+          if(top_border(im).eq.inn(verNoT1, cellNoT1) &
+            .or.top_border(im).eq.inn(verNoT1+1, cellNoT1))then
+            T1_pass = .false.
+            write(*,*)'Top Border Ignored T1'
+          end if
+        end do
+      end if
 
      
 !      write(*,*)T1_pass,count_T1
