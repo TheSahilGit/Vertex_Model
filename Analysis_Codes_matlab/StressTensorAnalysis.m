@@ -1,12 +1,14 @@
 clear; clc; close all;
 
 
+para1 = readtable("../para1_in.dat");
+Nt = table2array(para1(7,1));
+dt = table2array(para1(8,1));
 
-
-nrun = 1;
+nrun = 2;
 
 ct = 1;
-for it = 5000:5000:5000000
+for it = 100:100:58700
     it
 
     [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
@@ -14,37 +16,18 @@ for it = 5000:5000:5000000
     [~, ShearStress_Individual] = calculate_total_stress(Lx,Ly,v,inn,num);
 
     st(ct) = mean(ShearStress_Individual);
-    time(ct) = it*2.5e-3;
+    time(ct) = it*dt;
 
     ct = ct + 1; 
 
 end
-%%
-
-
-
-fname_energy = sprintf('../data/Energy.dat');
-fid = fopen(fname_energy);
-dum4 = fread(fid,1,'float32');
-energy = fread(fid,5000000,'float64');
-time0 = (0:2.5e-3:5000000*2.5e-3 - 2.5e-3);
-
 
 figure()
-loglog(time0(1:end),energy(1:end), '-')
-
+plot(time, st, '-o')
 axis square
-%legend("FontSize",18)
 xlabel("time")
-ylabel("Energy")
+ylabel("Stress Tensor")
 axis square
-set(gca, 'FontSize', 28,'LineWidth',1);
+set(gca, 'FontSize', 28,'LineWidth',2);
 set(findall(gca, 'Type', 'Line'), 'LineWidth', 4);
 
-
-
-%%
-
-figure()
-plot(time(2:end), st(2:end), '-o')
-axis square
