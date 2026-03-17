@@ -358,6 +358,11 @@ subroutine Apply_Fixed_Boundary
      fxx_ran(inn(1:nn, im)) = 0.0d0
      fyy(inn(1:nn, im)) = 0.0d0
      fyy_ran(inn(1:nn, im)) = 0.0d0
+     fxx_ABP(inn(1:nn, im)) = 0.0d0
+     fyy_ABP(inn(1:nn, im)) = 0.0d0
+     fxx_Polar(inn(1:nn, im)) = 0.0d0
+     fyy_Polar(inn(1:nn, im)) = 0.0d0
+
    end do
 
 
@@ -374,6 +379,10 @@ subroutine Apply_bottom_border_Fixed
   fxx_ran(bottom_border(1:bottom_border_count)) = 0.0d0
   fyy(bottom_border(1:bottom_border_count)) = 0.0d0
   fyy_ran(bottom_border(1:bottom_border_count)) = 0.0d0
+  fxx_ABP(bottom_border(1:bottom_border_count)) = 0.0d0
+  fyy_ABP(bottom_border(1:bottom_border_count)) = 0.0d0
+  fxx_Polar(bottom_border(1:bottom_border_count)) = 0.0d0
+  fyy_Polar(bottom_border(1:bottom_border_count)) = 0.0d0
 
 
 end subroutine  Apply_bottom_border_Fixed
@@ -387,6 +396,10 @@ subroutine Apply_top_border_Fixed
   fxx_ran(top_border(1:top_border_count)) = 0.0d0
   fyy(top_border(1:top_border_count)) = 0.0d0
   fyy_ran(top_border(1:top_border_count)) = 0.0d0
+  fxx_ABP(top_border(1:top_border_count)) = 0.0d0
+  fyy_ABP(top_border(1:top_border_count)) = 0.0d0
+  fxx_Polar(top_border(1:top_border_count)) = 0.0d0
+  fyy_Polar(top_border(1:top_border_count)) = 0.0d0
 
 
 end subroutine Apply_top_border_Fixed
