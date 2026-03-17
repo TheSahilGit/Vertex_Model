@@ -101,7 +101,7 @@ program vertexmain
 
     if(modulo(it,T1_time_interval).eq.0.0d0.or.it.eq.1)then
 !    if(it==1)then
-      do iki = 1,100
+      do iki = 1,500
 
         if(if_Do_T1)then
           call Do_T1
@@ -138,6 +138,16 @@ program vertexmain
       call Motile_Force_Calculation
     end if
 
+     if(if_ABP)then
+       call ABP_Force_Calculation
+     end if
+
+    if(if_polar_motility)then
+      call Polar_Motile_Force_Calculation
+    end if
+
+    !! -- Apply Boundary conditions --
+
     if(if_Fixed_boundary)then
       call Apply_Fixed_Boundary
     end if
@@ -149,16 +159,8 @@ program vertexmain
      if(if_top_borders_fixed)then
        call Apply_top_border_Fixed
      end if
-
-     if(if_ABP)then
-       call ABP_Force_Calculation
-     end if
-
-    if(if_polar_motility)then
-      call Polar_Motile_Force_Calculation
-    end if
-
-
+    
+   !! ---------------------------------------
 
 
 

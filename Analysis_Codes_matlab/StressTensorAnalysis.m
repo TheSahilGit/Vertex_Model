@@ -8,10 +8,10 @@ dt = table2array(para1(8,1));
 nrun = 2;
 
 ct = 1;
-for it = 100:100:58700
+for it = 1000:1000:7000
     it
 
-    [Lx, Ly, v,inn,num, forces] = LoadData(it, nrun);
+    [Lx, Ly, v,inn, num, forces] = LoadData(it, nrun);
 
     [~, ShearStress_Individual] = calculate_total_stress(Lx,Ly,v,inn,num);
 
