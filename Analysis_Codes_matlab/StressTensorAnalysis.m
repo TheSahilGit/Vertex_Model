@@ -12,8 +12,9 @@ for it = 1000:1000:7000
     it
 
     [Lx, Ly, v,inn, num, forces] = LoadData(it, nrun);
-
-    [~, ShearStress_Individual] = calculate_total_stress(Lx,Ly,v,inn,num);
+    
+    radius = 10; 
+    [~, ShearStress_Individual] = Calculate_Total_Stress(Lx,Ly,v,inn,num, radius);
 
     st(ct) = mean(ShearStress_Individual);
     time(ct) = it*dt;
@@ -21,6 +22,8 @@ for it = 1000:1000:7000
     ct = ct + 1; 
 
 end
+
+%writematrix([time' st'], 'st.dat')
 
 figure()
 plot(time, st, '-o')

@@ -1,55 +1,77 @@
-function [total_stress_tensor, ShearStress_Individual] = calculate_total_stress(Lx,Ly,v,inn,num)
+function [total_stress_tensor, ShearStress_Individual] = Calculate_Total_Stress(Lx,Ly,v,inn,num,radius, beta_arr)
 
+% -------------------- PARAMETERS --------------------
+para1 = readtable("../para1_in.dat");
+A0     = table2array(para1(1,1));
+lambda = table2array(para1(3,1));
+beta   = table2array(para1(4,1));
+gamma  = table2array(para1(5,1));
 
-lambda =  1;
-A0 = 1;
-beta = 0.05;
-gamma = 0.06;
+% Optional beta array handling
+if nargin < 7 || isempty(beta_arr)
+    use_beta_array = false;
+else
+    use_beta_array = true;
+end
 
+% -------------------- DOMAIN INFO --------------------
 para2 = load(strcat("../para2_in.dat"));
 Lx = para2(1);
 Ly = para2(2);
-numdim  = para2(3);
-vdim1 = para2(4);
-vdim2 = para2(5);
-inndim1 = para2(6);
-inndim2 = para2(7);
 
-[inside1, inside2, Boundary] = Mesh_Info(Lx,Ly);
+% -------------------- CELL SELECTION --------------------
 
+[inside_cells, ~, ~, ~] = Find_Cells_Within_Radius(Lx, Ly, v, inn, num, radius);
+inside2 = inside_cells; 
+
+% -------------------- INITIALIZATION --------------------
 TotalArea = 0;
-sigma = zeros(2);
 total_stress_tensor = zeros(2);
+ShearStress_Individual = zeros(length(inside2),1);
 
-%for ic = 1:Lx*Ly
+% -------------------- TOTAL AREA --------------------
 for ii = 1:length(inside2)
     ic = inside2(ii);
 
     vx = v(inn(ic,1:num(ic)), 1);
     vy = v(inn(ic,1:num(ic)), 2);
-    [ geom, ~, ~ ] = polygeom( vx, vy );
+
+    [geom, ~, ~] = polygeom(vx, vy);
     area = abs(geom(1));
 
     TotalArea = TotalArea + area;
 end
 
-for ii = 1:length(inside2) %1:Lx*Ly
+% -------------------- STRESS COMPUTATION --------------------
+for ii = 1:length(inside2)
 
     ic = inside2(ii);
+
+    % Reset sigma per cell (IMPORTANT FIX)
+    sigma = zeros(2);
 
     vx = v(inn(ic,1:num(ic)), 1);
     vy = v(inn(ic,1:num(ic)), 2);
 
-    [ geom, ~, ~ ] = polygeom( vx, vy );
+    [geom, ~, ~] = polygeom(vx, vy);
     area = abs(geom(1));
     perimeter = abs(geom(4));
 
-    term1 =  2.0d0 * lambda * (area - A0);
-    term2 = (2.0d0 * beta * perimeter + gamma)/(2.0d0*area);
+    % --- Beta selection ---
+    if use_beta_array
+        beta_local = beta_arr(ic);
+    else
+        beta_local = beta;
+    end
 
+    % --- Terms ---
+    term1 = 2.0d0 * lambda * (area - A0);
+    term2 = (2.0d0 * beta_local * perimeter + gamma)/(2.0d0*area);
+
+    % --- Edge loop ---
     for j = 1:num(ic)
-        jp = j+1;
-        if j==num(ic)
+        jp = j + 1;
+        if j == num(ic)
             jp = 1;
         end
 
@@ -57,41 +79,27 @@ for ii = 1:length(inside2) %1:Lx*Ly
         Y = vy(jp) - vy(j);
         R = sqrt(X*X + Y*Y);
 
-
         sigma(1,1) = sigma(1,1) + X*X/R;
         sigma(1,2) = sigma(1,2) + X*Y/R;
         sigma(2,1) = sigma(2,1) + Y*X/R;
         sigma(2,2) = sigma(2,2) + Y*Y/R;
-
-
     end
 
-    sigma(1,1) = term1  + term2 * sigma(1,1);
+    % --- Final stress tensor for cell ---
+    sigma(1,1) = term1 + term2 * sigma(1,1);
     sigma(1,2) = term2 * sigma(1,2);
     sigma(2,1) = term2 * sigma(2,1);
     sigma(2,2) = term1 + term2 * sigma(2,2);
 
-    ShearStress_Individual(ii) = sigma(1,2)*area/TotalArea;
+    % --- Store shear contribution ---
+    ShearStress_Individual(ii) = sigma(1,2) * area / TotalArea;
 
-
-end
-
-%for ic = 1:Lx*Ly
-for ii = 1:length(inside2)
-    ic = inside2(ii);
-
-    vx = v(inn(ic,1:num(ic)), 1);
-    vy = v(inn(ic,1:num(ic)), 2);
-
-    [ geom, ~, ~ ] = polygeom( vx, vy );
-    area = abs(geom(1));
-    total_stress_tensor = total_stress_tensor + sigma * area/TotalArea;
+    % --- Accumulate total stress ---
+    total_stress_tensor = total_stress_tensor + sigma * area / TotalArea;
 
 end
 
-
 end
-
 
 
 function [ geom, iner, cpmo ] = polygeom( x, y )
@@ -193,41 +201,6 @@ iner = [ Ixx  Iyy  Ixy  Iuu  Ivv  Iuv ];
 cpmo = [ I1  ang1  I2  ang2  J ];
 
 % bottom of polygeom
-
-end
-
-
-
-function [inside1, inside2,Boundary] = Mesh_Info(Lx,Ly)
-mainarea=(1:Lx*Ly);
-leftpanel=(1:Ly);
-rightpanel=(Lx*Ly-Ly+1:Lx*Ly);
-toppanel=(Ly:Ly:Lx*Ly);
-bottompanel=(1:Ly:Lx*Ly-Ly+1);
-corners=[1 Ly Lx*Ly-Ly+1 Lx*Ly ];
-
-leftpanel2=(Ly+1:2*Ly);
-rightpanel2=(Lx*Ly-2*Ly+1:Lx*Ly-2*Ly+Ly);
-toppanel2=(Ly-1:Ly:Lx*Ly-1);
-bottompanel2=(2:Ly:Lx*Ly-Ly+2);
-%corners2=[1 Ly Lx*Ly-Ly+1 Lx*Ly ];
-
-
-leftpanel3=(2*Ly+1:3*Ly);
-rightpanel3=(Lx*Ly-3*Ly+1:Lx*Ly-3*Ly+Ly);
-toppanel3=(Ly-2:Ly:Lx*Ly-2);
-bottompanel3=(3:Ly:Lx*Ly-Ly+3);
-% corners2=[1 L L*L-L+1 L*L ];
-
-Boundary=[leftpanel rightpanel toppanel bottompanel];
-
-Boundary2 =[Boundary leftpanel2 rightpanel2 toppanel2 bottompanel2];
-
-Boundary3 =[Boundary2 leftpanel3 rightpanel3 toppanel3 bottompanel3];
-
-inside1 = setdiff(mainarea,Boundary);
-inside2 = setdiff(mainarea,Boundary2);
-
 
 end
 
