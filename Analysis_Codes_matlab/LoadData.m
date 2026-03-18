@@ -3,7 +3,7 @@ function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity, all_end_data] =
 
 
 para2 = load("../para2_in.dat");
-etas = load("../motility_in.dat");
+%etas = load("../motility_in.dat");
 
 
 

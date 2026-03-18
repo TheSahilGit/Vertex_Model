@@ -368,9 +368,12 @@ module T1_swap
       end if
 
       
+      if(T1_pass .and. (if_bottom_borders_fixed .or. if_top_borders_fixed)) then
+        call Find_boundary_dynamic
+      end if
 
       if(T1_pass.and.if_bottom_borders_fixed)then
-      call Find_boundary_dynamic
+      !!call Find_boundary_dynamic
         do im = 1, bottom_border_count
           if(bottom_border(im).eq.inn(verNoT1, cellNoT1) &
             .or.bottom_border(im).eq.inn(verNoT1+1, cellNoT1))then
@@ -381,7 +384,7 @@ module T1_swap
       end if
 
       if(T1_pass.and.if_top_borders_fixed)then
-      call Find_boundary_dynamic
+      !!call Find_boundary_dynamic
         do im = 1, top_border_count
           if(top_border(im).eq.inn(verNoT1, cellNoT1) &
             .or.top_border(im).eq.inn(verNoT1+1, cellNoT1))then
