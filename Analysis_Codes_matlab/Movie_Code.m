@@ -26,37 +26,41 @@ mov.FrameRate = 1;
 open(mov); % Open the video file    before entering the loop
 
 
-ct = 1; 
-for it = 5000
-    
-    [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity] = LoadData(it, nrun);
+ct = 1;
+for it = 100
 
-    
+    [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity, all_end_data] = LoadData(it, nrun);
+
+
+
     %colordata = rand(1,numdim);
     %colorbar_string = "Nothing";
 
-    Fcell =  MeanVertexForceMagnitude_Cell(forces(:,1:2), inn, num, numdim); 
-    colordata = Fcell; 
-    colorbar_string = "Force"; 
+    Fcell =  MeanVertexForceMagnitude_Cell(forces(:,1:2), inn, num, numdim);
+    colordata = Fcell;
+    colorbar_string = "Force";
 
 
     norm_flag = 'data';
     norm_range = [];
 
     % norm_flag = '01';
-    % norm_range = []; 
-    % 
+    % norm_range = [];
+    %
     % norm_flag = 'custom';
-    % norm_range = [0 2]; 
+    % norm_range = [0 2];
 
     TisuePlot(Lx,Ly,v,inn,num, colordata, colorbar_string, norm_flag, norm_range)
 
-    
+
+    %%----
+
+
     title(num2str(it))
     F = getframe(gcf); % Get the frame
     writeVideo(mov, F); % Add frame to the video file
 
-   % exportgraphics(gcf, 'figure.png', 'Resolution', 300);
+    % exportgraphics(gcf, 'figure.png', 'Resolution', 300);
 
     hold off;
 
@@ -69,7 +73,7 @@ close(mov)
 
 
 function TisuePlot(Lx,Ly,v,inn,num,colordata,colorbar_string,...
-                   norm_flag, norm_range)
+    norm_flag, norm_range)
 
 
 Nc = find(num ~= 0, 1, 'last')
@@ -107,12 +111,12 @@ for i = 1:Nc
         FaceAlpha = 0.5, ...
         LineWidth = 1.5);
 
- % patch(vx, vy, rgb, ...
- %      'FaceAlpha', 0.5, ...
- %      'EdgeColor', 'k', ...
- %      'LineWidth', 1.0);
+    % patch(vx, vy, rgb, ...
+    %      'FaceAlpha', 0.5, ...
+    %      'EdgeColor', 'k', ...
+    %      'LineWidth', 1.0);
 
-     hold on;
+    hold on;
 
 end
 

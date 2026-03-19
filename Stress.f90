@@ -13,16 +13,26 @@ module Stress
        integer :: cellNo
        real*8 :: term1, term2, dx, dy, len_d
  
-       call Get_Boundary_info
+     !  call Get_Boundary_info
+       
+       radius_from_core = sqrt(dble(Lx*Lx) + dble(Ly*Ly))/5.0d0
+       !radius_from_core = 4.0d0 * sqrt(Ao)
+
+       call Get_Cells_Within_Radius
+
+!       open(1211, file='inside.dat', status='unknown')
+!         write(1211,*)n_inside, inside_cells(1:n_inside)
+!       close(1211)
  
        beta = beta/(lambda*Ao)
        gamm = gamm/(lambda*(Ao)**1.5)
  
        totalarea = 0.0d0
        TotalSigma = 0.0d0
+
  
-       do ic = 1,size(inside2)
-          cellNo = inside2(ic)
+       do ic = 1,n_inside
+          cellNo = inside_cells(ic)
           nn = num(cellNo)
  
           vx = v(1,inn(1:nn,cellNo))
@@ -34,8 +44,8 @@ module Stress
        end do
  
  
-       do ic = 1, size(inside2)
-         cellNo = inside2(ic)
+       do ic = 1, n_inside
+         cellNo = inside_cells(ic)
          nn = num(cellNo)
  
          vx = v(1,inn(1:nn,cellNo))

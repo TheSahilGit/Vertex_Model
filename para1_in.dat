@@ -6,7 +6,7 @@
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d7            ! totT
+1.0d4            ! totT
 1.0d-3           ! dt
 .true.           ! if_Do_T1 
 0.1              ! min_d_T1
@@ -15,10 +15,10 @@
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
-1000             ! it_dump (unit of it)
+100             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
-.true.           ! if_motility (Apolar_cell_motility)
+.false.           ! if_motility (Apolar_cell_motility)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility.
 0.04d0            ! etas_max ! (Apolar_motility_strength)
 0.0              ! etas_min ! (motility)
@@ -33,9 +33,9 @@
 1.0d0            ! sudden_shearStrength
 1                ! sudden_shearWhen
 .false.          ! if_Oscillatory_Shearing
-0.1              ! Oscl_shearStrength
-1                ! Oscl_shearWhen
-1.0d1            ! Oscl_freq_wo
+0.04              ! Oscl_shearStrength
+100                ! Oscl_shearWhen
+1.0d0            ! Oscl_freq_wo
 .false.          ! if_perturb_tissue
 .false.          ! if_sin_perturb
 2                ! sin_perturb_when (unit of it)

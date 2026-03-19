@@ -140,6 +140,12 @@ module allocation
       logical :: if_polar_motility
       real*8 :: polar_motility_strength
       real*8, dimension(:), allocatable :: fxx_Polar, fyy_Polar
+
+      integer :: n_inside, n_outside
+      real*8 :: radius_from_core
+      real*8, allocatable, dimension(:,:) :: cell_centers
+      integer, allocatable, dimension(:) :: inside_cells, outside_cells
+      
         
 
 
@@ -303,6 +309,8 @@ module allocation
 
      allocate(cell_identity(num_dim))
 
+     allocate(cell_centers(num_dim, 2), inside_cells(num_dim), outside_cells(num_dim))
+
 
      fxx = 0.0d0; fyy = 0.0d0
      fxx_ran = 0.0d0; fyy_ran = 0.0d0
@@ -318,6 +326,8 @@ module allocation
       write(cell_identity(iic), '(A,I0)') 'cell_', iic
      end do
 
+     inside_cells = 0
+     outside_cells = 0
 
     end subroutine allocate_arrays
 

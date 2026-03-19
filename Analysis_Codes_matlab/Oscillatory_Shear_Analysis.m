@@ -1,0 +1,29 @@
+clear; clc; close all; 
+
+it = 100; 
+nrun = 2; 
+
+[~, ~, ~, ~, ~, ~, ~, ~, all_end_data] = LoadData(it, nrun);
+
+para1 = readtable("../para1_in.dat");
+dt = table2array(para1(8,1));
+eps0 = table2array(para1(34,1));
+w0 = table2array(para1(36,1));
+
+
+shearStress = all_end_data(:,2);
+time = (1:length(shearStress))*dt; 
+
+inputStrain = eps0 * sin(w0 * time);
+
+figure('Position',[100 100 800 800])
+plot(time, inputStrain, 'LineWidth',4, 'DisplayName','Strain');
+hold on;
+plot(time, shearStress, 'LineWidth',4, 'DisplayName','Stress');
+
+axis square
+
+xlabel("Time")
+
+legend()
+set(gca, 'FontSize', 36)

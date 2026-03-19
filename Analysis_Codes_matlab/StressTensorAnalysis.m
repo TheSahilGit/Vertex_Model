@@ -8,7 +8,7 @@ dt = table2array(para1(8,1));
 nrun = 2;
 
 ct = 1;
-for it = 1000:1000:7000
+for it = 100:100:10000
     it
 
     [Lx, Ly, v,inn, num, forces] = LoadData(it, nrun);

@@ -815,7 +815,83 @@ subroutine Squeeze_Tissue
 
 end subroutine Squeeze_Tissue
 
+subroutine Get_Cells_Within_Radius
 
+  implicit none
+
+  integer :: i, k, vid
+  integer :: n_in, n_out
+  real(8) :: cx, cy
+  real(8) :: dx, dy, dist
+  real*8 :: COM(2)
+
+  ! ----------------------------------
+  ! Compute cell centers
+  ! ----------------------------------
+  do i = 1, Nc
+
+     cx = 0.0d0
+     cy = 0.0d0
+
+     do k = 1, num(i)
+        cx = cx + v(1,inn(k,i))
+        cy = cy + v(2,inn(k,i))
+     end do
+
+     cx = cx / dble(num(i))
+     cy = cy / dble(num(i))
+
+     cell_centers(i,1) = cx
+     cell_centers(i,2) = cy
+
+  end do
+
+  ! ----------------------------------
+  ! Compute global COM
+  ! ----------------------------------
+  COM(1) = 0.0d0
+  COM(2) = 0.0d0
+
+  do i = 1, Nc
+     COM(1) = COM(1) + cell_centers(i,1)
+     COM(2) = COM(2) + cell_centers(i,2)
+  end do
+
+  COM(1) = COM(1) / dble(Nc)
+  COM(2) = COM(2) / dble(Nc)
+
+  ! ----------------------------------
+  ! Classify cells
+  ! ----------------------------------
+  n_in  = 0
+  n_out = 0
+
+  do i = 1, Nc
+
+     dx = cell_centers(i,1) - COM(1)
+     dy = cell_centers(i,2) - COM(2)
+
+     ! Optional periodic BC (uncomment if needed)
+     ! dx = dx - Lx * dnint(dx / Lx)
+     ! dy = dy - Ly * dnint(dy / Ly)
+
+     dist = sqrt(dx*dx + dy*dy)
+
+     if (dist .le. radius_from_core) then
+        n_in = n_in + 1
+        inside_cells(n_in) = i
+     else
+        n_out = n_out + 1
+        outside_cells(n_out) = i
+     end if
+
+  end do
+
+  ! store counts if needed
+  n_inside  = n_in
+  n_outside = n_out
+
+end subroutine Get_Cells_Within_Radius
 
 
 
