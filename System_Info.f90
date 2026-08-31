@@ -54,8 +54,13 @@ module System_Info
 
       end do
 
-      global_cellCenX = sum(cellcen(:,1))/dble(Nc) ! Lx*Ly
-      global_cellCenY = sum(cellcen(:,2))/dble(Nc) ! Lx*Ly
+      ! BUGFIX (log.txt, re-review pass): cellcen is allocated (num_dim, 2)
+      ! and never zero-initialized; only rows 1:Nc are filled by the loop
+      ! above. Summing the whole column (cellcen(:,1)) included rows
+      ! Nc+1:num_dim -- uninitialized heap memory. Currently dead code
+      ! (CellCentre is never called), but fixed for when it is.
+      global_cellCenX = sum(cellcen(1:Nc,1))/dble(Nc)
+      global_cellCenY = sum(cellcen(1:Nc,2))/dble(Nc)
 
       
 

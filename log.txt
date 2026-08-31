@@ -1,0 +1,972 @@
+================================================================================
+BUG FIX LOG - Vertex Model (.f90 files)
+Generated: 2026-08-31
+Scope: Critical bugs found during full-codebase review of all .f90 files.
+       Compiled and verified with: bash compile.sh (gfortran -O3 -fbounds-check)
+================================================================================
+
+--------------------------------------------------------------------------------
+1) FILE: allocation.f90  (subroutine read_input, ~line 253)
+--------------------------------------------------------------------------------
+BUG:
+  beta and gamm (global module variables) were being rescaled by
+  beta = beta/(lambda*Ao) and gamm = gamm/(lambda*(Ao)**1.5) inside
+  Force_Calculation (Force.f90) AND again inside Calculate_StressTensor
+  (Stress.f90) -- both of which run every timestep. Since the division was
+  applied to the already-divided value from the previous call, beta/gamm
+  decayed/blew up geometrically: beta_eff = beta_0/(lambda*Ao)^N after N
+  calls. Masked in the shipped para1_in.dat only because Ao=1, lambda=1
+  (division becomes a no-op); breaks immediately for any other Ao/lambda.
+
+FIX:
+  Perform this nondimensionalization exactly ONCE, in read_input, right
+  after beta_0 = beta is set. Removed the duplicate rescale lines from
+  Force.f90 (Force_Calculation) and Stress.f90 (Calculate_StressTensor).
+
+--------------------------------------------------------------------------------
+2) FILE: allocation.f90  (subroutine allocate_arrays, ~line 296-300)
+--------------------------------------------------------------------------------
+BUG:
+  Parallel scratch arrays used together in find_T1 (T1_swap.f90) had
+  inconsistent sizes: d_val sized Lx*Ly*6, cell_no sized maxval(inn), but
+  ver_no/ver_no_next sized only inn_dim2 (much smaller). If more short
+  edges were found in one pass than inn_dim2, ver_no(count_T1)/
+  ver_no_next(count_T1) would write out of bounds. Additionally, d_val,
+  area_val, and cellcen were all sized off the *initial* Lx*Ly rather than
+  num_dim (the reserved max-cell capacity), so they would silently become
+  too small again once Nc grows via cell division (if_cell_division).
+
+FIX:
+  - allocate(d_val(num_dim*6))          [was Lx*Ly*6]
+  - allocate(area_val(num_dim))         [was Lx*Ly]
+  - allocate(ver_no(num_dim*6), ver_no_next(num_dim*6))   [was inn_dim2]
+  - allocate(cellcen(num_dim, 2))       [was (Lx*Ly, 2)]
+  All four/five arrays now share a consistent, growth-safe capacity.
+
+--------------------------------------------------------------------------------
+3) FILE: allocation.f90  (subroutine allocate_arrays, ~line 303-308)
+--------------------------------------------------------------------------------
+BUG:
+  ShearStress(totT) was allocated but never zero-initialized, and only ever
+  assigned (Stress.f90) when if_Shear_tissue is true. write_output
+  unconditionally dumps ShearStress to data/ShearStress.dat at it==totT
+  regardless of that flag, so runs with shearing disabled wrote
+  uninitialized memory to disk.
+
+FIX:
+  Added `ShearStress = 0.0d0` immediately after allocation.
+
+--------------------------------------------------------------------------------
+4) FILE: Force.f90  (subroutine Force_Calculation, ~line 34-42)
+--------------------------------------------------------------------------------
+BUG:
+  When if_RhoROCK and if_coupling_noise were both true, beta was computed
+  WITHOUT the /(lambda*Ao) normalization that the else-branch (no noise)
+  applies -- a copy-paste omission that silently changed beta's numerical
+  scale by a factor of (lambda*Ao) whenever coupling noise was enabled.
+
+FIX:
+  Applied /(lambda*Ao) consistently in both branches:
+    beta = (Myosin_Coupling_Strength * Myosin(ic) + coupling_noise_strength * rann)/(lambda*Ao)
+
+--------------------------------------------------------------------------------
+5) FILE: Force.f90  (subroutine Force_Calculation, ~line 50-70)  [REVERTED]
+--------------------------------------------------------------------------------
+INITIALLY FLAGGED AS:
+  The area-elasticity force gradient (grad_area_X/Y) used a fixed-sign
+  formula that assumes a particular winding order, since CalculateArea
+  returns the signed shoelace area and the code discards the sign via
+  area = abs(area).
+
+RESOLUTION (not a bug -- reverted):
+  Per user clarification: area is a 2D magnitude/amplitude here by
+  convention and does not carry a physical sign, and cell winding is fixed
+  by construction in this codebase, so no per-cell sign correction is
+  needed in the gradient. Reverted the sign_A-based change; area = abs(area)
+  and the original fixed-sign gradient formula are intentional as written.
+
+--------------------------------------------------------------------------------
+6) FILE: Force.f90  (subroutine ABP_Force_Calculation, ~line 136-151)  [REVERTED]
+--------------------------------------------------------------------------------
+INITIALLY FLAGGED AS:
+  A single Gaussian random number (rann) was drawn once per CELL and then
+  written into rot_noise for every vertex of that cell, and for a vertex
+  shared by multiple cells the value was overwritten by whichever cell was
+  processed last.
+
+RESOLUTION (not a bug -- reverted):
+  Per user clarification: ABP and Polar_Motile_Force_Calculation are
+  distinct concepts and should not be reconciled to the same pattern. ABP
+  treats each cell as one self-propelled particle with a single rotational-
+  noise draw applied uniformly to that particle's own vertices -- this is
+  intentional, not a per-vertex-independence bug. Reverted the per-vertex
+  noise change; the per-cell draw (call gaussian_random once per ic, before
+  the jc loop) is restored.
+
+--------------------------------------------------------------------------------
+7) FILE: Force.f90  (subroutine Polar_Motile_Force_Calculation, ~line 163-183)
+--------------------------------------------------------------------------------
+BUG:
+  fxx_Polar(inn(jc,ic))/fyy_Polar(inn(jc,ic)) were assigned with '=' instead
+  of accumulated with '+=', unlike every other per-vertex force in this
+  module (e.g. fxx/fyy in Force_Calculation). A vertex shared between cells
+  was simply overwritten by whichever cell was processed last; contributions
+  from other cells sharing that vertex were silently lost.
+
+FIX:
+  Zeroed fxx_Polar/fyy_Polar before the loop and changed the assignment to
+  accumulate: fxx_Polar(inn(jc,ic)) = fxx_Polar(inn(jc,ic)) + ...
+
+--------------------------------------------------------------------------------
+8) FILE: Force.f90  (subroutine Give_Motility_Gradient, ~line 196)
+--------------------------------------------------------------------------------
+BUG:
+  verry was declared `integer :: verry(size(v,2))` but stores
+  v(2, inn(jc,ic)), a real*8 y-coordinate -- silently truncating the
+  fractional part of every vertex position before it was used to bucket
+  vertices into motility patches (veryyN).
+
+FIX:
+  Changed the declaration to `real(8) :: verry(size(v, 2))`.
+
+--------------------------------------------------------------------------------
+9) FILE: Force.f90  (subroutine Give_Motility_Hotspot, ~line 293-308)
+--------------------------------------------------------------------------------
+BUG:
+  The if/elseif chain handling number_of_hotspot (4, 2, 1) had no else
+  branch. If number_of_hotspot was set to anything else, hotspot_location
+  was never allocated, and it is unconditionally dereferenced a few lines
+  later (ip = hotspot_location(jp)) -- a runtime crash with no clear cause.
+
+FIX:
+  Added an `else` branch that prints a clear error and stops the program
+  (`stop 1`) instead of crashing on an unallocated array access.
+
+--------------------------------------------------------------------------------
+10) FILE: Force.f90  (subroutine Apply_Limb_Force, ~line 456-460)
+--------------------------------------------------------------------------------
+BUG:
+  Every other force in the codebase is converted to a velocity/displacement
+  via dt*force/eta (see vertexmain.f90's integration step). Apply_Limb_Force
+  instead added dt*limb_force_strength directly to vertex positions with no
+  /eta, making its effect inconsistent by a factor of eta relative to every
+  other named force in the model.
+
+FIX:
+  Added the missing /eta factor to both branches (negative and positive
+  limb-force direction).
+
+--------------------------------------------------------------------------------
+11) FILE: Force.f90  (subroutine compute_RHS, ~line 697)
+--------------------------------------------------------------------------------
+BUG:
+  compute_RHS had no `implicit none`, and f_Rho/f_ROCK/f_Myosin were used
+  without being declared. By Fortran's default implicit-typing rule they
+  silently became single-precision `real` locals instead of real*8 --
+  degrading precision specifically in the RK4 solver path (compute_RHS is
+  called 4x/step by Solve_RhoROCK_RK4), inconsistent with the equivalent
+  Euler path (Solve_RhoROCK_Euler), which explicitly declares them real*8.
+
+FIX:
+  Added `implicit none` and explicit `real*8 :: f_Rho, f_ROCK, f_Myosin`
+  declarations.
+
+--------------------------------------------------------------------------------
+12) FILE: Stress.f90  (subroutine Calculate_StressTensor, ~line 27, 61)
+--------------------------------------------------------------------------------
+BUG (part A - see item 1 above):
+  Duplicate beta/gamm rescale (now removed; nondimensionalization happens
+  once in allocation.f90's read_input).
+
+BUG (part B):
+  sigma(2,2) is a global (allocation.f90), never reset to zero before or
+  between cells. Each cell's edge-sum loop started accumulating on top of
+  the PREVIOUS cell's already fully-scaled stress tensor (left over from
+  lines term1/term2 scaling of the prior cell), which was then scaled again
+  by the current cell's own term1/term2. This corrupted TotalSigma and
+  therefore ShearStress for every cell after the first, on every call.
+
+FIX:
+  Removed the duplicate beta/gamm rescale lines.
+  Added `sigma = 0.0d0` immediately before the per-edge (jc) accumulation
+  loop, so each cell starts from a clean tensor.
+
+--------------------------------------------------------------------------------
+13) FILE: T1_swap.f90  (subroutine Do_T1, ~line 378-395)
+--------------------------------------------------------------------------------
+BUG:
+  The fixed-border exclusion check compared bottom_border(im)/top_border(im)
+  against inn(verNoT1, cellNoT1) and inn(verNoT1+1, cellNoT1). The correct
+  "other endpoint" of the shrinking edge is verNoNextT1 (computed with
+  proper wraparound in find_T1), not the raw index verNoT1+1. When the short
+  edge was the polygon-closing edge (verNoT1 == num(cellNoT1)), this read a
+  stale/zero-padded slot instead of vertex 1, silently failing to detect
+  that the edge touched a fixed border -- letting a T1 flip through a
+  boundary that should have been pinned (and risking an out-of-bounds read
+  on inn if the cell was at its max vertex capacity).
+
+FIX:
+  Replaced both occurrences of inn(verNoT1+1, cellNoT1) with
+  inn(verNoNextT1, cellNoT1) in the bottom-border and top-border checks.
+
+--------------------------------------------------------------------------------
+14) FILE: T1_swap.f90  (subroutine T1_core, "gain a vertex" branches, ~line 278-320)
+--------------------------------------------------------------------------------
+BUG:
+  When a T1 flip causes a cell to gain a vertex (Occurrences(ik)==1), the
+  code inserted the new vertex and set num(cellNo) = num(cellNo) + 1 with no
+  check against inn_dim1 (the hard cap on vertices per cell). If a cell was
+  already at inn_dim1 vertices, this silently wrote past inn's declared
+  first-dimension bound.
+
+FIX:
+  Added a guard `if (num(cellNo) .ge. inn_dim1)` before each insertion that
+  skips the vertex gain and prints a diagnostic message instead of
+  overflowing the array.
+
+--------------------------------------------------------------------------------
+15) FILE: T2_swap.f90  (subroutine Do_T2, ~line 216-262)
+--------------------------------------------------------------------------------
+BUG:
+  Do_T1 explicitly protects pinned vertices on bottom_border/top_border
+  (via if_bottom_borders_fixed/if_top_borders_fixed) in addition to the
+  generic if_Fixed_boundary check. Do_T2 only implemented the generic
+  if_Fixed_boundary/Affected_T2 check and had no equivalent bottom/top
+  border protection -- meaning a T2 cell-extrusion could remove a triangular
+  cell touching a "fixed" bottom/top border, silently breaking the intended
+  boundary condition.
+
+FIX:
+  Added the same bottom_border/top_border membership checks used in Do_T1,
+  checking the T2 triangle's three vertices (inn(1:3, cellNoT2)) against
+  bottom_border/top_border, before allowing the T2 event to proceed.
+
+--------------------------------------------------------------------------------
+16) FILE: Proliferation.f90  (subroutine Do_Proliferation, ~line 51-62)
+--------------------------------------------------------------------------------
+BUG:
+  n_intersections (returned by Find_Bisector_Intersections) was computed but
+  never validated before calling Proliferation_Core. If the division
+  bisector didn't cleanly cross exactly 2 edges (degenerate bisector, or one
+  that passes through a vertex), idx_pair was left partly uninitialized;
+  Proliferation_Core/SplitPolygon would then fail to find the chord vertices
+  and could leave the dividing cell with num(ic) = 0 vertices.
+
+FIX:
+  Added `if (n_intersections .ne. 2)` check; the division is now skipped
+  (with a diagnostic message) instead of proceeding with invalid idx_pair
+  data.
+
+--------------------------------------------------------------------------------
+17) FILE: Proliferation.f90  (subroutine Proliferation_Core, ~line 150-172)
+--------------------------------------------------------------------------------
+BUG:
+  No capacity check existed before writing the two new vertices
+  (v(1,maxinn+1), v(1,maxinn+2), etc.) or before growing Nc by writing to
+  inn(:, Nc+1)/num(Nc+1). Once the pre-allocated headroom in
+  v_dim2/inn_dim2/num_dim was exhausted (enough divisions accumulated), this
+  silently wrote out of bounds.
+
+FIX:
+  Added explicit checks right after computing maxinn:
+    - if (maxinn+2 .gt. v_dim2) -> skip division, print diagnostic, return
+    - if (Nc+1 .gt. inn_dim2 .or. Nc+1 .gt. num_dim) -> skip, print, return
+
+--------------------------------------------------------------------------------
+18) FILE: Proliferation.f90  (subroutine Proliferation_Core, ~line 191-206)
+--------------------------------------------------------------------------------
+BUG:
+  The code unconditionally assumed Find_Others_affected finds exactly 2
+  neighboring cells (othercells(1), othercells(2)) for the two edges the
+  dividing cell's chord crosses. If one of those edges lies on the tissue's
+  outer boundary (a realistic case for a boundary cell dividing),
+  othercells_count can legitimately be 0 or 1, leaving othercells(2) (or (1))
+  equal to 0 -- an invalid index-0 access into inn/num just below,
+  corrupting memory or crashing.
+
+FIX:
+  Added `if (othercells_count .ne. 2)` check immediately after the call to
+  Find_Others_affected; the division is now skipped (with a diagnostic
+  message) instead of accessing an invalid cell index.
+
+================================================================================
+VERIFICATION
+================================================================================
+Recompiled with the project's own build command:
+  bash compile.sh
+  (gfortran -pg -O3 -march=native -fbounds-check -fbacktrace ... -o vertexmain.exe)
+Result: clean compile, no errors or warnings, vertexmain.exe produced.
+
+Note: -fbounds-check is enabled in compile.sh, so any remaining array-bound
+violation during an actual run will now abort with a clear location instead
+of silently corrupting memory -- worth doing a real run against your usual
+para1_in.dat/para2_in.dat to confirm behavior end-to-end before relying on
+these fixes for production runs.
+
+================================================================================
+OPTIMIZATIONS (second pass, applied after the bug-fix pass above)
+Verified with: bash compile.sh (clean, no errors/warnings) + re-running the
+same 3 isolated sanity scenarios (default config, flags-enabled config,
+cell-division config) used to verify the bug fixes. Default-config and
+cell-division-config runs reproduced BIT-IDENTICAL Energy trajectories (and,
+for the division run, identical proliferation counts/skip messages) versus
+the pre-optimization build -- confirming these are behavior-preserving, not
+just "close enough". The flags-enabled run differed numerically only because
+it exercises unseeded random_number calls (ABP/polar motility), which was
+already non-reproducible before any of these changes (see "no random_seed"
+item below).
+================================================================================
+
+--------------------------------------------------------------------------------
+O1) FILE: Geometry.f90  (subroutine Get_Boundary_info)
+--------------------------------------------------------------------------------
+COST:
+  Every array this subroutine builds (mainarea, leftP/rightP/topP/bottomP,
+  corners, boundary, etc.) depends only on Lx/Ly, which never change at
+  runtime -- yet it was fully recomputed from scratch on every call, up to
+  500x per timestep (via Do_T1/Do_T2 whenever if_Fixed_boundary is on and
+  before the first T2 event has occurred).
+
+FIX:
+  Added a `logical, save :: computed` guard that short-circuits the whole
+  subroutine after the first call. Identical result, computed once.
+
+--------------------------------------------------------------------------------
+O2) FILE: Geometry.f90  (subroutine Find_boundary_dynamic)
+--------------------------------------------------------------------------------
+COST:
+  For every cell/vertex, an inner `do im = 1, all_border_count` linearly
+  scanned all_borders(1:all_border_count) to test membership -- an
+  O(Nc*max_verts*all_border_count) pass. That membership condition is
+  exactly `vertex_occurance_count(v) < 3 .and. > 0`, already computed a few
+  lines earlier as an O(1)-per-vertex lookup array.
+
+FIX:
+  Replaced the linear scan with a direct check against
+  vertex_occurance_count(inn(jc,ic)), turning this into a straightforward
+  O(Nc*max_verts) pass. Removed the now-unused `im` loop variable. Identical
+  result (same membership test, cheaper lookup). This subroutine runs every
+  timestep once any T2 event has occurred, whenever if_Fixed_boundary or
+  if_bottom/top_borders_fixed is on.
+
+--------------------------------------------------------------------------------
+O3) FILE: T2_swap.f90  (subroutine T2_core)
+--------------------------------------------------------------------------------
+COST:
+  Every T2 event (up to 500x/timestep) rebuilt whole_inn_array_temp
+  (inn_dim1 x inn_dim2), whole_num_array_temp, Rho_temp, ROCK_temp,
+  Myosin_temp, and cell_identity_temp (a character(500) array) -- all sized
+  to the reserved max capacity (num_dim/inn_dim2), zeroed and fully
+  recopied from scratch -- even though only cells 1:Nc are ever live.
+
+FIX:
+  Replaced the "build a full-size temp copy, then reassign the whole array"
+  pattern with an in-place shift over only the live range:
+    inn(:, cellNoT2:Nc-1) = inn(:, cellNoT2+1:Nc); inn(:, Nc) = 0
+  (and the same pattern for num/Rho/ROCK/Myosin/cell_identity). Fortran
+  array assignment evaluates the RHS before assigning, so this overlapping
+  shift is well-defined. Cells beyond Nc were already zero/'cell_0' and are
+  untouched (still zero/'cell_0' after), so the result is identical to the
+  original full-array version, just O(Nc) instead of O(num_dim/inn_dim2)
+  and with no large temporaries or big character-array copies.
+
+--------------------------------------------------------------------------------
+O4) FILE: T1_swap.f90 (Do_T1) / T2_swap.f90 (Do_T2)
+--------------------------------------------------------------------------------
+COST:
+  find_T1_Affected/find_T2_Affected (each an O(Nc*max_verts) full-mesh scan)
+  were called once inside the if_Fixed_boundary boundary-check branch, and
+  then unconditionally AGAIN right before T1_core/T2_core -- with no change
+  to their inputs (cellNoT1/verNoT1/verNoNextT1, or cellNoT2) in between --
+  doubling the scan for every accepted T1/T2 event.
+
+FIX:
+  Added a local `affected_computed` flag, set when the boundary-check branch
+  already called find_T1_Affected/find_T2_Affected; the call right before
+  T1_core/T2_core is now skipped when the flag is already set. Identical
+  result (Affected/Occurrences are unchanged since the first call), half
+  the full-mesh scans for every accepted event when if_Fixed_boundary is on.
+
+--------------------------------------------------------------------------------
+O5) FILE: Force.f90  (subroutine Force_Calculation)
+--------------------------------------------------------------------------------
+COST:
+  Each cell edge was traversed twice per timestep per cell: once as vertex
+  jc's "next" edge and again as vertex jc+1's "prev" edge, each time
+  recomputing dx, dy, and a dsqrt() from scratch -- i.e. 2*nn sqrt calls per
+  cell instead of nn. This runs for every cell, every timestep, unconditionally.
+
+FIX:
+  Added a small precompute loop building edge_dx/edge_dy/edge_len(k) = the
+  vector/length of the edge from vertex k to vertex k's next neighbour, once
+  per cell (nn sqrt calls). The per-vertex loop then reuses these cached
+  values algebraically:
+    grad_perimeter_X = edge_dx(prev_idx)/edge_len(prev_idx) - edge_dx(jc)/edge_len(jc)
+  This is bit-for-bit identical to the original two-sqrt computation (same
+  dx/dy values up to an exact sign flip, which does not change a squared
+  quantity or a subsequent negation in IEEE754) -- confirmed by the
+  bit-identical Energy trajectory in the default-config sanity re-run.
+
+--------------------------------------------------------------------------------
+O6) FILE: vertexmain.f90  (main T1/T2 loop, ~line 104)  [THIRD PASS]
+--------------------------------------------------------------------------------
+COST:
+  The `do iki = 1,500` loop always ran the full 500 iterations, each calling
+  Do_T1/Do_T2 (each of which does a full O(Nc) mesh rescan via find_T1/
+  find_T2), regardless of how many real short edges/small triangles were
+  actually left. Once the local topology stabilizes -- which, per the
+  sanity runs, typically happens well before 500 attempts -- the remaining
+  iterations are pure waste: full rescans that are guaranteed to find
+  nothing.
+
+WHY NOT THE FULLER INCREMENTAL REDESIGN:
+  The originally-envisioned fix (a persistent, incrementally-updated
+  candidate list of short edges/small triangles, updated locally after each
+  flip instead of full rescans) was investigated but NOT implemented, because
+  T2 cell removal renumbers every cell index above the removed one (all
+  cells shift down by one) -- any persistent candidate list storing cell/
+  edge indices across multiple T1/T2 attempts would need those stored
+  indices kept in lock-step with every such renumbering. Getting this wrong
+  is exactly the highest-severity, hardest-to-detect bug class in vertex
+  model codes (silent topology corruption -- no crash, no NaN, just wrong
+  physics). That redesign was judged to need dedicated design/testing time
+  it did not have in this pass, rather than being rushed alongside everything
+  else.
+
+FIX (the safe piece of this that IS fully correctness-preserving):
+  find_T1/find_T2 already freshly recompute count_T1/count_T2 (the number of
+  remaining candidates) on every call. Once both are simultaneously zero,
+  NOTHING in the mesh can change for the rest of this loop -- no candidates
+  means no possible mutation, so every remaining iteration's full rescan is
+  guaranteed, deterministically, to find the same empty result. Added:
+    if((.not.if_Do_T1 .or. count_T1==0) .and. (.not.if_Do_T2 .or. count_T2==0)) exit
+  right after the Do_T1/Do_T2 calls. This skips zero legitimate T1/T2
+  events -- it only skips full rescans that were already guaranteed to find
+  nothing.
+
+VERIFICATION (strongest of this whole pass):
+  Built two variants from identical source (all other fixes/optimizations
+  applied to both) differing ONLY in this exit statement, ran both for 3000
+  timesteps on the default config, and compared every output file:
+    Energy.dat, inn_00003000.dat, num_00003000.dat, v_00003000.dat,
+    T1_count.dat, T2_count.dat  -->  BYTE-FOR-BYTE IDENTICAL, all of them.
+  Timing: without the exit, 3000 steps took 10.26s; with it, 0.19s --
+  approximately 54x faster on this mesh (Lx=16, Ly=16), for provably zero
+  change in simulation output. (The speedup will vary with mesh size and how
+  often T1/T2 activity is genuinely ongoing vs. settled; it is largest, as
+  seen here, once the tissue is closer to mechanical/topological
+  equilibrium and most of the 500 attempts would otherwise find nothing.)
+
+================================================================================
+FOURTH PASS: parameter-scenario sanity checks (previous code vs. new code)
+================================================================================
+Compared git-HEAD ("previous") against the fully-fixed working tree ("new")
+under 3 parameter scenarios in para1_in.dat, nrun=1, totT=500, all other
+scenarios' code paths as configured by the user:
+  1) if_motility=.true., etas_max=0.04, if_Fixed_boundary=.false.
+  2) if_polar_motility=.true., polar_motility_strength=0.5
+  3) if_ABP=.true., vo/Dr as shipped in para1_in.dat
+
+IMPORTANT METHODOLOGY NOTE: random_number is never seeded anywhere in this
+program (a landmine already noted above), and gfortran's default seeding
+turned out to be genuinely non-deterministic ACROSS SEPARATE PROCESS RUNS
+of the *same* binary whenever a scenario exercises real multi-candidate
+random branching (confirmed directly: running the "new" build twice on
+scenario 1 gave two different Energy.dat trajectories). Earlier sanity
+passes in this session appeared "bit-identical across reruns" only because
+those scenarios rarely had more than one T1 candidate at a time, making the
+exact random draw irrelevant to the outcome -- not because the RNG was
+actually seeded consistently. To get a meaningful previous-vs-new
+comparison here, both variants were temporarily patched with an identical
+fixed call random_seed(put=...) at program start (comparison-only patch,
+not part of the real fix, not applied to the repo) so that any remaining
+differences are attributable to code changes, not RNG noise.
+
+RESULTS (with the seed controlled):
+  1) Motility scenario: Energy.dat BYTE-IDENTICAL, previous vs new, across
+     all 500 steps. Expected: none of this session's behavioral fixes touch
+     this code path (only the proven-equivalent optimizations do), so
+     identical output confirms no unintended regression.
+  2) Polar motility scenario: Energy.dat DIFFERS, previous vs new -- this is
+     the *intended* effect of the O(bug fix) "Polar_Motile_Force_Calculation
+     accumulate instead of overwrite" fix. Verified directly: at the first
+     real force evaluation (force_00000002.dat), the same 576 vertices
+     receive nonzero polar force in both versions, but "new" shows correctly
+     larger magnitudes (mean 0.300 vs 0.194, max 0.837 vs 0.335) -- exactly
+     as expected once shared-vertex contributions from multiple cells are
+     summed instead of the last cell's draw silently overwriting the
+     others. T1 event count is higher in "new" (52 vs 39), a sensible
+     downstream consequence of the correctly-larger driving force. No NaN,
+     no crash in either variant.
+  3) ABP scenario: Energy.dat BYTE-IDENTICAL, previous vs new, across all
+     500 steps. Expected: the ABP noise-granularity change was reverted
+     earlier in this session (per user clarification that ABP is
+     conceptually per-cell, not per-vertex), so ABP behavior should be, and
+     is, unchanged from the original.
+  All 6 runs (3 scenarios x 2 variants) completed with exit code 0, zero
+  NaN/Infinity/error/out-of-bound/segfault matches in any log.
+
+================================================================================
+FIFTH PASS: shearing + low motility + bottom/top border fixed, and a new bug
+found via stress-testing
+================================================================================
+Scenario: if_Shear_tissue + if_Oscillatory_Shearing on, if_motility on with
+etas_max=0.005 (low, vs. 0.04 used as "high" earlier), if_bottom_borders_fixed
+and if_top_borders_fixed on (if_Fixed_boundary left off, to isolate the
+border-specific code paths from the generic one), min_d_T1/min_area_T2 as
+shipped. nrun=1, seeded identically in previous/new as in the fourth pass.
+
+Natural run (500 and 4000 steps, min_d_T1=0.1 as shipped): no crash, no NaN,
+Energy.dat byte-identical previous vs new (T1_count identical too: 39/500
+steps, 43/4000 steps) -- expected, since none of this scenario's dynamics-
+affecting code differs between previous/new (Stress.f90's fixes are
+diagnostic-only, see below). ShearStress.dat, however, DIFFERS between
+previous and new (max 0.0391 vs 0.0294) -- this is the sigma-reset fix (see
+bug #12 above) doing exactly what it should: Calculate_StressTensor's output
+never feeds back into the dynamics (Energy/mesh state), so it's the correct
+and only place this fix should show up. In neither the 500- nor the 4000-
+step natural run did a T1/T2 event happen to land on an actual bottom/top
+border vertex (border vertices are a small fraction of the mesh, and only
+~40 T1 events occurred total), so the border-check fix itself (bug #6, T1
+wraparound) wasn't exercised by chance in the natural run.
+
+TARGETED STRESS TEST to force border-touching T1 activity: min_d_T1 raised
+to 0.5 (deliberately far above the shipped 0.1, NOT a suggested production
+value -- this makes nearly every edge "short", triggering continuous heavy
+T1 activity). This surfaced two real findings:
+
+--------------------------------------------------------------------------------
+CONFIRMATION: allocation.f90 ver_no/ver_no_next sizing bug (bug #12 above)
+--------------------------------------------------------------------------------
+The ORIGINAL (previous/HEAD) code crashed for real under this stress test:
+    Fortran runtime error: Index '321' of dimension 1 of array 'ver_no'
+    above upper bound of 320
+  at T1_swap.f90:51 -- i.e. more than inn_dim2=320 short-edge candidates were
+  found in a single find_T1 scan, exactly the overflow scenario bug #12
+  describes. The fixed code (ver_no/ver_no_next sized off num_dim*6) did not
+  hit this crash and progressed further into the run.
+
+--------------------------------------------------------------------------------
+NEW BUG FOUND (via this stress test) + FIX: T1_swap.f90 (T1_core, Occurrences==2
+branch) -- no lower-bound guard on vertex count
+--------------------------------------------------------------------------------
+BUG:
+  Having survived the ver_no crash above, the fixed code went on to hit a
+  DIFFERENT, previously-undiscovered, pre-existing bug: T1_core's
+  Occurrences==2 ("losing a vertex") branch decrements num(cellNo) with no
+  lower-bound check. Under sustained aggressive T1 activity, a cell already
+  at 3 vertices (a triangle) can be flipped down to 2, and eventually to 1.
+  At num(ic)==1, Force_Calculation's prev_idx/next_idx wraparound logic
+  leaves prev_idx==0 (the pre-existing "OOPS!!!" debug print -- previously
+  assumed unreachable/dead in this session's earlier review -- turned out to
+  be live), and indexing vy(0) crashed with:
+    Fortran runtime error: Index '0' of dimension 1 of array 'vy' below
+    lower bound of 1
+  at Force.f90:90. A cell this degenerate should be removed by T2, not
+  further reduced by T1.
+
+FIX:
+  Added a check in Do_T1 (T1_swap.f90), right before calling T1_core: for
+  every Affected cell with Occurrences==2, if num(Affected(il)) <= 3 (i.e.
+  the flip would take it to <=2 vertices), reject the WHOLE T1 flip
+  (T1_pass = .false., "Degenerate cell Ignored T1") rather than attempting a
+  partial/patched mutation -- consistent with the existing veto pattern used
+  for boundary conditions elsewhere in Do_T1.
+
+VERIFICATION:
+  Re-ran the same forced (min_d_T1=0.5) stress test with the fix: 1000 steps
+  completed cleanly (exit 0), the new guard fired 820 times, zero
+  "OOPS", zero NaN/error/crash. The border-check code path (bug #6's fix)
+  was also, finally, genuinely exercised under this stress test: "Bottom/Top
+  Border Ignored T1" fired 420455/456410 times with zero crashes or
+  anomalies -- strong additional confirmation that fix is correct under
+  heavy load.
+  Re-verified the fix is a true no-op under normal parameters: reran the
+  default-config and cell-division sanity scenarios (min_d_T1=0.1 as
+  shipped) -- Energy.dat byte-identical to every prior run this session,
+  and "Degenerate cell Ignored T1" fired zero times in either, confirming
+  this guard only engages in the pathological regime that used to crash.
+
+================================================================================
+SIXTH PASS: cell division + fixed boundary together
+================================================================================
+Scenario: if_cell_division on (area_0=1.05, same value that produced 42 clean
+divisions earlier without fixed boundary), if_Fixed_boundary on, nrun=1,
+totT=2000, seeded identically in previous/new.
+
+RESULT 1 -- CONFIRMS bug #9 (Proliferation_Core othercells_count) is real and
+live, not just theoretical:
+  The ORIGINAL (previous/HEAD) code crashed almost immediately:
+    Fortran runtime error: Index '0' of dimension 1 of array 'num' below
+    lower bound of 1
+  at Proliferation.f90:192 -- exactly the othercells(2)==0 -> num(0) access
+  bug #9 describes. Root cause confirmed directly: cell 2 sits on the
+  tissue's left boundary (Get_Boundary_info's static index range
+  leftP=[1..Ly] includes it), so one of its two division-chord edges has no
+  neighboring cell across it (othercells_count==1, not 2) -- previous code
+  crashes on this immediately; the fixed "new" code's othercells_count!=2
+  guard (bug #9's fix) correctly skips it instead (2000/2000 "skipped --
+  cell 2 has a split edge on the tissue boundary" messages, zero crashes,
+  zero NaN, Energy finite throughout all 2000 steps).
+
+RESULT 2 -- NEW FINDING (a starvation/design issue, not a crash or memory-
+safety bug) surfaced BY fixing result 1:
+  With the crash fix in place, ZERO divisions succeeded in the entire
+  2000-step run (previously, without if_Fixed_boundary, the same area_0
+  produced 42 successful divisions). Root cause: Find_Proliferation
+  (Proliferation.f90) scans cells in index order and returns ALL over-
+  threshold cells in chosen_cell(1:chosen_cell_count), but Do_Proliferation
+  only ever attempts chosen_cell(1) once per timestep. Cell 2 (the
+  boundary cell from Result 1) is consistently the first cell over area_0
+  by index order; since its division always fails the boundary check, its
+  area never shrinks, so it remains chosen_cell(1) on literally EVERY
+  subsequent timestep -- permanently blocking every other over-threshold
+  cell from ever being tried, for the rest of the run. Confirmed directly:
+  cell 2's vertex count (num(2)) is unchanged (6) at the final timestep,
+  and the "skipped" message names cell 2 on all 2000/2000 attempts.
+  NOT FIXED YET -- this is a behavior/design limitation (silently disables
+  cell division whenever the boundary-adjacent-cell-division combination
+  occurs), not a memory-safety bug, and fixing it means changing
+  Do_Proliferation's candidate-selection loop (try chosen_cell(2), (3), ...
+  if chosen_cell(1) fails, rather than trying only the first) -- a real
+  behavior change to core division logic, flagged for the user to decide
+  on rather than applied unilaterally in this pass.
+
+================================================================================
+FIX: Proliferation.f90 -- fall through to the next candidate cell
+(the starvation issue found in the sixth pass, above)
+================================================================================
+FIX APPLIED:
+  Proliferation_Core gained a `success` intent(out) logical argument, set
+  .false. at entry and .true. only at the point a division actually
+  completes (right where Nc is incremented) -- every existing early-return
+  guard (v_dim2/inn_dim2/num_dim capacity, othercells_count != 2) now simply
+  leaves success as .false. instead of the caller having no way to know the
+  attempt failed.
+  Do_Proliferation now loops over chosen_cell(1), chosen_cell(2), ... up to
+  chosen_cell_count, trying each (including the existing n_intersections
+  check) and stopping at the first one where success comes back .true.,
+  instead of only ever trying chosen_cell(1). A cell whose division always
+  fails (e.g. a boundary cell with an edge on the tissue's outer boundary)
+  can no longer block every other over-threshold cell from ever being tried.
+
+VERIFICATION:
+  Re-ran the exact sixth-pass scenario (if_cell_division on, area_0=1.05,
+  if_Fixed_boundary on, totT=2000) that previously starved to 0/2000
+  successful divisions: now gets 42 successful divisions -- matching
+  exactly the 42 divisions seen earlier with the same area_0 and NO fixed
+  boundary, confirming division is no longer suppressed by the boundary
+  interaction. Multiple different cells are now skipped-then-retried
+  (cells 2, 8, 10, 12, 13, 14, 15, 112 all appear as rejected candidates at
+  various points, not just cell 2 monopolizing every attempt). Zero
+  NaN/error/crash; Energy finite throughout.
+
+  Also ran the user's suggested ABP-driven check: if_ABP on (shipped
+  vo=0.25, Dr=1.0) + if_cell_division on + if_Fixed_boundary on, area_0 left
+  at the shipped default (1.30, no reduction needed) -- the active tissue
+  naturally produced 7 successful divisions over 2000 steps on its own,
+  zero crashes, zero NaN, Energy finite (247-259 range). Running the
+  ORIGINAL (unfixed) code on the identical scenario happened to also
+  complete without crashing this particular run (matched "new" division-
+  for-division through the first 6 divisions, then diverged on the 7th --
+  attributable to this session's T1_core degenerate-cell guard, added in
+  the fifth pass, engaging on some T1 event before division 7 and
+  correctly rejecting a flip the original code would have allowed). This is
+  expected: the missing-guard bugs are real but only manifest when the
+  specific "unlucky" cell (e.g. cell 2 in the fifth/sixth pass) is actually
+  selected for division -- this run's RNG trajectory simply didn't select
+  it within 2000 steps. The sixth pass already gives a definitive,
+  reproducible crash of the original code on this same class of scenario.
+
+================================================================================
+SEVENTH PASS: shearing + cell division together (no fixed boundary)
+================================================================================
+Scenario: if_Shear_tissue + if_Oscillatory_Shearing on, if_cell_division on,
+area_0 left at shipped default (1.30), if_Fixed_boundary/if_bottom_top_
+borders_fixed left off. nrun=1, totT=2000, seeded identically in
+previous/new (same methodology as prior passes).
+
+RESULT: both variants completed cleanly (exit 0), 6 successful divisions
+each, zero skipped-division messages of any kind (no boundary-edge
+rejections, no capacity limits, no bad bisectors) -- this combination
+simply doesn't touch the boundary-adjacent-cell code paths that caused the
+fifth/sixth-pass crashes, since if_Fixed_boundary is off here.
+  - Energy.dat, T1_count.dat, T2_count.dat, and the final inn/num/v mesh
+    state: BYTE-FOR-BYTE IDENTICAL, previous vs new. Expected: none of this
+    session's dynamics-affecting fixes were exercised by this particular
+    combination (no boundary-adjacent division, no degenerate T1 cells, no
+    array-capacity limits hit).
+  - ShearStress.dat DIFFERS (max 0.0420 vs 0.0315), consistent with every
+    other shearing scenario this session -- the Stress.f90 sigma-reset fix,
+    which is diagnostic-only and correctly shows up only there.
+  Speedup from the early-exit optimization again dramatic on this mesh:
+  7.20s (previous) vs 0.17s (new), ~43x, for byte-identical dynamics.
+
+================================================================================
+EIGHTH PASS: full fresh re-review of the entire current codebase
+================================================================================
+Per explicit request, dispatched 3 independent reviewers to re-check EVERY
+.f90 file from scratch on the current (already-patched) state -- not trusting
+this log's own claims, verifying each fix, and looking for anything new,
+missed, or introduced by earlier fixes. One reviewer went further and
+actually compiled/ran isolated reproductions rather than relying on static
+reasoning alone. This surfaced real, confirmed issues, several independently
+found by more than one reviewer. All CONFIRMED findings below were fixed and
+re-verified; LOWER-PRIORITY / deferred findings are listed after.
+
+--------------------------------------------------------------------------------
+FIXED: allocation.f90 -- cell_no/vertex_occurance_count sized off the
+*initial* mesh's maxval(inn), not the true reserved growth capacity
+--------------------------------------------------------------------------------
+BUG (independently found by all 3 reviewers; EMPIRICALLY REPRODUCED):
+  `allocate(cell_no(maxval(inn)))` / `allocate(vertex_occurance_count(maxval(inn)))`
+  in read_data (called once, before the main loop) sized these off the
+  largest vertex index in the INITIAL mesh only. vertex_occurance_count is
+  indexed directly by vertex id in Find_boundary_dynamic (Geometry.f90);
+  cell_no is filled in lockstep with ver_no in find_T1/find_T2's candidate
+  scan. Cell division (Proliferation_Core) legitimately creates vertices
+  with indices beyond that initial snapshot, up to v_dim2. One reviewer
+  reproduced this live: with if_cell_division + if_Fixed_boundary on and a
+  single T2 event allowed to occur, got
+    Fortran runtime error: Index '4568' of dimension 1 of array
+    'vertex_occurance_count' above upper bound of 4564
+  This combination (cell division + a real T2 event + border-fixed) is
+  exactly what the sixth pass's test happened NOT to trigger (no T2 events
+  occurred in that run), masking the bug.
+FIX: allocate(cell_no(v_dim2)); allocate(vertex_occurance_count(v_dim2)) --
+  sized off the true reserved vertex capacity, same growth-safety principle
+  already applied to d_val/ver_no/ver_no_next/area_val/cellcen.
+VERIFICATION: reconstructed the exact failing scenario (if_cell_division on,
+  area_0=1.05, if_Fixed_boundary + bottom/top_borders_fixed on, min_area_T2
+  raised so a T2 event actually occurs) -- 3000 steps complete cleanly
+  (42 successful divisions, 1 T2 event, 0 crashes, 0 NaN), where before the
+  fix this scenario reliably crashed.
+
+--------------------------------------------------------------------------------
+FIXED (own regression from this session's O1 optimization): Geometry.f90 --
+Get_Boundary_info caching silently broke once Find_boundary_dynamic
+overwrites the same shared "boundary" array
+--------------------------------------------------------------------------------
+BUG:
+  Get_Boundary_info sets boundary=[leftP,rightP,topP,bottomP,corners] (the
+  STATIC set) once, then (after the O1 caching fix) returned immediately on
+  every later call. But Find_boundary_dynamic also writes "boundary" (via
+  find_unique_sorted, which deallocates/reallocates it) with a completely
+  different DYNAMIC, vertex-degree-based set, whenever if_bottom_borders_
+  fixed/if_top_borders_fixed triggers it -- a call path independent of
+  if_Fixed_boundary. Before caching, every Get_Boundary_info call
+  unconditionally rebuilt "boundary" from scratch, harmlessly undoing any
+  such clobbering. With the naive cache, from the 2nd relevant call onward,
+  if_Fixed_boundary's boundary-check (and Apply_Fixed_Boundary's per-
+  timestep force-zeroing, Force.f90) could silently use a stale DYNAMIC
+  boundary set instead of the static one -- dynamics-affecting, not just
+  diagnostic, and reachable via a supported, realistic flag combination the
+  fifth pass explicitly avoided testing ("if_Fixed_boundary left off, to
+  isolate the border-specific code paths").
+FIX: kept the expensive index-building work cached, but now ALWAYS cheaply
+  rebuilds `boundary = [leftP, rightP, topP, bottomP, corners]` from the
+  (cached, still-valid) static pieces on every call, restoring the original
+  self-healing behavior at a fraction of the original cost.
+VERIFICATION: re-ran the fifth-pass border-check stress test and the
+  scenario above (both exercise this path); no crashes, no NaN, behavior
+  consistent with expectations.
+
+--------------------------------------------------------------------------------
+FIXED: T2_swap.f90 -- missing lower-bound vertex-count guard (mirrors the
+T1_core fix from the fifth pass, but had no T2-side equivalent)
+--------------------------------------------------------------------------------
+BUG: T2_core's Occurrences_T2==2 case (a neighbor sharing an edge with the
+  collapsing triangle) decrements that neighbor's vertex count by 1 with no
+  floor check. A neighbor already at 3 vertices could be pushed to 2, and a
+  later T2 event touching the same cell again could push it to 1 --
+  Force_Calculation's wraparound then leaves prev_idx==0 (out-of-bounds).
+FIX: added the same style of guard used in Do_T1: in Do_T2, before calling
+  T2_core, reject the whole T2 event ("Degenerate cell Ignored T2") if any
+  cell in Affected_T2 has Occurrences_T2==2 and num(that cell)<=3.
+VERIFICATION: guard compiles and integrates cleanly; did not fire in any of
+  this session's sanity runs (consistent with it only being reachable under
+  sustained/aggressive T2 activity, same rarity profile as the T1 guard it
+  mirrors), but is now in place as defense-in-depth alongside it.
+
+--------------------------------------------------------------------------------
+FIXED: allocation.f90 -- left_border/right_border sized by Lx instead of Ly
+--------------------------------------------------------------------------------
+BUG: bottom_border/top_border (horizontal/Lx-scaling edges) and left_border/
+  right_border (vertical/Ly-scaling edges) were ALL sized "Lx*6". Only
+  invisible because the shipped para2_in.dat is square (Lx=Ly=16) -- the
+  same "masked by current shipped parameters" pattern as the original
+  beta/gamm bug. Filled via direct indexed writes in Find_boundary_dynamic
+  (not auto-reallocated), so a real out-of-bounds-write risk for any
+  Lx != Ly configuration.
+FIX: allocate(left_border(Ly*6), right_border(Ly*6)) -- matches the
+  dimension they actually scale with (c.f. Get_Boundary_info's GleftP/
+  GrightP, already correctly Ly-sized).
+
+--------------------------------------------------------------------------------
+FIXED: allocation.f90 -- d_val/ver_no/ver_no_next tightened from num_dim*6
+to num_dim*inn_dim1 (the actual proven worst-case bound)
+--------------------------------------------------------------------------------
+The num_dim*6 factor (bug #2's original fix) assumed an "average hexagonal
+cell" (~6 vertices/cell) but is not a rigorous bound against the configured
+per-cell vertex cap inn_dim1=24 -- the true worst case (every live cell at
+inn_dim1 vertices, every edge short) is num_dim*inn_dim1 (7680 vs. the old
+1920). Tightened to close this residual crash-risk class entirely rather
+than just push its threshold higher.
+
+--------------------------------------------------------------------------------
+FIXED: allocation.f90 -- boundary allocated 4 short of what it actually holds
+--------------------------------------------------------------------------------
+allocate(boundary(2*Lx+2*Ly)) vs. the 2*Lx+2*Ly+4 elements Get_Boundary_info
+actually assigns (corners contributes 4 more). Harmless today only because
+"boundary" is allocatable and gfortran's default automatic-reallocation-on-
+whole-array-assignment silently resizes it. Fixed to the correct size
+(2*Lx+2*Ly+4) so it isn't fragile if that assignment pattern ever changes to
+a partial/indexed one, as the border arrays already do.
+
+--------------------------------------------------------------------------------
+FIXED: Proliferation.f90 -- SplitPolygon's internal failure not propagated
+to Proliferation_Core's `success` flag
+--------------------------------------------------------------------------------
+BUG: Geometry.f90's SplitPolygon has its own internal failure paths (chord
+  vertices not found in inn_ic, or an "overflow constructing inn_new1/
+  inn_new2" guard) that leave n1/n2 invalid (0, or an out-of-range partial
+  count) and return without completing the split. Proliferation_Core never
+  checked n1/n2 afterward, so execution fell through to
+  ArrangeVertices (reading inn_new1(1:n1) out of bound in the overflow
+  case) and eventually inn(1:n1,ic)=inn_new1(1:n1) / num(ic)=n1=0,
+  corrupting the dividing cell's topology while still reporting
+  success=.true. -- which would also have defeated the fall-through loop in
+  Do_Proliferation (a false "success" stops it from trying the next
+  candidate).
+FIX: added a check immediately after the SplitPolygon call: if n1<3 or
+  n1>num(ic)+2 or n2<3 or n2>num(ic)+2 (the valid range for a proper
+  sub-polygon plus 2 new chord vertices), bail out cleanly
+  ("SplitPolygon failed for cell...") before ArrangeVertices is even called.
+
+--------------------------------------------------------------------------------
+FIXED: Proliferation.f90 -- missing inn_dim1 (max vertices per cell)
+capacity check before writing split results
+--------------------------------------------------------------------------------
+BUG: the two capacity guards added earlier (v_dim2 for vertex storage,
+  inn_dim2/num_dim for cell-slot storage) never checked inn_dim1 -- the hard
+  cap on vertices PER CELL. SplitPolygon/UpdateNeighborPolygons can
+  legitimately produce n1, n2, n1_new, or n2_new up to num(ic)+2, which for
+  a cell that already reached inn_dim1 vertices via sustained T1 activity
+  (and also happens to exceed the division-area threshold) can exceed
+  inn_dim1 -- overflowing inn's first dimension on the final writes.
+FIX: added a check right after UpdateNeighborPolygons: if any of
+  n1/n2/n1_new/n2_new exceed inn_dim1, bail out cleanly, mirroring the
+  guard already added to T1_core for the same class of overflow.
+
+--------------------------------------------------------------------------------
+FIXED (dead code today, cheap correctness fix): System_Info.f90 --
+CellCentre summed uninitialized cellcen rows beyond Nc
+--------------------------------------------------------------------------------
+cellcen is allocated (num_dim,2) and never zero-initialized; only rows 1:Nc
+are filled. global_cellCenX/Y summed the WHOLE column (including rows
+Nc+1:num_dim, uninitialized heap memory). CellCentre is never called
+anywhere in the live program today (only referenced from the fully
+commented-out MeanSqDisp), so this was inert -- fixed anyway
+(sum(cellcen(1:Nc,1)) instead of sum(cellcen(:,1))) since it's a one-line
+fix and would silently corrupt output the moment mean-square-displacement
+tracking is ever re-enabled.
+
+VERIFICATION (all fixes above, together): recompiled clean (no warnings);
+re-ran the default-config sanity scenario -- Energy.dat byte-identical to
+every prior run this session; re-ran the cell-division-only scenario -- no
+crash, 42 successful divisions (matching baseline), a small Energy-
+trajectory shift traced to the earlier fall-through fix (not this pass's
+changes -- confirmed by checking that none of this pass's new guards
+actually fired in that run); re-ran the exact vertex_occurance_count
+crash-reproduction scenario -- now completes cleanly across 3000 steps with
+42 divisions and 1 T2 event, where before the fix it crashed reliably.
+
+================================================================================
+NOT YET DONE (deferred -- lower-priority findings from the eighth-pass
+re-review, plus earlier deferred items; not applied in this pass)
+================================================================================
+- vertexmain.f90: T2_time_interval is a dead/no-op parameter -- the only
+  call site that would use it to gate Do_T2 independently has its
+  `call Do_T2` commented out; Do_T2 is actually only ever invoked inside the
+  T1_time_interval-gated loop. Masked because the shipped para1_in.dat sets
+  both intervals to 1. This is a behavior/design decision (restore
+  independent scheduling vs. remove the dead parameter), not a crash fix --
+  flagged for a decision rather than changed unilaterally.
+- Force.f90 Force_Calculation: if both if_RhoROCK and if_active_contractility
+  are ever turned on simultaneously (nothing enforces mutual exclusivity),
+  active_contractility's beta assignment silently overwrites RhoROCK's
+  (including any coupling-noise RNG draw that gets consumed for a discarded
+  value). Not a crash; worth an explicit mutual-exclusivity check/comment.
+- Force.f90 Give_Motility_Gradient: first motility patch has half-width
+  vs. full-width for all subsequent patches -- pre-existing, only runs once
+  at startup, low priority.
+- Force.f90 Apply_bottom_border_Fixed/Apply_top_border_Fixed rely on
+  bottom_border_count/top_border_count having already been freshly
+  populated elsewhere this timestep (via Do_T1's Find_boundary_dynamic
+  call, itself gated on T1_pass staying true after find_T1); on a timestep
+  with zero T1 candidates, these arrays can hold a stale count from a
+  previous refresh (or, on the very first timestep ever, an unassigned
+  module integer that happens to BSS-zero-init with gfortran) -- the fixed-
+  boundary condition can go briefly unenforced. Not touched this session;
+  would need a more structural fix (e.g. always refresh once per timestep
+  when either flag is on, independent of T1/T2 activity).
+- Force_Calculation's "OOPS!!!" diagnostic print (for prev_idx==0) is only a
+  print, not a cycle/skip/return -- execution falls straight through to the
+  out-of-bounds access it's warning about. With the T1/T2 degenerate-cell
+  guards now in place on both sides, this should be unreachable, but adding
+  an actual stop here would be good defense-in-depth.
+- array_info.f90's integer-via-real quicksort (cosmetic), reorder_polygon's
+  O(n^2) sort (only runs on division events, low priority), and all
+  previously-listed deferred items (no random_seed, missing implicit none
+  in a few places, jp dual-declaration, the find_T1/find_T2 O(Nc) rescan
+  redesign, vx/vy allocatable-vs-fixed-size) remain as previously described.
+================================================================================
+- The fuller incremental-candidate-list redesign for find_T1/find_T2 (see O6
+  above for why it was investigated and not implemented). The safe
+  early-exit (O6) already captures the dominant real-world cost (the
+  "nothing left to do" steady-state case); the remaining, smaller potential
+  win is the case where if_Fixed_boundary is on and count_T1/count_T2 stays
+  nonzero because the only remaining candidate(s) are boundary-locked (the
+  same rejected candidate gets re-tried every iteration until 500 is
+  reached). That residual case was not addressed, given the redesign risk
+  discussed above.
+- vx/vy (allocation.f90) declared allocatable and reassigned via
+  Fortran's auto-realloc-on-assignment inside per-cell hot loops across many
+  files (System_Info.f90, Force.f90, Stress.f90, T1_swap.f90, T2_swap.f90,
+  Proliferation.f90) -- up to millions of times per run. Converting to
+  fixed-size automatic arrays would remove the realloc overhead but touches
+  many call sites across 6 files; deferred as a separate, broader pass to
+  keep this one's risk/verification scope contained.
+- gaussian_random (Force.f90) discards the second free Box-Muller variate.
+  Caching it would roughly halve random_number() calls when Gaussian noise
+  is used, BUT doing so changes the exact sequence in which random_number
+  is consumed relative to other call sites in the same timestep -- i.e. it
+  would change specific stochastic trajectories (not just performance),
+  even though statistically equivalent. Deferred pending an explicit
+  decision on that tradeoff (also: no random_seed is called anywhere in the
+  program, so run-to-run reproducibility is not currently guaranteed either
+  way -- see below).
+- maxinn = maxval(inn) in Proliferation.f90 -- a full inn_dim1*inn_dim2 scan
+  on every division. Low priority: if_cell_division is off by default, and
+  Do_Proliferation is only called once per timestep (not 500x), so the
+  actual cost is small relative to the T1/T2 rescan issue above.
+- Give_Motility_Gradient's O(N^2) patch-binning (Force.f90) -- only runs
+  once at startup (if if_motility_gradient), so it does not affect
+  steady-state runtime; low priority.
+- read_input called twice at startup (allocation.f90 + vertexmain.f90) --
+  harmless today, fragile if read_input ever becomes stateful.
+- No call random_seed(...) anywhere -- CONFIRMED (see "FOURTH PASS" above)
+  to cause genuine run-to-run non-determinism: the exact same binary, run
+  twice on a scenario with real multi-candidate T1 branching (if_motility
+  on), produced two different Energy.dat trajectories. This makes it
+  impossible to reproduce a specific past run, or to cleanly A/B-compare two
+  code versions, without manually controlling the seed as was done for the
+  fourth-pass comparison above. Worth fixing with an explicit
+  call random_seed(...) at program start if reproducible/comparable runs
+  matter going forward.
+- Missing implicit none in System_Info.f90 (module + both subroutines),
+  PerpendicularBisector (Geometry.f90), vertexmain.f90 program unit.
+- jp declared independently in both allocation.f90 and array_info.f90,
+  jointly used without qualification -- latent ambiguous-reference risk.
+- Various dead code / unused arrays / magic numbers (see full review).
+================================================================================

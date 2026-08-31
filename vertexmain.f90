@@ -111,6 +111,20 @@ program vertexmain
           call Do_T2
         end if
 
+        ! OPTIMIZATION (log.txt): find_T1/find_T2 (called at the top of
+        ! Do_T1/Do_T2) do a full O(Nc) mesh scan every one of these 500
+        ! iterations, even after no short edges/small triangles remain --
+        ! count_T1/count_T2 are freshly recomputed by that scan on every
+        ! call. Once both are simultaneously zero, nothing in the mesh can
+        ! change for the rest of this loop (no candidates -> no possible
+        ! mutation -> every remaining full rescan would deterministically
+        ! find the same empty result), so stopping here skips zero
+        ! legitimate T1/T2 events -- only the wasted rescans that would
+        ! have found nothing anyway.
+        if((.not.if_Do_T1 .or. count_T1==0) .and. (.not.if_Do_T2 .or. count_T2==0)) then
+          exit
+        end if
+
       end do
     end if
 

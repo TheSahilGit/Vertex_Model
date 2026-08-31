@@ -126,8 +126,37 @@ module Geometry
      use allocation
 
      implicit none
-  
-  
+
+     ! OPTIMIZATION (log.txt): every array built here depends only on Lx/Ly,
+     ! which never change at runtime, but this was being recomputed from
+     ! scratch on every call (up to 500x/timestep via Do_T1/Do_T2 while
+     ! if_Fixed_boundary is on and before the first T2 event). Compute once
+     ! and reuse -- identical result, just not redone every call.
+     !
+     ! BUGFIX (log.txt, re-review pass): "boundary" (assigned below) is a
+     ! module-level array ALSO written by Find_boundary_dynamic, with a
+     ! completely different (dynamic, vertex-degree-based) value, whenever
+     ! if_bottom_borders_fixed/if_top_borders_fixed triggers it -- a call
+     ! path independent of if_Fixed_boundary. Before this caching was added,
+     ! every call to Get_Boundary_info unconditionally rebuilt "boundary"
+     ! from scratch, which harmlessly undid any such clobbering on the very
+     ! next call. An earlier version of this cache made the WHOLE subroutine
+     ! (including the "boundary" reassignment) a no-op after the first call,
+     ! so if_Fixed_boundary could end up silently comparing against a stale
+     ! DYNAMIC boundary set left over from a bottom/top-border check,
+     ! instead of the static one it expects -- a real, dynamics-affecting
+     ! bug (Apply_Fixed_Boundary uses "boundary" to decide which vertices'
+     ! forces to zero every timestep). Fix: cache only the expensive,
+     ! genuinely Lx/Ly-only index-building work; always cheaply rebuild
+     ! "boundary" itself from the (cached) leftP/rightP/topP/bottomP/corners
+     ! on every call, restoring the original self-healing behavior.
+     logical, save :: computed = .false.
+
+     if (computed) then
+       boundary = [leftP, rightP, topP, bottomP, corners]
+       return
+     end if
+
        ii = 0
        do i=1,Lx*Ly
          ii = ii+1
@@ -199,7 +228,7 @@ module Geometry
           end do
         end do
 
-
+     computed = .true.
 
 
  end subroutine Get_Boundary_info
@@ -212,7 +241,6 @@ module Geometry
    implicit none
 
    logical :: is_boundary
-   integer :: im
    integer:: boundary_temp(Lx*Ly*6)
 
    
@@ -280,22 +308,27 @@ module Geometry
      end do
 
 
+      ! OPTIMIZATION (log.txt): membership in all_borders(1:all_border_count)
+      ! is exactly the condition (vertex_occurance_count < 3 .and. > 0)
+      ! already computed above -- an O(1) lookup per vertex. The previous
+      ! inner "do im = 1, all_border_count" linear scan re-derived that same
+      ! membership test at O(all_border_count) cost per vertex, for no
+      ! difference in result.
       boundary_count = 0
       do ic = 1, Nc !Lx * Ly
         nn = num(ic)
         is_boundary = .false.
 
         do jc = 1, nn
-          do im = 1, all_border_count
 
-          if (all_borders(im) == inn(jc,ic)) then
+          if (vertex_occurance_count(inn(jc,ic)) .lt. 3 .and. &
+              vertex_occurance_count(inn(jc,ic)) .gt. 0) then
             is_boundary = .true.
             boundary_count = boundary_count + 1
             boundary_temp(boundary_count) = ic
             exit  ! If found, mark the cell as a boundary
           end if
 
-        end do
         end do
 
 

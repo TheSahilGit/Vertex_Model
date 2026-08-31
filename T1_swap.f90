@@ -275,7 +275,16 @@ module T1_swap
        ! write(*,*)'index',verNo_in1_indx, verNo_in2_indx
         
        
+       ! BUGFIX (log.txt): guard against overflowing inn's first dimension
+       ! (inn_dim1) when a cell that is already at max vertex capacity would
+       ! gain a vertex from this T1 flip. Previously there was no check here,
+       ! so num(cellNo) could exceed inn_dim1 and the write-back loop below
+       ! would write past inn's declared bound.
        if(verNo_in1_indx.ne.0.and.verNo_in2_indx.eq.0)then
+
+         if(num(cellNo) .ge. inn_dim1)then
+           write(*,*)'T1_core: cell', cellNo, 'already at max vertex capacity (inn_dim1) -- skipping vertex gain'
+         else
 
          inn_temp = 0
 
@@ -295,10 +304,17 @@ module T1_swap
             inn(il, cellNo) = inn_temp(il)
          end do
 
-       end if 
+         end if
+
+       end if
 
 
        if(verNo_in2_indx.ne.0.and.verNo_in1_indx.eq.0)then
+
+         if(num(cellNo) .ge. inn_dim1)then
+           write(*,*)'T1_core: cell', cellNo, 'already at max vertex capacity (inn_dim1) -- skipping vertex gain'
+         else
+
          inn_temp = 0
          do il = 1, verNo_in2_indx
            inn_temp(il) = inn_affected(il)
@@ -316,7 +332,9 @@ module T1_swap
             inn(il, cellNo) = inn_temp(il)
          end do
 
-       end if 
+         end if
+
+       end if
       
 !       write(*,*)'inn_updated1',inn(:, cellNo)
 
@@ -338,14 +356,17 @@ module T1_swap
 
       implicit none
       integer :: il, im
+      logical :: affected_computed
 
       T1_pass = .true.
-      
+      affected_computed = .false.
+
       call find_T1
 
       if(T1_pass)then
         if(if_Fixed_boundary)then
           call find_T1_Affected
+          affected_computed = .true.
 
 
        if(sum(Total_T2_count(1:it)).gt.0)then
@@ -372,11 +393,18 @@ module T1_swap
         call Find_boundary_dynamic
       end if
 
+      ! BUGFIX (log.txt): the second endpoint of the shrinking edge is
+      ! verNoNextT1 (computed with wraparound in find_T1), not the raw index
+      ! verNoT1+1. When the short edge is the polygon-closing edge
+      ! (verNoT1 == num(cellNoT1)), inn(verNoT1+1, cellNoT1) read a stale/zero
+      ! slot instead of the real second endpoint, letting a T1 flip through a
+      ! fixed border undetected (and risking an out-of-bounds read on inn if
+      ! the cell is at max vertex capacity).
       if(T1_pass.and.if_bottom_borders_fixed)then
       !!call Find_boundary_dynamic
         do im = 1, bottom_border_count
           if(bottom_border(im).eq.inn(verNoT1, cellNoT1) &
-            .or.bottom_border(im).eq.inn(verNoT1+1, cellNoT1))then
+            .or.bottom_border(im).eq.inn(verNoNextT1, cellNoT1))then
             T1_pass = .false.
             write(*,*)'Bottom Border Ignored T1'
           end if
@@ -387,7 +415,7 @@ module T1_swap
       !!call Find_boundary_dynamic
         do im = 1, top_border_count
           if(top_border(im).eq.inn(verNoT1, cellNoT1) &
-            .or.top_border(im).eq.inn(verNoT1+1, cellNoT1))then
+            .or.top_border(im).eq.inn(verNoNextT1, cellNoT1))then
             T1_pass = .false.
             write(*,*)'Top Border Ignored T1'
           end if
@@ -398,10 +426,36 @@ module T1_swap
 !      write(*,*)T1_pass,count_T1
       
       if(T1_pass)then
-          call find_T1_Affected
-          call T1_core    
-         ! print*, "T1 Happened at it = ", it
-          Total_T1_count(it) = Total_T1_count(it) + 1
+          ! OPTIMIZATION (log.txt): find_T1_Affected (an O(Nc*max_verts)
+          ! full-mesh scan) was called unconditionally here even when the
+          ! if_Fixed_boundary branch above already called it with the same
+          ! inputs (cellNoT1/verNoT1/verNoNextT1 unchanged since), doubling
+          ! the scan for every accepted T1. Skip it if already computed.
+          if (.not. affected_computed) call find_T1_Affected
+
+          ! BUGFIX (log.txt): reject a T1 flip that would reduce any affected
+          ! "losing" cell (Occurrences==2, i.e. it shares the collapsing
+          ! edge) below the minimum viable polygon vertex count (3).
+          ! T1_core's Occurrences==2 branch had no lower-bound guard -- a
+          ! cell already at 3 vertices could be flipped down to 2, and later
+          ! down to 1, at which point num(ic)==1 makes prev_idx wrap to 0 in
+          ! Force_Calculation (an out-of-bounds array access). Confirmed live
+          ! under an aggressive min_d_T1 stress test. A cell this small
+          ! should be removed by T2, not further reduced by T1 -- reject the
+          ! whole flip (no partial mutation) rather than trying to patch just
+          ! this cell's update.
+          do il = 1, size(Affected)
+            if (Occurrences(il) == 2 .and. num(Affected(il)) <= 3) then
+              T1_pass = .false.
+              write(*,*)'Degenerate cell Ignored T1'
+            end if
+          end do
+
+          if (T1_pass) then
+            call T1_core
+           ! print*, "T1 Happened at it = ", it
+            Total_T1_count(it) = Total_T1_count(it) + 1
+          end if
         end if
 
 

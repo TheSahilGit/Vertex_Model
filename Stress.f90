@@ -24,9 +24,10 @@ module Stress
 !         write(1211,*)n_inside, inside_cells(1:n_inside)
 !       close(1211)
  
-       beta = beta/(lambda*Ao)
-       gamm = gamm/(lambda*(Ao)**1.5)
- 
+       ! BUGFIX (log.txt): beta/gamm nondimensionalization moved to read_input
+       ! (allocation.f90), done once instead of every call to this subroutine
+       ! -- see log.txt for why repeating it here compounded beta/gamm.
+
        totalarea = 0.0d0
        TotalSigma = 0.0d0
 
@@ -57,7 +58,13 @@ module Stress
  
          term1 =  2.0d0 * lambda * (area - Ao)
          term2 = (2.0d0 * beta* perimeter + gamm)/(2.0d0*area)
- 
+
+         ! BUGFIX (log.txt): sigma is a global (allocation.f90) that was never
+         ! reset per cell, so each cell's edge-sum accumulated on top of the
+         ! *previous cell's already fully-scaled* tensor -- corrupting
+         ! TotalSigma/ShearStress for every cell after the first, every call.
+         sigma = 0.0d0
+
          do jc = 1,nn
            jp = jc+1
            if (jc.eq.nn)then

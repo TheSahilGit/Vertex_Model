@@ -252,6 +252,15 @@ module allocation
 
      beta_0 = beta
 
+     ! BUGFIX (log.txt): beta/gamm must be nondimensionalized exactly ONCE here.
+     ! Previously this rescale was done inside Force_Calculation (Force.f90) and
+     ! again inside Calculate_StressTensor (Stress.f90), both of which run every
+     ! timestep and mutate the global beta/gamm in place -- causing beta/gamm to
+     ! be divided by (lambda*Ao) again on every call (exponential decay/blow-up
+     ! over the run). Doing it once here, right after read, fixes that.
+     beta = beta/(lambda*Ao)
+     gamm = gamm/(lambda*(Ao)**1.5)
+
      totT = int(totTr)
      nrun2_initialTime = int(nrun2_initialTime_r)
 
@@ -279,7 +288,15 @@ module allocation
      allocate(edgelengthIn(Lx*Ly*inn_dim1))
      allocate(workingzone(Lx*Ly+2*Lx+2*Ly+4))
      allocate(mainarea(Lx*Ly),leftP(Ly),rightP(Ly),topP(Lx),bottomP(Lx),corners(4))
-     allocate(boundary(2*Lx + 2*Ly))
+     ! BUGFIX (log.txt, re-review pass): Get_Boundary_info actually builds
+     ! boundary = [leftP, rightP, topP, bottomP, corners], i.e. 2*Lx+2*Ly+4
+     ! elements (corners was missing from this initial sizing) -- harmless
+     ! today only because "boundary" is allocatable and Fortran's automatic
+     ! reallocation-on-assignment (gfortran default, no -fno-realloc-lhs in
+     ! compile.sh) silently resizes it on that whole-array assignment.
+     ! Sized correctly here so it isn't fragile if that assignment pattern
+     ! ever changes to a partial/indexed one (as the border arrays already do).
+     allocate(boundary(2*Lx + 2*Ly + 4))
      allocate(GleftP(Ly),GrightP(Ly),GtopP(Lx),GbottomP(Lx),Gcorners(4))
      allocate(Gboundary(2*Lx + 2*Ly + 4))
      allocate(inside1((Lx - 2) * (Ly - 2)))
@@ -293,15 +310,38 @@ module allocation
      allocate(mot(v_dim2),mot0(v_dim2))
      allocate(coordNum(Lx*Ly))
      allocate(bound(2*Lx + 2*Ly))
-     allocate(cellcen(Lx*Ly, 2))
+     allocate(cellcen(num_dim, 2))
 
-     allocate(d_val(Lx*Ly*6))
-     allocate(area_val(Lx*Ly))
-     allocate(ver_no(inn_dim2), ver_no_next(inn_dim2))
-     allocate(bottom_border(Lx*6), top_border(Lx*6), left_border(Lx*6), right_border(Lx*6))
+     ! BUGFIX (log.txt): d_val/ver_no/ver_no_next/area_val must all share one
+     ! consistent worst-case capacity. Previously d_val was sized Lx*Ly*6 while
+     ! ver_no/ver_no_next were sized only inn_dim2 (much smaller) -- if find_T1
+     ! (T1_swap.f90) ever found more than inn_dim2 short edges in one pass,
+     ! ver_no/ver_no_next overflowed. Also, sizing off the *initial* Lx*Ly (not
+     ! num_dim, the reserved max-cell capacity) meant these silently became too
+     ! small again once Nc grows via cell division. Now all sized from num_dim.
+     ! BUGFIX (log.txt, re-review pass): the earlier num_dim*6 factor assumed
+     ! an "average hexagonal cell" (~6 vertices/cell) but is not a proven
+     ! bound against the actually configured per-cell vertex cap (inn_dim1);
+     ! the true worst case (every live cell at inn_dim1 vertices, every edge
+     ! short) is num_dim*inn_dim1. Sized off that instead.
+     allocate(d_val(num_dim*inn_dim1))
+     allocate(area_val(num_dim))
+     allocate(ver_no(num_dim*inn_dim1), ver_no_next(num_dim*inn_dim1))
+     ! BUGFIX (log.txt, re-review pass): left_border/right_border collect
+     ! vertices along the VERTICAL (Ly) edges of the tissue, not the
+     ! horizontal (Lx) ones -- they were sized Lx*6 like bottom/top_border,
+     ! which only happened to be safe because the shipped mesh is square
+     ! (Lx==Ly). Sized off Ly instead, matching the dimension they actually
+     ! scale with (c.f. Get_Boundary_info's GleftP/GrightP, already Ly-sized).
+     allocate(bottom_border(Lx*6), top_border(Lx*6), left_border(Ly*6), right_border(Ly*6))
      allocate(all_borders(Lx*Ly*6))
      allocate(TotalSigma(2,2))
      allocate(ShearStress(totT))
+     ! BUGFIX (log.txt): ShearStress is unconditionally written to
+     ! data/ShearStress.dat in write_output regardless of if_Shear_tissue.
+     ! Without shearing it was only ever allocated, never assigned, so the
+     ! output file contained uninitialized memory. Zero it here.
+     ShearStress = 0.0d0
 
      allocate(chosen_cell(v_dim2))
 
@@ -385,8 +425,21 @@ module allocation
 
      coefficients = [lambda, beta, gamm, Ao, Co, eta]
 
-     allocate(cell_no(maxval(inn)))   ! allocating here to increase speed
-     allocate(vertex_occurance_count(maxval(inn)))
+     ! BUGFIX (log.txt, re-review pass): cell_no and vertex_occurance_count
+     ! were sized off maxval(inn) -- the largest vertex index present in the
+     ! *initial* mesh only, since read_data runs once before the main loop.
+     ! vertex_occurance_count is indexed DIRECTLY by vertex id
+     ! (Find_boundary_dynamic, Geometry.f90), and cell_division legitimately
+     ! creates vertices with indices beyond that initial snapshot (up to
+     ! v_dim2, the real reserved capacity) -- confirmed live: this produced
+     ! "Index '4568' ... above upper bound of 4564" once cell division plus
+     ! a T2 event grew the mesh past the initial maxval(inn). cell_no shares
+     ! the same fragile sizing convention (it's filled in lockstep with
+     ! ver_no in find_T1/find_T2's candidate scan) even though its true
+     ! required capacity is candidate-count-based, not vertex-id-based.
+     ! Sized off v_dim2 (the true reserved vertex capacity) for both.
+     allocate(cell_no(v_dim2))
+     allocate(vertex_occurance_count(v_dim2))
 
 
     end subroutine read_data

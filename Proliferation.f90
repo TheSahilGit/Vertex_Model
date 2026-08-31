@@ -16,8 +16,9 @@ module Proliferation
       real*8 :: x_intersection(2), y_intersection(2)
       integer :: n_intersections
       integer :: idx_pair(2,2)
-      integer :: ic
-      
+      integer :: ic, icand
+      logical :: division_success
+
 
       !area_0 = 1.25d0*Ao
 
@@ -26,41 +27,68 @@ module Proliferation
 
      ! print*, 'chosen cell', chosen_cell(1:chosen_cell_count)
 
-      if(chosen_cell_count.gt.0)then 
+      ! BUGFIX (log.txt): previously only chosen_cell(1) was ever attempted.
+      ! If that specific cell's division always fails (e.g. it sits on the
+      ! tissue boundary and one of its split edges has no neighboring cell,
+      ! see the othercells_count guard in Proliferation_Core), its area
+      ! never shrinks, so it stays chosen_cell(1) on every subsequent
+      ! timestep -- permanently starving every other over-threshold cell of
+      ! ever being tried (confirmed live: cell division stopped completely,
+      ! 0/2000 successes, once if_Fixed_boundary made the very first
+      ! candidate perpetually un-dividable). Fall through to the next
+      ! candidate whenever one fails, so a single un-dividable cell can no
+      ! longer block the rest.
+      if(chosen_cell_count.gt.0)then
 
+        do icand = 1, chosen_cell_count
 
-        ic = chosen_cell(1)
-  
+        ic = chosen_cell(icand)
+
         nn = num(ic)
-        
-    
+
+
         vx = v(1,inn(1:nn,ic))
         vy = v(2,inn(1:nn,ic))
-  
-  
+
+
         call Find_Principle_Axis(vx, vy, nn, &
           prin_axis_x1, prin_axis_y1, prin_axis_x2, prin_axis_y2)
-  
+
        !print*, 'principle_axis', prin_axis_x1, prin_axis_y1, prin_axis_x2, prin_axis_y2
-  
-        call Find_Bisector_Intersections(vx, vy, nn, & 
+
+        call Find_Bisector_Intersections(vx, vy, nn, &
              prin_axis_x1, prin_axis_y1, prin_axis_x2, prin_axis_y2, &
              x_intersection, y_intersection, n_intersections, inn(1:nn, ic), &
              ic, idx_pair)
-  
+
         ! print*,'pb', n_intersections, x_intersection, y_intersection
-  
-  
 
+        division_success = .false.
 
-         call Proliferation_Core(ic, Nc, v, inn, num, & 
+        ! BUGFIX (log.txt): n_intersections was computed but never checked.
+        ! If the bisector doesn't cleanly cross exactly 2 edges (degenerate
+        ! bisector, or it passes through a vertex), idx_pair is left partly
+        ! uninitialized and Proliferation_Core/SplitPolygon can end up zeroing
+        ! out the dividing cell's vertex count. Skip the division instead.
+        if(n_intersections .ne. 2)then
+          write(*,*)'Proliferation skipped: bisector did not cleanly intersect 2 edges for cell', &
+            ic, ' (n_intersections =', n_intersections, ')'
+        else
+
+         call Proliferation_Core(ic, Nc, v, inn, num, &
               num_dim, inn_dim1, inn_dim2, v_dim1, v_dim2, &
-              x_intersection, y_intersection, idx_pair)
-  
+              x_intersection, y_intersection, idx_pair, division_success)
+
          !print*, num_dim, inn_dim1, inn_dim2, v_dim1, v_dim2
 
+        end if
+
+        if (division_success) exit
+
+        end do
+
        end if
-  
+
 
 
     end subroutine Do_Proliferation
@@ -113,9 +141,9 @@ module Proliferation
     end subroutine Find_Proliferation
 
 
-    subroutine Proliferation_Core(ic, Nc, v, inn, num, & 
+    subroutine Proliferation_Core(ic, Nc, v, inn, num, &
                num_dim, inn_dim1, inn_dim2, v_dim1, v_dim2, &
-               x_intersection, y_intersection, idx_pair)
+               x_intersection, y_intersection, idx_pair, success)
 
       implicit none
 
@@ -127,6 +155,7 @@ module Proliferation
       real*8, intent(inout) :: v(v_dim1, v_dim2)
       integer, intent(inout) :: inn(inn_dim1, inn_dim2)
       integer, intent(inout) :: num(num_dim)
+      logical, intent(out) :: success
 
       integer :: maxinn, ii, jc
       integer :: innaff_pair1(2), innaff_pair2(2)
@@ -147,9 +176,26 @@ module Proliferation
       !print*, Nc, num_dim, inn_dim1, inn_dim2, v_dim1, v_dim2
       !print*,  x_intersection, y_intersection
 
+      success = .false.
+
       maxinn =  maxval(inn)
 
       !print*, 'maxinn', maxinn
+
+      ! BUGFIX (log.txt): no capacity check previously existed before growing
+      ! the vertex/cell arrays here -- once pre-allocated headroom (v_dim2 for
+      ! vertices, inn_dim2/num_dim for cells) was exhausted, this silently
+      ! wrote out of bounds. Bail out cleanly instead.
+      if (maxinn+2 .gt. v_dim2) then
+        write(*,*)'Proliferation_Core: skipped -- dividing cell', ic, &
+          'would exceed v_dim2 vertex capacity (maxinn+2 =', maxinn+2, ', v_dim2 =', v_dim2, ')'
+        return
+      end if
+      if (Nc+1 .gt. inn_dim2 .or. Nc+1 .gt. num_dim) then
+        write(*,*)'Proliferation_Core: skipped -- dividing cell', ic, &
+          'would exceed inn_dim2/num_dim cell capacity (Nc+1 =', Nc+1, ')'
+        return
+      end if
 
       v(1, maxinn+1) = x_intersection(1)
       v(2, maxinn+1) = y_intersection(1)
@@ -174,17 +220,44 @@ module Proliferation
 !        print*, 'othercells= ',othercells(1:othercells_count)
 !        print*, 'ic =', ic
 
+        ! BUGFIX (log.txt): the code below unconditionally assumes exactly 2
+        ! neighboring cells were found (othercells(1), othercells(2)). If one
+        ! of the dividing cell's two split edges lies on the tissue's outer
+        ! boundary (a realistic case for a boundary cell), othercells_count
+        ! can be 0 or 1, leaving othercells(2) (or (1)) == 0 -- an invalid
+        ! index-0 access into inn/num just below. Bail out cleanly instead.
+        if (othercells_count .ne. 2) then
+          write(*,*)'Proliferation_Core: skipped -- cell', ic, &
+            'has a split edge on the tissue boundary (othercells_count =', othercells_count, ')'
+          return
+        end if
+
 
       call SplitPolygon(inn(1:num(ic), ic), num(ic), idx_pair(1,:), idx_pair(2,:), &
         maxinn+1, maxinn+2, inn_new1, n1, inn_new2, n2)
 
+      ! BUGFIX (log.txt, re-review pass): SplitPolygon has its own internal
+      ! failure paths (chord vertices not found in inn_ic, or an "overflow
+      ! constructing inn_new1/inn_new2" guard) that leave n1/n2 invalid (0,
+      ! or a partial count above num(ic)+2) and return without completing
+      ! the split. Without this check, execution fell through to
+      ! ArrangeVertices (which would then read inn_new1(1:n1) out of its
+      ! declared bound in the overflow case) and eventually
+      ! inn(1:n1,ic)=inn_new1(1:n1)/num(ic)=n1, corrupting the dividing
+      ! cell's topology while this subroutine still reported success=.true.
+      ! at the end. Bail out cleanly instead, exactly like the other guards.
+      if (n1 < 3 .or. n1 > num(ic)+2 .or. n2 < 3 .or. n2 > num(ic)+2) then
+        write(*,*)'Proliferation_Core: skipped -- SplitPolygon failed for cell', ic, &
+          '(n1 =', n1, ', n2 =', n2, ')'
+        return
+      end if
 
 !      print*, 'newinn1', n1, '-', inn_new1
 !      print*, 'newinn2', n2, '-', inn_new2
 
 
       call ArrangeVertices(v, v_dim1, v_dim2, inn_new1, n1, inn_new2, n2)
-    
+
 
        !print*, othercells(1:othercells_count)
 
@@ -202,17 +275,30 @@ module Proliferation
 
       call UpdateNeighborPolygons(inn_neighbor1, num(othercells(1)), inn_neighbor2, num(othercells(2)), &
                                    idx_pair(1,:), idx_pair(2,:), maxinn+1, maxinn+2, &
-                                   inn_neighbor1_new(1:num(othercells(1))), n1_new, & 
+                                   inn_neighbor1_new(1:num(othercells(1))), n1_new, &
                                    inn_neighbor2_new(1:num(othercells(2))), n2_new)
 
-
+      ! BUGFIX (log.txt, re-review pass): no check previously existed that
+      ! n1/n2 (the dividing cell's two daughters) or n1_new/n2_new (the two
+      ! neighboring cells, each grown by 1 vertex) stay within inn_dim1 --
+      ! the hard cap on vertices per cell (inn(inn_dim1, inn_dim2)). A cell
+      ! that reached inn_dim1 vertices via sustained T1 activity and later
+      ! also exceeds the division-area threshold would silently overflow
+      ! inn's first dimension on the writes below. Bail out cleanly instead,
+      ! mirroring the analogous guard already added for T1_core.
+      if (n1 > inn_dim1 .or. n2 > inn_dim1 .or. n1_new > inn_dim1 .or. n2_new > inn_dim1) then
+        write(*,*)'Proliferation_Core: skipped -- cell', ic, &
+          'division would exceed inn_dim1 vertex-per-cell capacity', &
+          '(n1,n2,n1_new,n2_new =', n1, n2, n1_new, n2_new, ')'
+        return
+      end if
 
 !      print*, 'After'
 !      print*, inn_neighbor1_new(1:n1_new)
 !      print*, inn_neighbor2_new(1:n2_new)
-      
 
-      call ArrangeVertices(v, v_dim1, v_dim2, & 
+
+      call ArrangeVertices(v, v_dim1, v_dim2, &
         inn_neighbor1_new(1:n1_new), n1_new, inn_neighbor2_new(1:n2_new), n2_new)
 
 
@@ -244,6 +330,7 @@ module Proliferation
 !      print*, 'after v2', v(1,inn(1:num(Nc+1), Nc+1))
 
       Nc = Nc + 1
+      success = .true.
 
       print*, 'Proliferation: ic,  Nc = ', ic, Nc
 

@@ -10,18 +10,22 @@ module Force
     implicit none
 
     integer :: prev_idx, next_idx
-    real*8 :: len_d, dx, dy
     real*8 :: grad_perimeter_X, grad_perimeter_Y, grad_area_X, grad_area_Y
     real*8 :: rann
+    ! OPTIMIZATION (log.txt): edge_dx/edge_dy/edge_len(k) cache the vector and
+    ! length of the edge from vertex k to vertex next(k), computed once per
+    ! cell instead of twice (each edge was previously recomputed once as
+    ! vertex jc's "next" edge and again as vertex jc+1's "prev" edge, halving
+    ! the sqrt calls in this hot loop -- run every cell, every timestep).
+    real*8 :: edge_dx(inn_dim1), edge_dy(inn_dim1), edge_len(inn_dim1)
 
 
     fxx = 0.0d0
     fyy = 0.0d0
 
-
-
-    beta = beta/(lambda*Ao)
-    gamm = gamm/(lambda*(Ao)**1.5)
+    ! BUGFIX (log.txt): beta/gamm nondimensionalization moved to read_input
+    ! (allocation.f90), done once instead of every call -- see log.txt for why
+    ! repeating it here compounded beta/gamm every timestep.
 
     do ic = 1, Nc !Lx*Ly
       
@@ -35,8 +39,11 @@ module Force
         if(if_coupling_noise)then
           call random_number(rann)
           rann = rann - 0.5d0
-          beta = Myosin_Coupling_Strength * Myosin(ic) + coupling_noise_strength * rann
-        else 
+          ! BUGFIX (log.txt): this branch omitted the /(lambda*Ao) factor that
+          ! the else-branch below applies, silently changing beta's scale by
+          ! a factor of (lambda*Ao) whenever coupling noise is enabled.
+          beta = (Myosin_Coupling_Strength * Myosin(ic) + coupling_noise_strength * rann)/(lambda*Ao)
+        else
           beta = Myosin_Coupling_Strength * Myosin(ic)/(lambda*Ao)
         end if
       end if
@@ -49,8 +56,23 @@ module Force
 
       call CalculateArea(vx,vy,nn,area)
       call CalculatePerimeter(vx,vy,nn,perimeter)
+      ! NOTE (log.txt): CalculateArea returns the signed shoelace area; only
+      ! the magnitude is meaningful here (2D area has no physical sign), so
+      ! area is intentionally take as abs(area). Confirmed with user: mesh
+      ! winding is a fixed convention in this codebase, no per-cell sign
+      ! handling needed in the gradient below.
       area = abs(area)
-      
+
+      ! edge_dx/dy/len(k) = vector/length of the edge from vertex k to
+      ! vertex k's next neighbour (wraparound at nn).
+      do jc = 1, nn
+        next_idx = jc + 1
+        if(jc == nn) next_idx = 1
+        edge_dx(jc) = vx(next_idx) - vx(jc)
+        edge_dy(jc) = vy(next_idx) - vy(jc)
+        edge_len(jc) = dsqrt(edge_dx(jc)**2 + edge_dy(jc)**2)
+      end do
+
       do jc = 1,num(ic)
 
        next_idx = jc + 1
@@ -59,7 +81,7 @@ module Force
          next_idx = 1
        elseif(jc == 1)then
          prev_idx = num(ic)
-       end if 
+       end if
 
        if(prev_idx.eq.0)then
          write(*,*)'OOPS!!!', ic, jc, num(ic), inn(1:num(ic), ic)
@@ -68,21 +90,10 @@ module Force
         grad_area_X = 0.5d0 * (vy(prev_idx) - vy(next_idx))
         grad_area_Y = 0.5d0 * (vx(next_idx) - vx(prev_idx))
 
-
-        dx = vx(jc) - vx(prev_idx)
-        dy = vy(jc) - vy(prev_idx)
-        len_d = dsqrt(dx**2 + dy**2) 
-
-        grad_perimeter_X = dx/len_d
-        grad_perimeter_Y = dy/len_d
-
-
-        dx = vx(jc) - vx(next_idx)
-        dy = vy(jc) - vy(next_idx)
-        len_d = dsqrt(dx**2 + dy**2) 
-
-        grad_perimeter_X = grad_perimeter_X + dx/len_d
-        grad_perimeter_Y = grad_perimeter_Y + dy/len_d
+        ! dx/dy/len_d for the (prev_idx -> jc) edge = edge_dx/dy/len(prev_idx);
+        ! for the (jc -> next_idx) edge = -edge_dx/dy(jc), edge_len(jc).
+        grad_perimeter_X = edge_dx(prev_idx)/edge_len(prev_idx) - edge_dx(jc)/edge_len(jc)
+        grad_perimeter_Y = edge_dy(prev_idx)/edge_len(prev_idx) - edge_dy(jc)/edge_len(jc)
 
 
         fxx(inn(jc,ic)) = fxx(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_X &
@@ -135,9 +146,14 @@ module Force
 
       do ic = 1, Nc
 
-        !call random_number(rann)
-        !rann = 2.0d0 * rann - 1.0d0
-
+        ! NOTE (log.txt): one rann draw per cell here is intentional -- ABP
+        ! treats each cell as a single self-propelled particle with one
+        ! rotational-noise process, applied uniformly to that particle's own
+        ! vertices. This is a distinct concept from Polar_Motile_Force_
+        ! Calculation (a per-vertex force that must accumulate contributions
+        ! from every cell touching a shared vertex) -- the two should not be
+        ! reconciled to the same pattern. Reverted the earlier per-vertex
+        ! noise change on that basis.
         call gaussian_random(rann, 0.0d0, 1.0d0)  ! number, mu, sigma
 
         do jc = 1, num(ic)
@@ -166,13 +182,20 @@ module Force
 
      if(if_polar_motility)then
 
+       ! BUGFIX (log.txt): fxx_Polar/fyy_Polar were assigned with '=' instead
+       ! of accumulated with '+', unlike every other per-vertex force in this
+       ! module -- a vertex shared between cells simply got overwritten by
+       ! whichever cell was processed last, discarding the others' contribution.
+       fxx_Polar = 0.0d0
+       fyy_Polar = 0.0d0
+
        do ic = 1, Nc
          call random_number(rann_x)
          call random_number(rann_y)
 
          do jc = 1, num(ic)
-           fxx_Polar(inn(jc,ic)) = polar_motility_strength * (rann_x - 0.50d0)
-           fyy_Polar(inn(jc,ic)) = polar_motility_strength * (rann_y - 0.50d0)
+           fxx_Polar(inn(jc,ic)) = fxx_Polar(inn(jc,ic)) + polar_motility_strength * (rann_x - 0.50d0)
+           fyy_Polar(inn(jc,ic)) = fyy_Polar(inn(jc,ic)) + polar_motility_strength * (rann_y - 0.50d0)
          end do
        end do
 
@@ -193,7 +216,11 @@ module Force
     integer :: ip, idx
     real(8) :: vy, lowpatch, highpatch, meanpatch
     real(8) :: patchwidth
-    integer :: verryCount(size(v, 2)), verry(size(v, 2))
+    integer :: verryCount(size(v, 2))
+    ! BUGFIX (log.txt): verry stores a real*8 y-coordinate (v(2,...)) and must
+    ! not be declared integer -- it was silently truncating the fractional
+    ! part of every vertex y-position before it fed into the patch binning.
+    real(8) :: verry(size(v, 2))
     real(8), allocatable :: veryyN(:)
     integer :: numver
     integer, allocatable :: valid_indices(:)
@@ -304,6 +331,13 @@ subroutine Give_Motility_Hotspot
 
     allocate(hotspot_location(1:number_of_hotspot))
     hotspot_location = (/ int(dble(Ly)/2.0d0)/)
+
+  else
+    ! BUGFIX (log.txt): without this branch, an unsupported number_of_hotspot
+    ! left hotspot_location unallocated, and it is dereferenced unconditionally
+    ! below (ip = hotspot_location(jp)) -- a crash. Fail loudly instead.
+    write(*,*) 'ERROR: number_of_hotspot must be 1, 2, or 4. Got:', number_of_hotspot
+    stop 1
 
   end if
 
@@ -453,10 +487,14 @@ subroutine Apply_Limb_Force
       ic = applyforce_at(ip)
       nn = num(ic)
 
+      ! BUGFIX (log.txt): every other force in the code converts to a
+      ! displacement via dt*force/eta (see vertexmain.f90); this was missing
+      ! the /eta mobility factor, making its effect inconsistent by a factor
+      ! of eta relative to every other named force.
       if(ic .lt. int(Lx*Ly/2))then   ! Cheap way
-        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (-1.0d0)
-      else 
-        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (1.0d0)
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (-1.0d0) / eta
+      else
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (1.0d0) / eta
       end if
 
     end do
@@ -695,9 +733,16 @@ subroutine Solve_RhoROCK_RK4
 end subroutine Solve_RhoROCK_RK4
 
 subroutine compute_RHS(Rho_in, ROCK_in, M_in, Rho_out, ROCK_out, M_out)
+  ! BUGFIX (log.txt): missing implicit none let f_Rho/f_ROCK/f_Myosin fall
+  ! back to Fortran's default implicit typing (single-precision real) instead
+  ! of real*8, silently degrading precision in the RK4 solver path relative
+  ! to the equivalent Euler path (Solve_RhoROCK_Euler), which declares them
+  ! explicitly as real*8.
+  implicit none
   real*8, intent(in)  :: Rho_in(Nc), ROCK_in(Nc), M_in(Nc)
   real*8, intent(out) :: Rho_out(Nc), ROCK_out(Nc), M_out(Nc)
   real*8 :: area_diff
+  real*8 :: f_Rho, f_ROCK, f_Myosin
 
   do ic = 1, Nc
     nn = num(ic)
