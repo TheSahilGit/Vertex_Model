@@ -118,22 +118,55 @@ module Force
 
     implicit none
 
-    real*8 :: rann
-    integer :: iv
-  
+    integer :: nv
+    ! OPTIMIZATION (log.txt): fixed-size automatic (stack) arrays sized to
+    ! the reserved capacity v_dim2 -- only the first nv elements are ever
+    ! touched. Declared once per call, no heap allocate/deallocate.
+    real*8 :: rann_x(v_dim2), rann_y(v_dim2), sigma_mot(v_dim2)
+
+    ! OPTIMIZATION (log.txt): mot/fxx_ran/fyy_ran are sized v_dim2, the
+    ! RESERVED vertex capacity for future cell-division growth -- not the
+    ! number of vertices actually in use right now. Vertices are only ever
+    ! appended (Proliferation_Core writes new ones at maxval(inn)+1/+2,
+    ! never compacted or reused), so maxval(inn) is a correct, cheap
+    ! (O(inn_dim1*inn_dim2) integer scan) upper bound on which vertex
+    ! indices are actually referenced by any live cell. Slots beyond it are
+    ! never read by anything -- CalculateArea/CalculatePerimeter/
+    ! Force_Calculation only ever iterate via inn(1:nn,ic).
+    ! NOTE: with if_cell_division off (or growth far short of the reserved
+    ! capacity), this trims only a small, fixed number of always-unused
+    ! slots -- the much bigger win below is eliminating ~2*nv individual
+    ! random_number() calls (measured as the dominant cost in profiling of
+    ! a 10^7-step run) in favor of 2 whole-array calls, which removes the
+    ! per-call subroutine overhead of tens of thousands of scalar calls per
+    ! timestep, plus lets the compiler vectorize the arithmetic below.
+    ! NOTE ON REPRODUCIBILITY: unlike the sqrt-caching/early-exit
+    ! optimizations elsewhere in this codebase, this one is NOT guaranteed
+    ! to reproduce the exact same trajectory as the old scalar-loop version
+    ! for a given (unseeded) run -- both trimming to nv<v_dim2 and batching
+    ! the random_number calls change how many/which calls consume the
+    ! global RNG stream, which shifts everything drawn afterward (this
+    ! codebase has no random_seed anywhere, so exact run-to-run
+    ! reproducibility was never guaranteed regardless -- see log.txt). The
+    ! physics is unaffected: every live vertex still gets an independent,
+    ! identically-distributed noise term.
+    nv = maxval(inn)
 
     if(if_motility_decay)then
      ! mot = mot0*exp(-it*dt/motility_decay_timeScale)
 
-     mot = mot - dt * mot/motility_decay_timeScale
+     mot(1:nv) = mot(1:nv) - dt * mot(1:nv)/motility_decay_timeScale
     end if
 
-    do iv = 1,size(mot)
-      call random_number(rann)
-      fxx_ran(iv) = sqrt(2*mot(iv)*eta)*(2.0d0 * rann - 1.0d0)
-      call random_number(rann)
-      fyy_ran(iv) = sqrt(2*mot(iv)*eta)*(2.0d0 * rann - 1.0d0)
-    end do
+    call random_number(rann_x(1:nv))
+    call random_number(rann_y(1:nv))
+
+    ! sqrt(2*mot*eta) is identical for both components -- was computed
+    ! twice per vertex (once for fxx_ran, once for fyy_ran); now once.
+    sigma_mot(1:nv) = sqrt(2.0d0 * mot(1:nv) * eta)
+
+    fxx_ran(1:nv) = sigma_mot(1:nv) * (2.0d0 * rann_x(1:nv) - 1.0d0)
+    fyy_ran(1:nv) = sigma_mot(1:nv) * (2.0d0 * rann_y(1:nv) - 1.0d0)
 
   end subroutine Motile_Force_Calculation
 
@@ -194,8 +227,10 @@ module Force
          call random_number(rann_y)
 
          do jc = 1, num(ic)
-           fxx_Polar(inn(jc,ic)) = fxx_Polar(inn(jc,ic)) + polar_motility_strength * (rann_x - 0.50d0)
-           fyy_Polar(inn(jc,ic)) = fyy_Polar(inn(jc,ic)) + polar_motility_strength * (rann_y - 0.50d0)
+           fxx_Polar(inn(jc,ic)) = fxx_Polar(inn(jc,ic)) + & 
+             polar_motility_strength * (rann_x - 0.50d0)
+           fyy_Polar(inn(jc,ic)) = fyy_Polar(inn(jc,ic)) + & 
+             polar_motility_strength * (rann_y - 0.50d0)
          end do
        end do
 

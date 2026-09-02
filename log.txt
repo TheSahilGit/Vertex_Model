@@ -970,3 +970,114 @@ re-review, plus earlier deferred items; not applied in this pass)
   jointly used without qualification -- latent ambiguous-reference risk.
 - Various dead code / unused arrays / magic numbers (see full review).
 ================================================================================
+
+================================================================================
+NINTH PASS: Motile_Force_Calculation optimization (user request, after
+profiling a 10^7-step if_motility run and finding it the dominant cost)
+================================================================================
+User observed: the do-loop in Motile_Force_Calculation runs over
+size(mot)==v_dim2 (the reserved vertex capacity), not the actual number of
+vertices in use, and asked whether that's optimizable.
+
+CHANGES:
+1. Loop bound changed from size(mot) [v_dim2] to nv = maxval(inn) -- the
+   highest vertex index actually referenced by any live cell. Vertices are
+   only ever appended (never compacted/reused), so this is an exact (not
+   approximate) bound: slots beyond it are never read by anything else in
+   the code. Measured impact on the user's actual input files: SMALL
+   (v_dim2=18468 vs. initial maxval(inn)=18340, only ~0.7% slack), because
+   the shipped/production mesh files are generated with v_dim2 only
+   slightly larger than needed, and if_cell_division is off in the current
+   para1_in.dat (so this gap never grows over the run). Kept anyway since
+   it's correct, free, and would matter more with more headroom or with
+   cell division on.
+2. The real win: replaced ~2*nv individual scalar `call random_number(rann)`
+   calls (one at a time, in a loop) with 2 whole-array calls
+   (`call random_number(rann_x(1:nv))` / `rann_y(1:nv)`), using fixed-size
+   automatic (stack) arrays sized v_dim2 declared once per call (no
+   allocate/deallocate). This removes the per-call subroutine-call overhead
+   of tens of thousands of scalar random_number calls per timestep and lets
+   the compiler vectorize the surrounding arithmetic.
+3. sqrt(2*mot(iv)*eta) was computed twice per vertex (once for fxx_ran,
+   once for fyy_ran) -- identical both times. Now computed once into a
+   shared array and reused for both components (same pattern as the
+   edge-length caching already done in Force_Calculation).
+
+REPRODUCIBILITY NOTE (important, unlike this session's earlier "pure"
+optimizations): this change is NOT guaranteed to reproduce the exact same
+trajectory as the old code for a given run. Both the loop-bound trim
+(whenever nv < v_dim2) and the switch to batched random_number calls change
+how many/which calls consume the single global RNG stream that find_T1/
+find_T2's candidate selection also draws from -- shifting every subsequent
+random draw, and therefore the whole downstream trajectory (same class of
+tradeoff as the deferred "gaussian_random Box-Muller caching" item above).
+Confirmed directly: before/after outputs (Energy.dat, mesh state) differ
+starting from the first timestep. This is an accepted, explained tradeoff,
+not a bug: the physics per vertex is unaffected (each live vertex still
+gets an independent, identically-distributed noise term), and this
+codebase already has no random_seed anywhere (see the CONFIRMED
+non-determinism item above), so exact run-to-run/version-to-version
+reproducibility was never guaranteed regardless.
+
+VERIFICATION: built seeded before/after variants (identical fixed seed,
+differing only in this one subroutine) and ran both 5000 steps on the
+user's actual 32x32 mesh (para2_in.dat: v_dim2=18468) with if_motility on:
+  - Both exit 0, zero NaN/error/out-of-bound/segfault in either log.
+  - Energy stays in the same physically sane range for both (before:
+    917.4-1037.6; after: 917.2-1037.7) -- different trajectories (expected,
+    per the note above), neither diverging or blowing up.
+  - Timing: 2.734s (before) vs. 2.103s (after) for the full 5000-step run
+    -- a ~23% reduction in TOTAL runtime from optimizing this one
+    subroutine, consistent with the user's profiling identifying it as the
+    dominant cost. Should scale similarly (or better, if random_number's
+    per-call overhead is a fixed cost rather than proportional to problem
+    size) over the user's actual 10^7-step production runs.
+================================================================================
+
+================================================================================
+TENTH PASS: allocation.f90 -- write Energy/ShearStress/T1_count/T2_count
+incrementally, not just at it==totT (enables live/mid-run MATLAB plotting)
+================================================================================
+CONTEXT: building a unified MATLAB analysis-plotting tool (Analysis_Codes_
+matlab/) that should be able to plot Energy/ShearStress vs. time while a
+simulation is still running. Found that write_output only ever wrote these
+four files once, at it==totT -- they did not exist at all until a run fully
+completed.
+
+FIRST ATTEMPT (caught before shipping): simply removing the it==totT guard
+and writing Energy(1:it)/ShearStress(1:it)/etc. every time write_output runs
+(i.e. every it_dump). Sanity-checked the actual I/O cost this implies for
+the user's real production config (totT=1e7, it_dump=100): rewriting the
+whole growing (1:it) slice at every one of the 100,000 dump events sums to
+~4TB of cumulative disk I/O for Energy.dat alone (~16TB across all four
+files) -- large enough to dominate the run's wall-clock time and undo the
+Motile_Force_Calculation optimization from the ninth pass. Not shipped.
+
+FIX: added summary_dump_interval (allocation.f90, computed once in
+read_input): a multiple of it_dump chosen so there are ~200 rewrites total
+over the whole run regardless of totT/it_dump, never coarser than it_dump
+itself (a short run with <=200 total dumps just writes every dump, same as
+before). write_output's four blocks now gate on
+`modulo(it,summary_dump_interval)==0 .or. it==totT` instead of writing
+unconditionally or only at the end -- bounding cumulative I/O to a small,
+fixed multiple of the final file size while still refreshing often enough
+to watch a long run's progress. No new input parameter was added (so no
+para1_in.dat format change) -- summary_dump_interval is derived entirely
+from existing totT/it_dump.
+
+MATLAB-side impact: none needed. LoadData.m and every other reader already
+does fread(fid,Inf,'float64') (read to end of file, no hardcoded length
+assumption), so a file that legitimately grows between reads is already
+handled correctly.
+
+VERIFICATION:
+- Short complete run (totT=20000, it_dump=100): final Energy.dat has
+  exactly 20000 entries (matches totT exactly, no off-by-one from the
+  slicing change).
+- Long run watched live (totT=2,000,000, it_dump=100, so
+  summary_dump_interval=10000 by the formula above): confirmed Energy.dat
+  exists and has 20000 valid entries after only ~22,648 of 2,000,000 steps
+  (~1.1% complete) -- proving the file is genuinely readable mid-run, not
+  just at the end -- and grew to 50000 entries a few seconds later,
+  matching the 10000-step cadence exactly. No NaN/error in either run.
+================================================================================

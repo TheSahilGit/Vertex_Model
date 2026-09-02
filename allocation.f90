@@ -65,6 +65,7 @@ module allocation
       integer*4 :: iunit_inn, iunit_num, iunit_v
 
       integer*4 :: it_dump, T1_time_interval, T2_time_interval
+      integer*4 :: summary_dump_interval
 
       real*8, allocatable, dimension(:) ::  mot, mot0
       real*8 :: etas_max, etas_min, mot_Lc
@@ -263,6 +264,24 @@ module allocation
 
      totT = int(totTr)
      nrun2_initialTime = int(nrun2_initialTime_r)
+
+     ! CHANGE (log.txt, MATLAB live-plotting request): Energy/ShearStress/
+     ! T1_count/T2_count are now rewritten periodically during the run (not
+     ! just once at the end) so they can be plotted while a simulation is
+     ! still in progress -- see write_output. Naively rewriting the whole
+     ! growing (1:it) slice every it_dump would cost O(totT^2/it_dump) total
+     ! disk I/O over the run: for this session's actual production config
+     ! (totT=1e7, it_dump=100) that works out to ~4TB written for Energy.dat
+     ! alone (~16TB across all four files) -- large enough to dominate the
+     ! run's wall-clock time. Instead, rewrite them only every
+     ! summary_dump_interval, a multiple of it_dump chosen so there are
+     ! about 200 rewrites total over the whole run regardless of totT/
+     ! it_dump: this bounds the cumulative I/O to a small, fixed multiple of
+     ! the final file size (~100x), while still refreshing often enough to
+     ! watch a long run's progress. Never coarser than it_dump itself (a run
+     ! with very few total dumps just gets a summary write every dump, same
+     ! as before).
+     summary_dump_interval = max(it_dump, it_dump * nint(dble(totT) / dble(it_dump * 200)))
 
      pi = acos(-1.0d0)
 
@@ -496,26 +515,38 @@ module allocation
       
       
  
-       if(it.eq.totT)then
-         open(unit = 711, file='data/Energy.dat', form='unformatted',  status='unknown')
-         write(711)Energy
-         close(711)
-       end if
-       if(it.eq.totT)then
-         open(unit = 715, file='data/ShearStress.dat', form='unformatted',  status='unknown')
-         write(715)ShearStress
-         close(715)
-       end if
-       if(it.eq.totT)then
-         open(unit = 717, file='data/T1_count.dat', form='unformatted',  status='unknown')
-         write(717)Total_T1_count
-         close(717)
-       end if
+       ! CHANGE (log.txt, MATLAB live-plotting request): these four used to
+       ! only be written once, at it==totT -- meaning Energy/ShearStress/
+       ! T1_count/T2_count did not exist at all until a run fully finished,
+       ! which blocked plotting them while a run is still in progress. Now
+       ! rewritten periodically (every summary_dump_interval, computed in
+       ! read_input -- capped to ~200 rewrites over the whole run regardless
+       ! of totT/it_dump, to avoid an O(totT^2/it_dump) I/O blowup; see the
+       ! comment at summary_dump_interval's computation) and always on the
+       ! final timestep, each time writing only the (1:it) slice actually
+       ! computed so far (entries it+1:totT are not yet valid). The file
+       ! simply grows longer at each such write; MATLAB's
+       ! fread(fid,Inf,'float64') pattern (LoadData.m and friends) already
+       ! reads "however much is there" with no hardcoded length assumption,
+       ! so this needs no MATLAB-side change.
+       if (modulo(it, summary_dump_interval).eq.0 .or. it.eq.totT) then
 
-       if(it.eq.totT)then
+         open(unit = 711, file='data/Energy.dat', form='unformatted',  status='unknown')
+         write(711)Energy(1:it)
+         close(711)
+
+         open(unit = 715, file='data/ShearStress.dat', form='unformatted',  status='unknown')
+         write(715)ShearStress(1:it)
+         close(715)
+
+         open(unit = 717, file='data/T1_count.dat', form='unformatted',  status='unknown')
+         write(717)Total_T1_count(1:it)
+         close(717)
+
          open(unit = 719, file='data/T2_count.dat', form='unformatted',  status='unknown')
-         write(719)Total_T2_count
+         write(719)Total_T2_count(1:it)
          close(719)
+
        end if
 
 
