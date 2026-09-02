@@ -64,9 +64,9 @@ colormap(jet(256));
 clim([cmin cmax]);
 
 pbaspect([Lx/Ly 1 1])
-axis([-8 Lx+8 -8 Ly+8])
+axis([-2 Lx+2 -2 Ly+2])
 axis off
 set(gca, "FontName", "Serif", "FontSize", 30)
-set(gcf, "Renderer", "opengl")
+set(gcf, "Renderer", "Painters")
 
 end

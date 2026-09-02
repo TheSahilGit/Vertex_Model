@@ -341,7 +341,7 @@ end subroutine Give_Motility_Gradient
 subroutine Give_Motility_Hotspot
 
   implicit none
-  integer :: ic, jc, ip, jp
+  integer :: ic, jc, ip, jp, iv
 
 !  integer, parameter :: number_of_hotspot = 4
   integer, dimension(:), allocatable :: hotspot_location  ! Cell index
@@ -349,6 +349,7 @@ subroutine Give_Motility_Hotspot
 
 !  real*8 :: sigma_hotspot
   real*8 :: xij, yij, rij
+  logical, dimension(v_dim2) :: vertex_done
 
   print*,'number of hotspot, sigma_hotspot', number_of_hotspot, sigma_hotspot
 
@@ -385,22 +386,48 @@ subroutine Give_Motility_Hotspot
     xCM(jp) = sum(v(1,inn(1:num(ip),ip)))/dble(num(ip))
     yCM(jp) = sum(v(2,inn(1:num(ip),ip)))/dble(num(ip))
   end do
-  
+
  ! sigma_hotspot = 5.0d0
 
+  ! BUGFIX (log.txt): two issues found rechecking this against a user
+  ! report of "no color in the Motility plot" (the actual cause turned
+  ! out to be a MATLAB-side stale-file bug, but this recheck found real
+  ! Fortran-side issues too, worth fixing regardless):
+  !
+  ! 1. mot was never zeroed here before accumulating into it, unlike its
+  !    sibling Give_Motility_Gradient (which does `mot = 0.0` first).
+  !    allocate(mot(v_dim2)) does NOT guarantee zero-initialized memory --
+  !    this was silently adding the hotspot contribution on top of
+  !    whatever undefined bytes happened to be there, working "by luck"
+  !    whenever that memory happened to already be zero.
+  !
+  ! 2. The old loop visited each vertex once per INCIDENT CELL (do
+  !    ic=1,Nc; do jc=1,num(ic)) and divided each contribution by a fixed
+  !    3.0d0 -- which only gives the right total for an INTERIOR vertex
+  !    (shared by exactly 3 cells: 3 visits x contribution/3 =
+  !    contribution). A boundary vertex is shared by fewer than 3 cells
+  !    (see compute_Circularity.m's border test), so it only got 1 or 2
+  !    visits -- i.e. 1/3 or 2/3 of the intended value -- an artificial
+  !    dip in motility right at the tissue edge that was purely a
+  !    counting artifact, not physical. Fixed by visiting each unique
+  !    vertex exactly once (vertex_done) and computing its full
+  !    contribution directly, with no fudge-factor needed regardless of
+  !    how many cells share it.
+  mot = 0.0d0
+  vertex_done = .false.
 
   do ic  = 1, Nc !Lx*Ly
-    do jc = 1, num(ic) 
-      
-      do ip = 1, number_of_hotspot
+    do jc = 1, num(ic)
+      iv = inn(jc,ic)
+      if (vertex_done(iv)) cycle
+      vertex_done(iv) = .true.
 
-        
-        xij = v(1,inn(jc,ic)) - xCM(ip)
-        yij = v(2,inn(jc,ic)) - yCM(ip)
+      do ip = 1, number_of_hotspot
+        xij = v(1,iv) - xCM(ip)
+        yij = v(2,iv) - yCM(ip)
         rij = xij**2 + yij**2
-    
-        mot(inn(jc,ic)) = mot(inn(jc,ic)) + & 
-          etas_max * exp(-(rij)/sigma_hotspot**2) / 3.0d0
+
+        mot(iv) = mot(iv) + etas_max * exp(-(rij)/sigma_hotspot**2)
       end do
 
     end do

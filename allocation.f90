@@ -158,8 +158,8 @@ module allocation
      implicit none
   
 !     open(unit=121, file='para.in', status='old'); 
-     open(112, file='para1_in.dat', status='old') 
-     open(unit=121, file='para2_in.dat', status='old'); 
+     open(112, file='para_Simulation.dat', status='old')
+     open(unit=121, file='para_MeshDims.dat', status='old');
   
      read(121,*) Lx
      read(121,*) Ly
@@ -460,6 +460,26 @@ module allocation
      allocate(cell_no(v_dim2))
      allocate(vertex_occurance_count(v_dim2))
 
+     ! BUGFIX (log.txt): Nc (live cell count) used to be hardcoded to Lx*Ly
+     ! in vertexmain.f90 regardless of nrun. That's correct for nrun=1 (a
+     ! freshly generated mesh always has exactly Lx*Ly live cells), but
+     ! wrong for nrun=2: cell division (Proliferation.f90: Nc=Nc+1) and T2
+     ! extrusion (T2_swap.f90: Nc=Nc-1) both change the true live-cell
+     ! count over the course of a run, and every physics loop (Force.f90,
+     ! T1_swap.f90, T2_swap.f90) is bounded by `do ic=1,Nc`. Restarting
+     ! (nrun=2) from a snapshot taken *after* any division/T2 event had a
+     ! true Nc different from Lx*Ly, yet Nc was silently reset to Lx*Ly on
+     ! restart -- confirmed live: restarting from a snapshot with 608 live
+     ! cells (576 initial + 32 divisions) came back reporting Nc=576, so
+     ! every already-divided daughter cell would have been silently
+     ! ignored by physics from that point on despite loading correctly
+     ! into v/inn/num. Derived here instead, from the invariant (already
+     ! relied on by T2_swap.f90 and every MATLAB analysis script) that
+     ! cells 1:Nc are live and contiguous and num(k)=0 for every k>Nc --
+     ! this gives the same Lx*Ly for nrun=1 (all of num(1:Lx*Ly) are
+     ! nonzero, the rest zero, by construction) and the correct restored
+     ! value for nrun=2.
+     Nc = count(num /= 0)
 
     end subroutine read_data
 
@@ -468,6 +488,8 @@ module allocation
       integer :: iunit_inn, iunit_num, iunit_v, iunit_force
       integer :: iunit_Myosin
       integer :: iunit_cell_identity
+      character(100) :: fname_Energy, fname_ShearStress, fname_T1count, &
+        fname_T2count, fname_motility
 
 
        iunit_inn = 532
@@ -476,7 +498,7 @@ module allocation
        iunit_force = 961
        iunit_Myosin = 966
        iunit_cell_identity = 967
- 
+
        if(nrun.eq.1)then
          write(fname_inn, '("data/inn_", I8.8,".dat")')(it)
          write(fname_num, '("data/num_", I8.8,".dat")')(it)
@@ -484,6 +506,11 @@ module allocation
          write(fname_force, '("data/force_", I8.8,".dat")')(it)
          write(fname_Myosin, '("data/Myosin_", I8.8,".dat")')(it)
          write(fname_cell_identity, '("data/cell_identity_", I8.8,".dat")')(it)
+         fname_Energy = 'data/Energy.dat'
+         fname_ShearStress = 'data/ShearStress.dat'
+         fname_T1count = 'data/T1_count.dat'
+         fname_T2count = 'data/T2_count.dat'
+         fname_motility = 'data/motility_store.dat'
        elseif(nrun.eq.2)then
          write(fname_inn, '("data/nrun2_inn_", I8.8,".dat")')(it)
          write(fname_num, '("data/nrun2_num_", I8.8,".dat")')(it)
@@ -491,6 +518,18 @@ module allocation
          write(fname_force, '("data/nrun2_force_", I8.8,".dat")')(it)
          write(fname_Myosin, '("data/nrun2_Myosin_", I8.8,".dat")')(it)
          write(fname_cell_identity, '("data/nrun2_cell_identity_", I8.8,".dat")')(it)
+         ! BUGFIX (log.txt): these 5 were still hardcoded to the same
+         ! filenames as nrun=1 regardless of nrun -- unlike every other
+         ! output above, an nrun=2 restart run silently overwrote the
+         ! original nrun=1 run's Energy/ShearStress/T1_count/T2_count/
+         ! motility_store files with its own (shorter, restarted) data,
+         ! destroying that part of the original run's record. Matched to
+         ! the same nrun2_ prefix convention as everything else here.
+         fname_Energy = 'data/nrun2_Energy.dat'
+         fname_ShearStress = 'data/nrun2_ShearStress.dat'
+         fname_T1count = 'data/nrun2_T1_count.dat'
+         fname_T2count = 'data/nrun2_T2_count.dat'
+         fname_motility = 'data/nrun2_motility_store.dat'
        end if
 
 
@@ -531,19 +570,19 @@ module allocation
        ! so this needs no MATLAB-side change.
        if (modulo(it, summary_dump_interval).eq.0 .or. it.eq.totT) then
 
-         open(unit = 711, file='data/Energy.dat', form='unformatted',  status='unknown')
+         open(unit = 711, file=fname_Energy, form='unformatted',  status='unknown')
          write(711)Energy(1:it)
          close(711)
 
-         open(unit = 715, file='data/ShearStress.dat', form='unformatted',  status='unknown')
+         open(unit = 715, file=fname_ShearStress, form='unformatted',  status='unknown')
          write(715)ShearStress(1:it)
          close(715)
 
-         open(unit = 717, file='data/T1_count.dat', form='unformatted',  status='unknown')
+         open(unit = 717, file=fname_T1count, form='unformatted',  status='unknown')
          write(717)Total_T1_count(1:it)
          close(717)
 
-         open(unit = 719, file='data/T2_count.dat', form='unformatted',  status='unknown')
+         open(unit = 719, file=fname_T2count, form='unformatted',  status='unknown')
          write(719)Total_T2_count(1:it)
          close(719)
 
@@ -551,7 +590,7 @@ module allocation
 
 
        if(it.eq.1)then
-         open(unit=720, file='data/motility_store.dat', form='unformatted',status='unknown')
+         open(unit=720, file=fname_motility, form='unformatted',status='unknown')
          write(720)(mot(i), i = 1, v_dim2)
          close(720)
 

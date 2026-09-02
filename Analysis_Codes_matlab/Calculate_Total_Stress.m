@@ -1,7 +1,7 @@
 function [total_stress_tensor, ShearStress_Individual] = Calculate_Total_Stress(Lx,Ly,v,inn,num,radius, beta_arr)
 
 % -------------------- PARAMETERS --------------------
-para1 = readtable("../para1_in.dat");
+para1 = readtable("../para_Simulation.dat");
 A0     = table2array(para1(1,1));
 lambda = table2array(para1(3,1));
 beta   = table2array(para1(4,1));
@@ -15,7 +15,7 @@ else
 end
 
 % -------------------- DOMAIN INFO --------------------
-para2 = load(strcat("../para2_in.dat"));
+para2 = load(strcat("../para_MeshDims.dat"));
 Lx = para2(1);
 Ly = para2(2);
 

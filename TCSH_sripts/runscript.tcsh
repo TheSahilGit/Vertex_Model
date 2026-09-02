@@ -5,8 +5,8 @@ set MY_DIR=/media/data/sahil/Work/VertexModel_NewCode_V4_Yield/
 
 cd BaseCode
 
-# Get the value from para1_in.dat
-set sudden_shearStrength0 = `cat para1_in.dat | grep sudden_shearStrength | awk '{print $1}'`
+# Get the value from para_Simulation.dat
+set sudden_shearStrength0 = `cat para_Simulation.dat | grep sudden_shearStrength | awk '{print $1}'`
 set sudden_shearStrength_in = `echo $sudden_shearStrength0 | sed 's/d/E/'`
 set sudden_shearStrength_dec = `printf "%.15f\n" "$sudden_shearStrength_in"`
 
@@ -39,12 +39,12 @@ foreach value ($etas_max)
         # Go into the directory
         cd Mot_${etas_max_dec}_Shear_${sudden_shearStrength_use}
     
-        # Update the values in para1_in.dat
-        sed -i "/etas_max_/s/0.0d0/$etas_max_dec/g" para1_in.dat
-        sed -i "/sudden_shearStrength/s/1.0d-7/$sudden_shearStrength_use/g" para1_in.dat
+        # Update the values in para_Simulation.dat
+        sed -i "/etas_max_/s/0.0d0/$etas_max_dec/g" para_Simulation.dat
+        sed -i "/sudden_shearStrength/s/1.0d-7/$sudden_shearStrength_use/g" para_Simulation.dat
     
-        echo "Updated para1_in.dat with new values"
-        cat para1_in.dat
+        echo "Updated para_Simulation.dat with new values"
+        cat para_Simulation.dat
 
         sh clear.sh
         sh compile.sh

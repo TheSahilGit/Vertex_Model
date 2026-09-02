@@ -2,7 +2,7 @@ clear; clc ;
 close all;
 
 
-para2 = load("../para2_in.dat");
+para2 = load("../para_MeshDims.dat");
 %etas_in = load("../motility_in.dat");
 
 
@@ -29,6 +29,8 @@ mov.FrameRate = 1;
 open(mov); % Open the video file    before entering the loop
 
 fig = figure('Position', [100, 100, 800, 800]);
+set(fig, 'Resize', 'off');   % BUGFIX (log.txt): see Movie_Code.m
+frameSize = [];
 ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
@@ -50,8 +52,15 @@ for it = 10000000
   
 
     title(num2str(it))
-    F = getframe(gcf); % Get the frame
-    writeVideo(mov, F); % Add frame to the video file
+    drawnow;
+    F = getframe(fig); % Get the frame
+    img = F.cdata;
+    if isempty(frameSize)
+        frameSize = [size(img,1), size(img,2)];
+    elseif ~isequal([size(img,1), size(img,2)], frameSize)
+        img = imresize(img, frameSize);
+    end
+    writeVideo(mov, img); % Add frame to the video file
 
     hold off;
 

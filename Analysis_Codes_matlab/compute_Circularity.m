@@ -13,7 +13,7 @@ function [time, circularity] = compute_Circularity(itList, nrun, progressFcn)
 % circularity(k) = isoperimetric ratio 4*pi*Area/Perimeter^2 of the convex
 % hull of the tissue's outer-boundary vertices at itList(k); 1 for a
 % perfect circle, less than 1 otherwise. time(k) = itList(k)*dt, with dt
-% read from para1_in.dat (not hardcoded) so the time axis stays correct
+% read from para_Simulation.dat (not hardcoded) so the time axis stays correct
 % regardless of which run this is pointed at.
 %
 % Extracted from Analysis_Circularity.m's core loop; the only behavior
@@ -25,7 +25,7 @@ if nargin < 3
     progressFcn = [];
 end
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 time = itList * p1.dt;
 
 circularity = zeros(size(itList));

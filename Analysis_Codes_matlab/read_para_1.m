@@ -3,7 +3,7 @@
 
 
 % Open the file for reading
-filename = 'para1_in.dat'; % Replace with your actual file name
+filename = 'para_Simulation.dat'; % Replace with your actual file name
 fid = fopen(filename, 'r');
 
 % Initialize an array to store the first column

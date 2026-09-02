@@ -1081,3 +1081,426 @@ VERIFICATION:
   just at the end -- and grew to 50000 entries a few seconds later,
   matching the 10000-step cadence exactly. No NaN/error in either run.
 ================================================================================
+
+NEW FEATURE: Fortran replacement for Main.m's initial-mesh generation
+(Generate_Initial_Mesh.f90, para_MeshGen.dat, compile.sh)
+
+Main.m was the only remaining reason a MATLAB session was needed to start a
+new simulation: it builds the initial Voronoi tessellation (via MATLAB's
+built-in voronoin) and writes v_in.dat/inn_in.dat/num_in.dat/para2_in.dat,
+which allocation.f90's read_input/read_data then consume. Added a
+standalone Fortran program that produces the exact same four files, byte-
+compatible with the existing readers -- allocation.f90 and every other
+.f90 file are untouched.
+
+Confirmed while reading Main.m that BorderVertices, Give_Motility, and
+Give_Motility_new (lines 48-153) are dead code -- never called from the
+executed script. Motility generation now lives entirely on the Fortran
+side (Give_Motility_Gradient/Give_Motility_Hotspot, Force.f90). Main.m
+itself is left in place, unmodified, as a reference/fallback.
+
+ALGORITHM (mirrors Main.m's MeshGenerator/StoreData exactly):
+- Hexagonal-offset (brick) lattice of Lx*Ly seed points.
+- Anisotropic jitter: ONE random draw per point, reused (at different
+  scales) for both its x and y offset -- this reproduces Main.m's `ran`
+  reuse verbatim, including the resulting x/y-correlated jitter direction,
+  rather than "fixing" it into independent draws. Interior points get
+  jitter_interior_{x,y} (default 0.5, 0.1); the outermost ring gets the
+  smaller jitter_boundary_{x,y} (default 0.1, 0.1) -- boundary
+  classification is the outer ring only (i==1|i==Ly|j==1|j==Lx in lattice-
+  index space); Main.m computes a 2nd/3rd nested ring (inside2/Boundary2/
+  Boundary3) but never actually uses them, so only the 1-ring split is
+  reproduced.
+- 8 periodic ghost copies (+-Lx, +-Ly and combinations) added purely so
+  edge cells clip against real neighbors instead of coming out unbounded --
+  a boundary-conditioning trick, not true periodic BCs (matches Main.m).
+- Each real cell's Voronoi polygon is built directly via incremental half-
+  plane clipping against nearby candidate points (real + ghost), processed
+  in increasing distance order, with an exact early-termination test
+  (stop once the polygon's farthest vertex from the seed point is within
+  half the distance to the next candidate -- provably nothing farther can
+  cut the polygon further). No general Delaunay/Voronoi algorithm needed:
+  the point set is a mildly-perturbed lattice, so a local candidate search
+  (via a uniform spatial grid, radius grown adaptively until the exact
+  test passes) is sufficient and exact regardless of jitter magnitude.
+- Vertices shared between cells are merged into one global list via a
+  second uniform spatial grid (bucket-and-match within 1e-6).
+- Each cell's vertex list is rotated to start at its min-x vertex, then
+  forced clockwise via the same shoelace-sign check StoreData.m uses
+  (Force.f90's area-gradient formula assumes clockwise winding -- this is
+  the one convention that had to be reproduced exactly, not just
+  approximately). StoreData.m's intermediate "flip if a(2)>a(end)" pass is
+  provably redundant given the final clockwise-enforcement step always
+  runs afterward, so it is omitted.
+
+CONFIG: para_MeshGen.dat (Lx, Ly, seed, the four jitter magnitudes, and
+three headroom counts -- cell/vertex-slot/vertex-pool -- all defaulting to
+Main.m's current constants). RNG is explicitly seeded via random_seed
+(default seed=9325) -- a deliberate improvement over Main.m's current
+isseed=false default (a genuinely different mesh every run unless manually
+seeded); same seed now reproduces the exact same mesh.
+
+BUG CAUGHT DURING DEVELOPMENT (never shipped): the first version of
+build_cell_polygon picked a single candidate-search radius heuristically
+(grow until more than one candidate found) and then only ever queried once
+-- nowhere near enough candidates to correctly bound a cell, so the exact
+early-termination test could never actually fire and every cell hit the
+"radius exhausted" error path. Fixed by restarting the whole per-cell
+clip from scratch at each radius-doubling (cheap at this problem scale)
+until the real termination proof condition (maxR <= R/2) is satisfied.
+
+VERIFICATION:
+- Compiled standalone (gfortran -O3 -fbounds-check -fbacktrace
+  Generate_Initial_Mesh.f90), clean with -Wall -Wextra.
+- Programmatic check (all in an isolated scratch copy, never the repo's
+  own v_in.dat/etc.): every real cell convex and clockwise-wound (shoelace
+  sign), padding cells beyond Lx*Ly all-zero, edge-multiplicity histogram
+  showed only 1 (boundary) and 2 (interior, shared) -- consistent
+  triangulation. Vertices-per-cell distribution for a 32x32 mesh: 12
+  quadrilaterals, 136 pentagons, 730 hexagons, 132 heptagons, 14 octagons
+  (mean exactly 6.00) -- a normal, healthy distribution for a jittered
+  hexagonal lattice.
+- Fed the generated files into the existing, UNMODIFIED simulator
+  (compiled fresh into the scratch dir, para1_in.dat copied and totT
+  temporarily lowered to 2000 for a fast check) with nrun=1: ran all 2000
+  steps to "**********End******************" with no crash, no NaN in any
+  dumped v_*.dat, and a finite/sane Energy.dat trace (1043.5 -> 941.8 over
+  2000 steps -- an initial relaxation, exactly the expected behavior for a
+  freshly generated mesh settling from its jittered starting state).
+- Visual + statistical comparison against a Main.m-generated mesh (same
+  Lx=Ly=32): both report Nc=1024, mean vertices/cell=6.000; side-by-side
+  TisuePlot render shows the same overall texture, boundary treatment, and
+  irregular-cell clustering pattern (compare_meshes.png, scratch-only, not
+  committed).
+- Caught and reverted an unrelated near-miss during this verification: a
+  first attempt at running Main.m for the comparison mesh via MATLAB's
+  `run()` function changed MATLAB's current directory to Main.m's own
+  folder (the repo root) before executing, which overwrote the repo's real
+  tracked v_in.dat/inn_in.dat/num_in.dat/para2_in.dat with a fresh random
+  mesh. Caught immediately via `git status`/md5sum before doing anything
+  else, restored with `git checkout --`, and confirmed byte-identical to
+  HEAD afterward. Re-ran the comparison by copying Main.m into the scratch
+  dir itself instead, which does not have this failure mode.
+================================================================================
+
+RENAME: para1_in.dat -> para_Simulation.dat, para2_in.dat -> para_MeshDims.dat
+
+Per user request, for clearer naming (and consistency with para_MeshGen.dat).
+para1_in.dat held nrun/dt/totT plus ~60 physics/feature-flag parameters ->
+para_Simulation.dat. para2_in.dat held Lx/Ly/num_dim/v_dim1/v_dim2/
+inn_dim1/inn_dim2 (pure array-dimensioning info) -> para_MeshDims.dat. File
+CONTENTS/format unchanged, filenames only. Updated every reference:
+allocation.f90 (the open() calls), Main.m and Generate_Initial_Mesh.f90
+(the writers), compile.sh (a comment), all ~15 Analysis_Codes_matlab/*.m
+files that read either file (mostly via ReadPara1Params.m / LoadData.m),
+and all 6 TCSH_sripts/*.tcsh batch-job scripts (their sed-based parameter
+sweeps target para_Simulation.dat now). Old filenames intentionally left
+alone in this log's earlier entries (historically accurate at time of
+writing). Recompiled cleanly; see the autotest entry below for end-to-end
+verification with the new names.
+
+================================================================================
+
+BUG FOUND VIA AUTOTESTING: heap-buffer-overflow in cell division
+(Proliferation.f90 / Geometry.f90's UpdateNeighborPolygons)
+
+Requested sanity sweep: 3 mesh sizes (16x16, 64x64, 50x50) x 3 parameter
+scenarios (baseline apolar motility; oscillatory shear + fixed top/bottom
+boundary; ABP motility + cell division), each run standalone in a scratch
+copy, plus a full PlotAnalysis pass. The 50x50 ABP+division case crashed:
+"free(): invalid pointer", SIGABRT, right after a division event's
+"Proliferation: ic, Nc = ..." print.
+
+DIAGNOSIS: compiled a `-fsanitize=address -O0` copy of the whole simulator
+and reran the identical failing case. AddressSanitizer pinpointed a
+heap-buffer-overflow WRITE at Geometry.f90:642 (`inn_new1 = 0`, inside
+UpdateNeighborPolygons), called from Proliferation.f90:279
+(Proliferation_Core), landing 0 bytes after an 88-byte (22-int) region --
+exactly inn_dim1 integers, with no headroom at all.
+
+ROOT CAUSE: UpdateNeighborPolygons declares its output dummies as
+`inn_new1(size(inn_old1)+2)` / `inn_new2(size(inn_old2)+2)` -- i.e. 2 MORE
+than whatever it's given for the corresponding input. Proliferation_Core
+passes `inn_neighbor1`/`inn_neighbor2` WHOLE (not sliced to the neighbor
+cell's actual vertex count), so size(inn_old1) inside the callee is always
+inn_dim1, not num(othercells(1)) -- meaning inn_new1/inn_new2 are ALWAYS
+declared inn_dim1+2 elements, on every single division. The matching
+actual arguments at the call site, inn_neighbor1_new/inn_neighbor2_new,
+were only ever declared inn_dim1 elements (zero headroom) -- so this
+subroutine overflows its output arrays by exactly 2 integers on EVERY
+division that finds two neighboring cells (othercells_count==2), not just
+in some rare edge case. The existing n1_new/n2_new > inn_dim1 guard a few
+lines later (added in an earlier pass) only rejects the *result* after
+this write already happened -- it could never have prevented the
+out-of-bounds write itself. This is almost certainly why it went
+undetected in this session's earlier (smaller-mesh) division sanity
+checks: the same 8-byte overflow was very likely happening every time
+too, just landing in heap padding that didn't matter until this larger
+mesh's allocation pattern made it corrupt something that mattered.
+
+FIX: sized inn_neighbor1_new/inn_neighbor2_new as inn_dim1+2 (matching
+what the callee actually needs given inn_neighbor1/inn_neighbor2 are
+passed whole), and pass them as full arrays (no slicing) at the call
+site so the actual argument size matches the dummy's declared size
+exactly. The downstream n1_new/n2_new > inn_dim1 guard is unchanged and
+still does its job -- now safely, after a write that can no longer
+overflow anything.
+
+VERIFICATION:
+- Rebuilt the ASan instrumented binary with the fix and reran the exact
+  same failing case (50x50, ABP+division, 15000 steps): completed to
+  "**********End******************" with ZERO AddressSanitizer reports,
+  32 successful divisions (Nc: 2500 -> 2532).
+- Rebuilt the normal -O3 production binary (via compile.sh) and reran the
+  same case: also completed cleanly, no crash, same 32 divisions, and
+  correctly hit the existing (intentional) v_dim2 vertex-pool-headroom
+  bailout later on rather than crashing once that headroom was used up.
+- Programmatic geometry check on the final (post-division) mesh dump: all
+  2532 cells clockwise-wound, edge-multiplicity histogram only 1
+  (boundary) and 2 (interior, shared) -- no dangling/orphaned edges. 2
+  cells were mildly non-convex, which is expected/normal dynamic behavior
+  under active forces (not a bug -- only the *initial* Voronoi mesh is
+  guaranteed convex).
+- Regression check: the other two scenarios (16x16 baseline motility;
+  64x64 oscillatory shear + fixed boundary, no division) still ran clean
+  with the fixed binary.
+- Full PlotAnalysis pass (Energy, Pressure, Circularity, Q(t), MSD,
+  cumulative T1/T2) against the 50x50 division run's data, using the
+  newly-renamed para_Simulation.dat/para_MeshDims.dat: all 7 panels drew
+  correctly once a methodology bug in the test script itself (see below)
+  was fixed, all curves physically sensible (Energy relaxing, Q(t)
+  decaying from 1, MSD tracking near the t^1 guideline at short time,
+  cumulative T1 rising, T2 correctly empty -- no extrusions in this short
+  run). Final tissue visualized via TisuePlot, colored by cell area:
+  clean, non-overlapping, no self-intersections.
+
+CAUGHT DURING THIS VERIFICATION (own mistake, not a codebase bug):
+symlinking the real Analysis_Codes_matlab/ into the scratch test
+directory to reuse it for the PlotAnalysis run backfired -- MATLAB
+resolved the symlink to its physical target before evaluating relative
+paths, so every "../para_Simulation.dat"/"../data/..." in the analysis
+codes silently resolved to the REAL repo's own directories instead of the
+scratch copy. This was read-only (LoadData/PlotAnalysis never write into
+data/), so no simulation data was at risk, but the test script itself
+(run_sanity_plot.m) and its output (sanity_plot.png, sanity_cache.mat)
+were written for real into the repo's Analysis_Codes_matlab/ folder.
+Caught immediately when the plotted Energy curve didn't match the
+scratch run's own Energy.dat; deleted the 3 stray files from the repo
+(confirmed via git status --short they were untracked, not overwrites of
+anything real) and redid the test with a physical `cp -rL` copy of
+Analysis_Codes_matlab instead of a symlink, which does not have this
+failure mode.
+================================================================================
+
+BUGS FOUND CHECKING nrun=1 vs nrun=2 RESTART CORRECTNESS
+
+Requested check: does nrun=2 (restart from a mid-run snapshot) still work
+correctly, as opposed to nrun=1 (fresh mesh from Generate_Initial_Mesh.f90
+or Main.m)? File selection itself (read_data, allocation.f90) was already
+correct. Found two real bugs in what happens once those files are loaded.
+
+BUG 1 -- Nc (live cell count) hardcoded to Lx*Ly regardless of nrun
+(vertexmain.f90, line right after read_data). Nc is dynamic: grown by
+cell division (Proliferation.f90: Nc=Nc+1) and shrunk by T2 extrusion
+(T2_swap.f90: Nc=Nc-1, keeping cells 1:Nc contiguous, num(k)=0 beyond
+Nc), and every physics loop (Force.f90/T1_swap.f90/T2_swap.f90) is bounded
+by `do ic=1,Nc`. Restarting from a snapshot taken after any division/T2
+event had a true Nc different from Lx*Ly, but Nc was silently reset to
+Lx*Ly anyway on restart.
+
+Reproduced live: ran a 24x24 (576-cell) mesh with ABP+division for 5000
+steps -> 32 divisions -> Nc=608 by it=1000. Restarting from that it=1000
+snapshot (nrun=2) printed "Nc after read_data = 576" -- the 32 already-
+divided daughter cells loaded correctly into v/inn/num but would have
+been silently invisible to every physics loop from that point on.
+
+FIX: derive Nc from the loaded num() array instead of hardcoding it --
+`Nc = count(num /= 0)` at the end of read_data (allocation.f90), relying
+on the same "cells 1:Nc live and contiguous, num(k)=0 beyond Nc" invariant
+T2_swap.f90 and every MATLAB analysis script already assume. Gives the
+same Lx*Ly for nrun=1 (all of num(1:Lx*Ly) nonzero by construction) and
+the correct restored value for nrun=2. Removed the hardcoded `Nc=Lx*Ly`
+from vertexmain.f90 entirely.
+
+Verified: same restart with the fix now prints "Nc after read_data
+(fixed) = 608" -- matches the snapshot's true live-cell count. Regression-
+checked a restart from BEFORE any division (it=1, Nc==Lx*Ly==576 either
+way): both the pre-fix and post-fix binaries agree (576), confirming the
+already-relied-upon restart pattern (e.g. the repo's own
+data/inn_00050000.dat reference snapshot) is unaffected.
+
+BUG 2 -- Energy.dat/ShearStress.dat/T1_count.dat/T2_count.dat/
+motility_store.dat NOT nrun-prefixed, unlike every other per-timestep
+output (write_output, allocation.f90). inn/num/v/force/Myosin/
+cell_identity all correctly switch to a "nrun2_" filename prefix when
+nrun==2 (so a restart never destroys the original nrun=1 run's data) --
+these five were left writing to the exact same fixed filename regardless
+of nrun, so any nrun=2 run silently overwrote the original run's whole-
+tissue Energy/ShearStress/T1_count/T2_count/motility summary files.
+
+FIX: matched the same nrun2_ prefix convention already used for the other
+six files -- data/nrun2_Energy.dat, nrun2_ShearStress.dat,
+nrun2_T1_count.dat, nrun2_T2_count.dat, nrun2_motility_store.dat.
+
+MATLAB-side follow-up: LoadGlobalTimeSeries.m was hardcoded to the nrun=1
+filenames with no nrun parameter at all -- after the Fortran fix this
+would have made Energy/ShearStress/cumsumT1/cumsumT2 plotting silently
+read stale-or-missing data for an nrun=2 run. Gave it an optional `nrun`
+argument (default 1, matching LoadData.m/FindLatestAvailableIt.m's
+existing convention) and threaded `opt.nrun` through PlotAnalysis.m's 4
+call sites (Energy, ShearStress, both cumsum panels, and the finalOnly
+completion check).
+
+Verified: reran the same restart (now with both fixes) -- data/Energy.dat
+(the original 5000-entry nrun=1 series) came back byte-identical/
+untouched after the nrun=2 run finished; data/nrun2_Energy.dat correctly
+holds exactly the new run's 2000 entries. Confirmed from MATLAB too:
+LoadGlobalTimeSeries(1) returns the original 5000-entry series,
+LoadGlobalTimeSeries(2) returns the new 2000-entry series, both from the
+same data/ directory.
+================================================================================
+
+BUG: VideoWriter "Frame must be H by W" in Movie_Code.m /
+Movie_Code_WithMyosin.m / MovieCode_halflatt.m
+
+User-reported error: "Error using VideoWriter/writeVideo ... Frame must
+be 1280 by 1280" -- VideoWriter locks in its frame size from the FIRST
+writeVideo call and then hard-errors on any later frame that comes back a
+different pixel size. All three movie scripts captured frames via a bare
+`getframe(gcf)` + `writeVideo(mov, F)` with no size normalization --
+figure('Position',...) only sets a *nominal* size; the actual rendered
+pixel size getframe returns can still drift between iterations (colorbar
+tick-label width changing with each frame's data range, OS/window-manager
+nudging the window, a first-frame render-timing race before layout has
+fully settled, etc.), and once even one frame disagrees with the first,
+writeVideo throws.
+
+FIX (Movie_Code.m, Movie_Code_WithMyosin.m, MovieCode_halflatt.m): capture
+against the figure handle (not bare gcf) with `set(fig,'Resize','off')` to
+stop the window from being resized mid-loop, added `drawnow` right before
+each getframe (avoids capturing a frame mid-layout), and -- the actual
+guarantee, independent of *why* a frame might differ -- lock in the first
+frame's [height width] and `imresize` any later frame that doesn't match
+before handing it to writeVideo. MovieCode_halflatt.m didn't create its
+own figure at all (relies on whatever gcf currently is); left that as-is
+rather than changing its behavior, and just normalize the frame size
+regardless of which figure produced it.
+
+VERIFICATION: ran the fixed Movie_Code.m logic against 20 real frames
+(it=100:100:2000) in a scratch copy -- completed cleanly, wrote a valid
+20-frame 1280x1280 AVI (confirmed via ffprobe: codec mjpeg, nb_frames=20,
+matching the user's exact reported frame size), no VideoWriter error.
+================================================================================
+
+NEW FEATURE: Force magnitude vs. time (compute_ForceStats.m, wired into
+PlotAnalysis.m as a new doForce panel)
+
+Requested: read the per-vertex force data already being written
+(force_*/nrun2_force_* dumps) and track max/force-per-vertex vs. time.
+
+compute_ForceStats.m follows the same shape as compute_Circularity.m/
+compute_Qt.m (itList, nrun, progressFcn -> time + data). Force magnitude
+is sqrt(fxx^2+fyy^2) -- the same deterministic force ComputeCellColorData
+.m's 'Force' coloring option already uses (forces columns 1-2; columns
+3-8 are the random/ABP/polar terms, scaled by sqrt(dt) not dt in
+vertexmain.f90's update rule, so not on the same footing to combine into
+one magnitude). Restricted to vertices actually referenced by a live cell
+(num~=0) -- v_dim2 reserves headroom for future divisions/growth, and an
+unused slot would dilute the mean and could corrupt the max if it ever
+held stale data. Returns BOTH max and mean per frame: max alone can't
+distinguish "one bad vertex" from "whole tissue got more active", mean
+alongside it can -- a maxForce spike with meanForce flat flags a single
+problem vertex (near-degenerate T1/T2 edge, division artifact), useful as
+a blow-up/instability check.
+
+PlotAnalysis.m: added `doForce` (default false, same convention as every
+other panel flag), a computeForce(itList,opt) wrapper (matches
+computePressure/computeCircularity's shape), and plotForceAx -- two lines
+on one panel (max solid, mean dashed, semilogy, legend), same pattern
+plotMSDAx already uses for its guide lines. Exposed as doForce in
+RunPlotAnalysis.m too.
+
+BUGFIX found while wiring this up (LoadData.m): its own internal Energy/
+ShearStress/T1_count/T2_count reads (used for all_end_data) were STILL
+hardcoded to the nrun=1 filenames, missed when the nrun2_ prefix fix was
+made to allocation.f90/LoadGlobalTimeSeries.m earlier -- an nrun=2
+LoadData call was silently returning the original nrun=1 run's summary
+data (or erroring, if nrun=1 was never run) instead of its own. Matched
+to the same nrun-prefix convention used a few lines up in the same file
+for inn/num/v/force/Myosin/cell_identity.
+
+VERIFICATION: ran PlotAnalysis with doForce against 15 real frames
+(it=100:100:14100) from the 50x50 ABP+division scratch run -- max force
+fluctuates ~0.4-0.46 throughout, mean force rises from 0 (fresh mesh,
+no motility yet) to a ~0.19 plateau once ABP kicks in -- physically
+sensible, and exactly the "spike in max, flat mean" shape this is meant
+to catch would be obvious against this baseline. Also ran with ALL 8
+panels enabled together (Energy/Pressure/Force/Circularity/Qt/MSD/
+cumsumT1/cumsumT2) -- all drew correctly, no interaction issues.
+================================================================================
+
+BUG: motility hotspot invisible in Movie_Code.m's 'Motility' coloring
+(hotspots visible fine in 'Force' coloring)
+
+User report: if_motility_hotspot is on and 'Force' coloring shows the
+hotspots in the right place, but 'Motility' coloring shows no color
+variation at all.
+
+ROOT CAUSE (Movie_Code.m only -- MovieCode_halflatt.m/Movie_Code_
+WithMyosin.m intentionally left untouched per user request, even though
+they read motility_store.dat the same hardcoded way): Movie_Code.m reads
+'../data/motility_store.dat' regardless of nrun. allocation.f90 writes
+this under a "nrun2_" prefix for nrun==2 (the fix from two sessions ago,
+so a restart can't overwrite the original nrun==1 run's own file) -- so
+with nrun=2 (the user's current setup), Movie_Code.m was reading the
+ORIGINAL nrun=1 run's motility_store.dat, not the current one. Confirmed
+directly: data/motility_store.dat (nrun=1, stale) is EXACTLY etas_max
+everywhere (1 distinct value -- from an earlier run with the hotspot off),
+while data/nrun2_motility_store.dat (the current run) has 2177 distinct
+values, a real hotspot pattern. 'Force' coloring was unaffected because it
+reads from LoadData's forces output, which was already correctly
+nrun-aware.
+
+FIX: Movie_Code.m's motility_store read now branches on nrun (prefix ''
+for nrun=1, 'nrun2_' for nrun=2), matching LoadData.m's convention.
+
+SEPARATE, CONFIRMED FORTRAN BUG found while rechecking Give_Motility_
+Hotspot (Force.f90) as requested -- did not turn out to be the cause of
+the reported symptom (the hotspot data on disk was fine), but real:
+  1. mot was never zeroed at the top of this subroutine, unlike its
+     sibling Give_Motility_Gradient (which does `mot = 0.0` first).
+     allocate(mot(v_dim2)) does not guarantee zero-initialized memory --
+     this was accumulating the hotspot contribution on top of whatever
+     undefined bytes happened to already be there, "working" only by
+     luck when that memory happened to already be zero.
+  2. The accumulation loop visited each vertex once per INCIDENT CELL (do
+     ic=1,Nc; do jc=1,num(ic)) and divided every contribution by a fixed
+     3.0d0 -- correct ONLY for an interior vertex (shared by exactly 3
+     cells: 3 visits x contribution/3 = contribution). A boundary vertex
+     (shared by fewer than 3 cells) only got 1 or 2 visits, i.e. 1/3 or
+     2/3 of the intended value -- an artificial dip in motility right at
+     the tissue edge, purely a counting artifact.
+
+FIX: zero mot at the top (matching Give_Motility_Gradient's convention),
+and visit each unique vertex exactly once (a vertex_done flag) instead of
+once per incident cell, computing its full contribution directly with no
+fudge factor -- correct regardless of how many cells share a vertex.
+
+VERIFICATION: recompiled; ran a fresh 24x24 scratch mesh with
+if_motility_hotspot on (number_of_hotspot=2, one hotspot deliberately
+centered on a tissue-edge cell so its own vertices are a mix of
+boundary/interior). Before this fix, that cell's boundary vertices
+(shared by 1 or 2 cells) would have gotten ~1/3 or ~2/3 of etas_max;
+after the fix, ALL of that cell's vertices -- boundary and interior alike
+-- correctly read ~0.040 (~etas_max), matching their equal physical
+proximity to the hotspot center. min(mot)=0.0 (clean zero far from any
+hotspot, confirming the zero-init fix) and max(mot)~0.0401 (two nearby
+hotspots' contributions additively overlapping slightly, as expected).
+
+NOTE for the user: the currently-running vertexmain.exe process (nrun=2,
+already in progress) is still executing the OLD in-memory code from
+before this recompile -- Fortran fixes never affect an already-running
+process, only a fresh launch of the newly-built binary. Its existing
+data/nrun2_motility_store.dat was written by the OLD (boundary-
+suppressing) logic.
+================================================================================

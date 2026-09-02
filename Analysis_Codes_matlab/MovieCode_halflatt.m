@@ -2,7 +2,7 @@ clear; clc ;
 %close all;
 
 
-para2 = load("../para2_in.dat");
+para2 = load("../para_MeshDims.dat");
 %etas_in = load("../motility_in.dat");
 
 
@@ -29,6 +29,10 @@ mov.FrameRate = 1;
 open(mov); % Open the video file    before entering the loop
 
 %fig = figure('Position', [100, 100, Lx*50, Ly*50]);
+frameSize = [];   % BUGFIX (log.txt): see Movie_Code.m -- normalize frame
+                   % size below regardless of which figure is active,
+                   % since this script (unlike Movie_Code.m) doesn't
+                   % create/fix its own figure.
 ct = 1;
 %nt = length(borderver(:,1));
 interv = 50000;
@@ -68,8 +72,15 @@ for it = 620000
     scatter(globalMeanX, globalmeanY, 100, 'red', 'filled')
 
     title(num2str(it))
+    drawnow;
     F = getframe(gcf); % Get the frame
-    writeVideo(mov, F); % Add frame to the video file
+    img = F.cdata;
+    if isempty(frameSize)
+        frameSize = [size(img,1), size(img,2)];
+    elseif ~isequal([size(img,1), size(img,2)], frameSize)
+        img = imresize(img, frameSize);
+    end
+    writeVideo(mov, img); % Add frame to the video file
 
     hold off;
 

@@ -6,7 +6,7 @@ clear; clc; close all;
 
 nrun = 1;
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 it_dump = p1.it_dump;
 totT    = p1.totT;
 

@@ -2,8 +2,8 @@ clear; clc;
 % close all;
 
 %% Load parameters
-para2 = load("../para2_in.dat"); 
-para1 = readtable("../para1_in.dat");
+para2 = load("../para_MeshDims.dat"); 
+para1 = readtable("../para_Simulation.dat");
 
 deltat = table2array(para1(8,1));
 

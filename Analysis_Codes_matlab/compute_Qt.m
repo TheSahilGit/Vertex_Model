@@ -6,7 +6,7 @@ function [time, Qt] = compute_Qt(itList, nrun, ac, progressFcn)
 % itList(1) is treated as the reference ("t=0") configuration; Qt(k) is
 % the fraction of cells whose center-of-mass has moved less than `ac`
 % (a cage/persistence length scale) from its position at itList(1).
-% time(k) = itList(k)*dt, dt read from para1_in.dat.
+% time(k) = itList(k)*dt, dt read from para_Simulation.dat.
 % progressFcn : optional function handle progressFcn(k, n), called after
 %          each of the n requested frames is processed (used by
 %          PlotAnalysis.m to print live progress); omit or pass [] for none.
@@ -22,7 +22,7 @@ if nargin < 4
     progressFcn = [];
 end
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 time = itList * p1.dt;
 
 Qt = zeros(size(itList));

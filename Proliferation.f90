@@ -166,7 +166,24 @@ module Proliferation
       integer :: n1, n2, n1_new, n2_new
 
       integer :: inn_neighbor1(inn_dim1), inn_neighbor2(inn_dim1)
-      integer :: inn_neighbor1_new(inn_dim1), inn_neighbor2_new(inn_dim1)
+      ! BUGFIX (log.txt): UpdateNeighborPolygons (Geometry.f90) declares its
+      ! output dummy args as size(inn_old1)+2 / size(inn_old2)+2 -- and
+      ! inn_neighbor1/inn_neighbor2 are passed to it WHOLE (unsliced), so
+      ! size(inn_old1) inside that subroutine is inn_dim1, not
+      ! num(othercells(1)). It therefore always writes up to inn_dim1+2
+      ! elements into inn_neighbor1_new/inn_neighbor2_new, every single
+      ! division, regardless of how many vertices the neighbor cell
+      ! actually has. These were only sized inn_dim1 (no headroom at all),
+      ! so every division overflowed them by exactly 2 integers -- caught
+      ! live via AddressSanitizer (heap-buffer-overflow WRITE at
+      ! Geometry.f90:642, `inn_new1 = 0`) once a large-mesh run made the
+      ! corrupted heap bytes matter enough to crash on a later, unrelated
+      ! free() ("free(): invalid pointer"). The n1_new/n2_new > inn_dim1
+      ! guard further down only rejects the *result* after this overflow
+      ! had already happened -- it could never prevent the underlying
+      ! out-of-bounds write. Sized with the same +2 headroom the callee
+      ! actually needs.
+      integer :: inn_neighbor1_new(inn_dim1+2), inn_neighbor2_new(inn_dim1+2)
       
 
 
@@ -273,10 +290,14 @@ module Proliferation
 !       print*, maxinn+1, maxinn+2
        
 
+      ! inn_neighbor1/2 are passed whole (not sliced to num(othercells(.))),
+      ! so UpdateNeighborPolygons' output dummies are sized inn_dim1+2 --
+      ! the actual arguments below must match that exactly (see the
+      ! inn_neighbor1_new/inn_neighbor2_new declaration comment above).
       call UpdateNeighborPolygons(inn_neighbor1, num(othercells(1)), inn_neighbor2, num(othercells(2)), &
                                    idx_pair(1,:), idx_pair(2,:), maxinn+1, maxinn+2, &
-                                   inn_neighbor1_new(1:num(othercells(1))), n1_new, &
-                                   inn_neighbor2_new(1:num(othercells(2))), n2_new)
+                                   inn_neighbor1_new, n1_new, &
+                                   inn_neighbor2_new, n2_new)
 
       ! BUGFIX (log.txt, re-review pass): no check previously existed that
       ! n1/n2 (the dividing cell's two daughters) or n1_new/n2_new (the two

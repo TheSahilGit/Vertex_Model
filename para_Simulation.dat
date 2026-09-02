@@ -1,12 +1,12 @@
-2                ! nrun
-50000            ! nrun2_initialTime ! will take this time(it) data from nrun1 as initial for nrun2 
+1                ! nrun
+5000000            ! nrun2_initialTime ! will take this time(it) data from nrun1 as initial for nrun2 
 1.0d0            ! Ao
 0.0d0            ! Co
 1.0d0            ! lambda
 0.05d0           ! beta
 0.06d0           ! gamm
 1.0d0            ! eta
-1.0d4            ! totT
+5.0d6           ! totT
 1.0d-3           ! dt
 .true.           ! if_Do_T1 
 0.1              ! min_d_T1
@@ -15,7 +15,7 @@
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
-100             ! it_dump (unit of it)
+500000             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
 .false.           ! if_motility (Apolar_cell_motility)
@@ -26,8 +26,8 @@
 .false.          ! if_motility_decay ! (temporal decay)
 10000            ! motility_decay_timeScale (unit of dt)
 .false.          ! if_motility_hotspot !(localised motility enhancement) ! takes 'etas_max' as max value. 
-1                ! number_of_hotspot
-10.0d0           ! sigma_hotspot
+2                ! number_of_hotspot
+4.0d0           ! sigma_hotspot
 .false.          ! if_Shear_tissue ( Make it true for any kind of shearing experiment)
 .false.          ! if_Sudden_Shearing
 1.0d0            ! sudden_shearStrength
@@ -47,7 +47,7 @@
 .false.          ! if_limb_force
 0.0d0            ! limb_force_strength
 .false.          ! if_cell_division
-1.30d0           ! area_0 (for cell division)
+0.7d0           ! area_0 (for cell division)
 .false.            ! if_squeeze_tissue
 1                  ! squeeze_when (unit of it)
 30.0d0             ! percent_squeeze  

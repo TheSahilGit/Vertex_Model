@@ -63,18 +63,18 @@ foreach type ($types)
 
         ## Modify parameter
 
-        sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para1_in.dat
+        sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para_Simulation.dat
 
         if ($type == "Run_Polar_cell_motility") then
-            sed -i "/if_ABP/s/.false./.true./" para1_in.dat
+            sed -i "/if_ABP/s/.false./.true./" para_Simulation.dat
         
         else if ($type == "Run_Fluctuating_contractility") then
-            sed -i "/if_active_contractility/s/.false./.true./" para1_in.dat
+            sed -i "/if_active_contractility/s/.false./.true./" para_Simulation.dat
         
         else if ($type == "Run_Mechano_chemical_regulation") then
-            sed -i "/if_RhoROCK/s/.false./.true./" para1_in.dat
-            sed -i "/if_RK4/s/.false./.true./" para1_in.dat
-            sed -i "/if_coupling_noise/s/.false./.true./" para1_in.dat
+            sed -i "/if_RhoROCK/s/.false./.true./" para_Simulation.dat
+            sed -i "/if_RK4/s/.false./.true./" para_Simulation.dat
+            sed -i "/if_coupling_noise/s/.false./.true./" para_Simulation.dat
         endif
 
 

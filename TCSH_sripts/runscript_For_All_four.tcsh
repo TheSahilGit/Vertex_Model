@@ -93,11 +93,11 @@ foreach type ($types)
                 cd $newDir
 
                 # Update parameters
-                sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para1_in.dat
-                sed -i "/${param_name2}/s/[0-9.eEd+-]\+/${tau}/" para1_in.dat
-                sed -i "/beta/s/[0-9.eEd+-]\+/${beta_val}/" para1_in.dat
+                sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para_Simulation.dat
+                sed -i "/${param_name2}/s/[0-9.eEd+-]\+/${tau}/" para_Simulation.dat
+                sed -i "/beta/s/[0-9.eEd+-]\+/${beta_val}/" para_Simulation.dat
 
-                sed -i "/if_active_contractility/s/.false./.true./" para1_in.dat
+                sed -i "/if_active_contractility/s/.false./.true./" para_Simulation.dat
 
 
                 # -----------------------------
@@ -138,18 +138,18 @@ foreach type ($types)
 
             cd $newDir
 
-            sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para1_in.dat
+            sed -i "/${param_name}/s/[0-9.eEd+-]\+/${val}/" para_Simulation.dat
 
             if ($type == "Run_Apolar_cell_motility") then
-                sed -i "/Apolar_cell_motility/s/.false./.true./" para1_in.dat
+                sed -i "/Apolar_cell_motility/s/.false./.true./" para_Simulation.dat
 
             else if ($type == "Run_Polar_cell_motility") then
-                sed -i "/if_polar_motility/s/.false./.true./" para1_in.dat
+                sed -i "/if_polar_motility/s/.false./.true./" para_Simulation.dat
 
             else if ($type == "Run_Mechano_chemical_regulation") then
-                sed -i "/if_RhoROCK/s/.false./.true./" para1_in.dat
-                sed -i "/if_RK4/s/.false./.true./" para1_in.dat
-                sed -i "/if_coupling_noise/s/.false./.true./" para1_in.dat
+                sed -i "/if_RhoROCK/s/.false./.true./" para_Simulation.dat
+                sed -i "/if_RK4/s/.false./.true./" para_Simulation.dat
+                sed -i "/if_coupling_noise/s/.false./.true./" para_Simulation.dat
             endif
 
 

@@ -1,7 +1,7 @@
 clear; clc; close all;
 
 
-para1 = readtable("../para1_in.dat");
+para1 = readtable("../para_Simulation.dat");
 Nt = table2array(para1(7,1));
 dt = table2array(para1(8,1));
 

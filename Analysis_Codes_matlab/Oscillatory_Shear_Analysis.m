@@ -5,7 +5,7 @@ nrun = 2;
 
 [~, ~, ~, ~, ~, ~, ~, ~, all_end_data] = LoadData(it, nrun);
 
-para1 = readtable("../para1_in.dat");
+para1 = readtable("../para_Simulation.dat");
 dt = table2array(para1(8,1));
 eps0 = table2array(para1(34,1));
 w0 = table2array(para1(36,1));

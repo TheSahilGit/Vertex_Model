@@ -1,11 +1,11 @@
 function p = ReadPara1Params(filename)
-% READPARA1PARAMS  Robustly parse para1_in.dat into a named struct.
+% READPARA1PARAMS  Robustly parse para_Simulation.dat into a named struct.
 %
-%   p = ReadPara1Params("../para1_in.dat")
+%   p = ReadPara1Params("../para_Simulation.dat")
 %   dt = p.dt; it_dump = p.it_dump;
 %
 % Why this exists instead of readtable(): several existing scripts do
-%   para1 = readtable("../para1_in.dat");
+%   para1 = readtable("../para_Simulation.dat");
 %   dt = table2array(para1(8,1));
 % This "magic row number" convention is fragile and non-obvious -- verified
 % directly that MATLAB's readtable() silently drops the first two lines of
@@ -15,7 +15,7 @@ function p = ReadPara1Params(filename)
 % not a mapping anyone should have to re-derive or trust across MATLAB
 % versions or file-format tweaks.
 %
-% This function instead reads para1_in.dat line-by-line, in the EXACT
+% This function instead reads para_Simulation.dat line-by-line, in the EXACT
 % order Fortran's allocation.f90::read_input consumes them (the two lists
 % must be kept in sync if that subroutine's read order ever changes), and
 % returns a struct indexed by parameter name -- e.g. p.dt, p.it_dump,
@@ -54,7 +54,7 @@ for i = 1:numel(names)
     if ~ischar(line)
         fclose(fid);
         error('ReadPara1Params:tooFewLines', ...
-            ['para1_in.dat has fewer lines (%d) than expected parameters ' ...
+            ['para_Simulation.dat has fewer lines (%d) than expected parameters ' ...
              '(%d) -- the file format may have changed; check it against ' ...
              'allocation.f90::read_input''s read order and update the ' ...
              '''names'' list in this function to match.'], i-1, numel(names));
@@ -67,7 +67,7 @@ end
 
 
 function val = parseToken(line)
-% First whitespace-delimited token on the line (comment-safe: para1_in.dat
+% First whitespace-delimited token on the line (comment-safe: para_Simulation.dat
 % lines look like "1.0d-3           ! dt", so the first token is the value).
 tok = strtrim(strtok(line));
 

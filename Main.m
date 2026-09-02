@@ -1,7 +1,7 @@
 clear; clc; close all;
 
-Lx = 16; % Number of points along x-axis
-Ly = 16; % Number of points along y-
+Lx = 32; % Number of points along x-axis
+Ly = 32; % Number of points along y-
 
 israndom = true;
 %israndom = false;
@@ -37,7 +37,7 @@ vInitial = v; innInitial = inn; numInitial =  num;
 writematrix(v,'v_in.dat','Delimiter',' ');
 writematrix(num, 'num_in.dat');
 writematrix(inn,'inn_in.dat','Delimiter',' ');
-writematrix(para, 'para2_in.dat');
+writematrix(para, 'para_MeshDims.dat');
 
 
 

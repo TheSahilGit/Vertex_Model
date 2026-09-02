@@ -32,7 +32,7 @@ if nargin < 4
     progressFcn = [];
 end
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 time = itList * p1.dt;
 
 ShearStress_local = zeros(size(itList));

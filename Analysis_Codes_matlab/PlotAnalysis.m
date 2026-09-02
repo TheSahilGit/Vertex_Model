@@ -28,6 +28,13 @@ function PlotAnalysis(varargin)
 %   doShearStress    (false)  whole-tissue ShearStress vs. time (global file, live)
 %   doPressure       (false)  locally-recomputed Pressure vs. time (always
 %                             recomputed -- Pressure is never stored on disk)
+%   doForce          (false)  max and mean per-vertex force magnitude vs.
+%                             time (from the force_*/nrun2_force_* dumps --
+%                             see compute_ForceStats.m). Useful as a blow-
+%                             up/instability check: a maxForce spike with
+%                             meanForce staying flat usually flags one bad
+%                             vertex (near-degenerate T1/T2 edge, division
+%                             artifact) rather than a tissue-wide effect.
 %   doCircularity    (false)  tissue-boundary circularity vs. time
 %   doQt             (false)  self-overlap order parameter Q(t)
 %   doMSD            (false)  mean-squared displacement, tracked by
@@ -91,7 +98,7 @@ function PlotAnalysis(varargin)
 % events so far" once every entry up to it==totT has actually been written.
 % Requesting them before that would silently plot a truncated, misleading
 % curve -- so this function checks length(T1_count) (or T2_count) against
-% totT (from para1_in.dat) and skips the panel with a warning if the run
+% totT (from para_Simulation.dat) and skips the panel with a warning if the run
 % isn't finished yet, rather than plotting something wrong. (This check is
 % skipped under onlyPlot -- a cached cumsum panel was already validated as
 % final when it was first computed.)
@@ -104,6 +111,7 @@ addParameter(p, 'itInterval', []);
 addParameter(p, 'doEnergy', true);
 addParameter(p, 'doShearStress', false);
 addParameter(p, 'doPressure', false);
+addParameter(p, 'doForce', false);
 addParameter(p, 'doCircularity', false);
 addParameter(p, 'doQt', false);
 addParameter(p, 'doMSD', false);
@@ -122,7 +130,7 @@ opt = p.Results;
 
 style = struct('fontSize', opt.fontSize, 'lineWidth', opt.lineWidth, 'markerSize', opt.markerSize);
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 it_dump = p1.it_dump;
 totT    = p1.totT;
 
@@ -155,16 +163,20 @@ end
 requested = {};
 
 if opt.doEnergy
-    requested{end+1} = reqPanel('Energy', 'Energy vs. time', @() computeEnergy(), ...
+    requested{end+1} = reqPanel('Energy', 'Energy vs. time', @() computeEnergy(opt.nrun), ...
         @(ax,t,y,s) plotSeries(ax,t,y,s,'Energy','semilogy',false), false, '');
 end
 if opt.doShearStress
-    requested{end+1} = reqPanel('ShearStress', 'ShearStress vs. time', @() computeShearStress(), ...
+    requested{end+1} = reqPanel('ShearStress', 'ShearStress vs. time', @() computeShearStress(opt.nrun), ...
         @(ax,t,y,s) plotSeries(ax,t,y,s,'Shear Stress','linear',false), false, '');
 end
 if opt.doPressure
     requested{end+1} = reqPanel('Pressure', 'Pressure vs. time', @() computePressure(itList, opt), ...
         @(ax,t,y,s) plotSeries(ax,t,y,s,'Pressure','linear',true), false, '');
+end
+if opt.doForce
+    requested{end+1} = reqPanel('Force', 'Force magnitude vs. time', @() computeForce(itList, opt), ...
+        @plotForceAx, false, '');
 end
 if opt.doCircularity
     requested{end+1} = reqPanel('Circularity', 'Circularity vs. time', @() computeCircularity(itList, opt), ...
@@ -179,11 +191,11 @@ if opt.doMSD
         @plotMSDAx, false, '');
 end
 if opt.doCumsumT1
-    requested{end+1} = reqPanel('CumsumT1', 'Cumulative T1 count', @() computeCumsum('T1'), ...
+    requested{end+1} = reqPanel('CumsumT1', 'Cumulative T1 count', @() computeCumsum('T1', opt.nrun), ...
         @(ax,t,y,s) plotSeries(ax,t,y,s,'Cumulative T1 count','loglog',false), true, 'T1');
 end
 if opt.doCumsumT2
-    requested{end+1} = reqPanel('CumsumT2', 'Cumulative T2 count', @() computeCumsum('T2'), ...
+    requested{end+1} = reqPanel('CumsumT2', 'Cumulative T2 count', @() computeCumsum('T2', opt.nrun), ...
         @(ax,t,y,s) plotSeries(ax,t,y,s,'Cumulative T2 count','loglog',false), true, 'T2');
 end
 
@@ -197,7 +209,7 @@ cacheDirty = false;
 for i = 1:nRequested
     r = requested{i};
 
-    if r.finalOnly && ~opt.onlyPlot && ~checkFinal(totT, r.which)
+    if r.finalOnly && ~opt.onlyPlot && ~checkFinal(totT, r.which, opt.nrun)
         continue;   % checkFinal already warned
     end
 
@@ -260,17 +272,23 @@ end
 
 % ==================== per-panel data sources (compute_*.m callers) ====================
 
-function [time, Energy] = computeEnergy()
-[time, Energy] = LoadGlobalTimeSeries();
+function [time, Energy] = computeEnergy(nrun)
+[time, Energy] = LoadGlobalTimeSeries(nrun);
 end
 
-function [time, ShearStress] = computeShearStress()
-[time, ~, ShearStress] = LoadGlobalTimeSeries();
+function [time, ShearStress] = computeShearStress(nrun)
+[time, ~, ShearStress] = LoadGlobalTimeSeries(nrun);
 end
 
 function [time, Pressure] = computePressure(itList, opt)
 progressFcn = makeProgressPrinter('Pressure');
 [time, ~, Pressure] = compute_StressTensor_series(itList, opt.nrun, opt.radius, progressFcn);
+end
+
+function [time, y] = computeForce(itList, opt)
+progressFcn = makeProgressPrinter('Force');
+[time, maxForce, meanForce] = compute_ForceStats(itList, opt.nrun, progressFcn);
+y = [maxForce(:), meanForce(:)];   % columns: max, mean -- see plotForceAx
 end
 
 function [time, circularity] = computeCircularity(itList, opt)
@@ -288,8 +306,8 @@ progressFcn = makeProgressPrinter('MSD');
 [time, MSD] = compute_MSD_cellID(itList, opt.nrun, progressFcn);
 end
 
-function [time, y] = computeCumsum(which)
-[time, ~, ~, ~, ~, cumsum_T1, cumsum_T2] = LoadGlobalTimeSeries();
+function [time, y] = computeCumsum(which, nrun)
+[time, ~, ~, ~, ~, cumsum_T1, cumsum_T2] = LoadGlobalTimeSeries(nrun);
 if strcmp(which, 'T1')
     y = cumsum_T1;
 else
@@ -327,6 +345,19 @@ function plotCircularityAx(ax, time, y, style)
 plot(ax, time, y, '-o', 'LineWidth', style.lineWidth, 'MarkerSize', style.markerSize);
 yline(ax, 1, '--');
 xlabel(ax, 'Time'); ylabel(ax, 'Circularity');
+end
+
+function plotForceAx(ax, time, y, style)
+% y is [maxForce, meanForce] (see computeForce) -- two lines, one panel,
+% same convention as plotMSDAx's guide lines.
+semilogy(ax, time, y(:,1), '-o', 'LineWidth', style.lineWidth, ...
+    'MarkerSize', style.markerSize, 'DisplayName', 'max');
+hold(ax, 'on');
+semilogy(ax, time, y(:,2), '--', 'LineWidth', style.lineWidth, ...
+    'DisplayName', 'mean');
+hold(ax, 'off');
+xlabel(ax, 'Time'); ylabel(ax, 'Force magnitude');
+legend(ax, 'Location', 'best');
 end
 
 function plotMSDAx(ax, time, y, style)
@@ -386,8 +417,8 @@ end
 end
 
 
-function ok = checkFinal(totT, which)
-[~, ~, ~, T1_count, T2_count] = LoadGlobalTimeSeries();
+function ok = checkFinal(totT, which, nrun)
+[~, ~, ~, T1_count, T2_count] = LoadGlobalTimeSeries(nrun);
 if strcmp(which, 'T1')
     n = numel(T1_count);
 else

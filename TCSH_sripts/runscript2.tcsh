@@ -1,7 +1,7 @@
 #!/usr/bin/tcsh
 
 
-# Another example to change para1_in.dat and submit batchjob. 
+# Another example to change para_Simulation.dat and submit batchjob. 
 # this is from ___.___.__.40 machine, so change the path
 
 
@@ -24,10 +24,10 @@ foreach etas_max ($etas_arr)
         cp -r BaseCase $newDir
         
         cd $newDir
-        sed -i "/etas_max/s/0.00d0/${etas_max}/g" para1_in.dat
-        sed -i "/sin_perturb_waveNumber/s/2/${sin_pert}/g" para1_in.dat
+        sed -i "/etas_max/s/0.00d0/${etas_max}/g" para_Simulation.dat
+        sed -i "/sin_perturb_waveNumber/s/2/${sin_pert}/g" para_Simulation.dat
 
-        cat para1_in.dat
+        cat para_Simulation.dat
 
         sh clear.sh
         sh compile.sh
@@ -36,7 +36,7 @@ foreach etas_max ($etas_arr)
         cd ../
 
         
-        echo "Modified para1_in.dat in $newDir"
+        echo "Modified para_Simulation.dat in $newDir"
     end
 end
 

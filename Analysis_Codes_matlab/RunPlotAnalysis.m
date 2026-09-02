@@ -7,11 +7,11 @@ clear; clc; close all;
 % ==================== options ====================
 nrun = 1;
 
-itStart    = 100;          % first Fortran timestep to include
-itEnd      = [];         % last timestep to include; [] = auto-detect the
+itStart    = 500000;          % first Fortran timestep to include
+itEnd      = 500000 %[];         % last timestep to include; [] = auto-detect the
                           % latest snapshot actually on disk (safe to leave
                           % empty for a still-running simulation)
-itInterval = 200000;     % sampling stride, in units of it -- does NOT have
+itInterval = 500000;     % sampling stride, in units of it -- does NOT have
                           % to be it_dump; use a bigger number for a
                           % faster/coarser check, smaller for more detail.
                           % Must be a multiple of it_dump (only multiples of
@@ -23,18 +23,19 @@ itInterval = 200000;     % sampling stride, in units of it -- does NOT have
 doEnergy       = true;
 doShearStress  = false;
 doPressure     = false;
-doCircularity  = true;
-doQt           = true;
-doMSD          = true;
-doCumsumT1     = true;   % only actually plotted once the run has reached
-doCumsumT2     = true;   % it==totT -- see PlotAnalysis.m's header comment
+doForce        = true;
+doCircularity  = false;
+doQt           = false;
+doMSD          = false;
+doCumsumT1     = false;   % only actually plotted once the run has reached
+doCumsumT2     = false;   % it==totT -- see PlotAnalysis.m's header comment
 
 % ---- extra parameters used by specific panels ----
 ac     = 0.8;   % Qt cage/persistence length scale
 radius = 10;    % region (from tissue COM) used by the Pressure panel
 
 % ---- re-plotting without re-running the analysis ----
-onlyPlot  = true;                        % true = skip all computation, just
+onlyPlot  = false;                        % true = skip all computation, just
                                            % replot from cacheFile (e.g. to
                                            % try different styling below)
 cacheFile = 'PlotAnalysis_cache.mat';     % every non-onlyPlot run merges its
@@ -50,7 +51,7 @@ showTitles = false;   % set false to draw every panel without its title
 
 PlotAnalysis('nrun', nrun, 'itStart', itStart, 'itEnd', itEnd, 'itInterval', itInterval, ...
     'doEnergy', doEnergy, 'doShearStress', doShearStress, 'doPressure', doPressure, ...
-    'doCircularity', doCircularity, 'doQt', doQt, 'doMSD', doMSD, ...
+    'doForce', doForce, 'doCircularity', doCircularity, 'doQt', doQt, 'doMSD', doMSD, ...
     'doCumsumT1', doCumsumT1, 'doCumsumT2', doCumsumT2, ...
     'ac', ac, 'radius', radius, ...
     'onlyPlot', onlyPlot, 'cacheFile', cacheFile, 'showTitles', showTitles, ...

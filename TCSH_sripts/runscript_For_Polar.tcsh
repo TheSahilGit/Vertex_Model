@@ -48,13 +48,13 @@ foreach vo ($values2)
         # -----------------------------
         # Modify parameters
         # -----------------------------
-        sed -i "/vo/s/[0-9.eEd+-]\+/${vo}/" para1_in.dat
-        sed -i "/Dr/s/[0-9.eEd+-]\+/${Dr}/" para1_in.dat
+        sed -i "/vo/s/[0-9.eEd+-]\+/${vo}/" para_Simulation.dat
+        sed -i "/Dr/s/[0-9.eEd+-]\+/${Dr}/" para_Simulation.dat
 
         # -----------------------------
         # Polar-specific flags (UNCHANGED)
         # -----------------------------
-        sed -i "/if_ABP/s/.false./.true./" para1_in.dat
+        sed -i "/if_ABP/s/.false./.true./" para_Simulation.dat
 
         # -----------------------------
         # Run simulation

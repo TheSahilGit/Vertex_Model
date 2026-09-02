@@ -2,7 +2,7 @@
 function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity, all_end_data] = LoadData(it, nrun)
 
 
-para2 = load("../para2_in.dat");
+para2 = load("../para_MeshDims.dat");
 %etas = load("../motility_in.dat");
 
 
@@ -96,8 +96,22 @@ T2_count     = [];
 cumsum_T1    = [];
 cumsum_T2    = [];
 
+% BUGFIX (log.txt): these four were still hardcoded to the nrun=1
+% filenames regardless of nrun -- allocation.f90's write_output writes
+% them under a "nrun2_" prefix for nrun==2 (a restart run must not
+% overwrite the original nrun==1 run's own summary files), so an nrun=2
+% LoadData call was silently returning the ORIGINAL run's Energy/
+% ShearStress/T1_count/T2_count (or nothing, if it never had an nrun=1
+% run) instead of its own. Matches the nrun-prefix convention already
+% used a few lines up for inn/num/v/force/Myosin/cell_identity.
+if nrun == 1
+    prefix = '';
+else
+    prefix = 'nrun2_';
+end
+
 %% ---------- Energy ----------
-fname = '../data/Energy.dat';
+fname = ['../data/' prefix 'Energy.dat'];
 if isfile(fname)
     fid = fopen(fname,'r');
     fread(fid,1,'float32');              % dummy header
@@ -108,7 +122,7 @@ else
 end
 
 %% ---------- Shear Stress ----------
-fname = '../data/ShearStress.dat';
+fname = ['../data/' prefix 'ShearStress.dat'];
 if isfile(fname)
     fid = fopen(fname,'r');
     fread(fid,1,'float32');
@@ -119,7 +133,7 @@ else
 end
 
 %% ---------- T1 count ----------
-fname = '../data/T1_count.dat';
+fname = ['../data/' prefix 'T1_count.dat'];
 if isfile(fname)
     fid = fopen(fname,'r');
     fread(fid,1,'float32');
@@ -131,7 +145,7 @@ else
 end
 
 %% ---------- T2 count ----------
-fname = '../data/T2_count.dat';
+fname = ['../data/' prefix 'T2_count.dat'];
 if isfile(fname)
     fid = fopen(fname,'r');
     fread(fid,1,'float32');

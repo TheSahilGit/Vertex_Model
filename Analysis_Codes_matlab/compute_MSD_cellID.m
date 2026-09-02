@@ -30,7 +30,7 @@ if nargin < 3
     progressFcn = [];
 end
 
-p1 = ReadPara1Params("../para1_in.dat");
+p1 = ReadPara1Params("../para_Simulation.dat");
 time = itList * p1.dt;
 
 % ---- Reference configuration ----

@@ -27,7 +27,10 @@ program vertexmain
   Total_T1_count = 0
   Total_T2_count = 0
 
-  Nc = Lx*Ly
+  ! BUGFIX (log.txt): Nc is now derived from the loaded num() array at the
+  ! end of read_data (allocation.f90), correctly for both nrun=1 and
+  ! nrun=2 -- see that comment for why hardcoding it to Lx*Ly here broke
+  ! nrun=2 restarts taken after any division/T2 event.
 
   if(if_motility)then
     print*, "Apolar Cell Motility, ", ' etas_max', etas_max
@@ -55,6 +58,10 @@ program vertexmain
 
    if(if_top_borders_fixed)then
      print*, "Top border fixed"
+   end if
+
+   if(if_cell_division)then
+     print*, "Cell division true. A_cut", area_0
    end if
 
    if(if_active_contractility)then
