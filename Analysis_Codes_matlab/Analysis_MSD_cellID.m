@@ -1,80 +1,33 @@
 clear; clc; close all;
+% Thin wrapper around compute_MSD_cellID.m -- standalone MSD plot, kept
+% for interactive/ad-hoc use. For a multi-panel figure alongside other
+% diagnostics, use PlotAnalysis('doMSD', true, ...) instead, which calls
+% the same compute_MSD_cellID.m function (tracked by persistent
+% cell_identity, robust to T2 cell removal -- see that file's header).
 
-nrun = 2;
-para1 = readtable("../para1_in.dat");
-dt = table2array(para1(8,1));
+nrun = 1;
 
-% Initial data
-it = 1000; 
-[Lx, Ly, v, inn, num, ~, ~, cell_identity_init] = LoadData(it, nrun);
-[cmX_init, cmY_init] = calculate_cellCentre(v,inn,num);
+p1 = ReadPara1Params("../para1_in.dat");
+it_dump = p1.it_dump;
+totT    = p1.totT;
 
-% Map identity → initial position
-initPos = containers.Map;
+itEnd = FindLatestAvailableIt(nrun, it_dump, totT);
+itList = GetSnapshotItList(it_dump, it_dump, itEnd, 100000);
 
-for i = 1:Lx*Ly
-    key = cell_identity_init(i);
-    initPos(key) = [cmX_init(i), cmY_init(i)];
-end
+[time, MSD] = compute_MSD_cellID(itList, nrun);
 
-it_times = (5000:5000:2500000);
-MSD = zeros(length(it_times),1);
-times = it_times * dt; 
-tidx = 0;
-
-for it = it_times
-    tidx = tidx + 1
-
-    [Lx, Ly, v, inn, num, ~, ~, cell_identity] = LoadData(it, nrun);
-    [cmX, cmY] = calculate_cellCentre(v,inn,num);
-
-    msd_sum = 0;
-    count   = 0;
-
-    for i = 1:length(cell_identity)
-        key = cell_identity(i);
-
-        if isKey(initPos, key)
-            r0 = initPos(key);
-            dx = cmX(i) - r0(1);
-            dy = cmY(i) - r0(2);
-
-            msd_sum = msd_sum + (dx^2 + dy^2);
-            count = count + 1;
-        end
-    end
-
-    MSD(tidx) = msd_sum / count;
-end
-
-writematrix([times' MSD],"msd.dat");
-
-%%
+writematrix([time' MSD'], "msd.dat");
 
 figure("Position",[100 100 800 800])
-
-loglog(times, MSD,'o', "LineWidth",3, 'MarkerSize',20);
-hold on; 
-loglog(times, 5e-4*times.^2, "LineWidth",3, 'DisplayName',"t^2");
-hold on; 
-loglog(times, 5e-4*times, "LineWidth",3, "DisplayName",'t')
-
+loglog(time, MSD, 'o', "LineWidth", 3, 'MarkerSize', 20);
+hold on;
+loglog(time, 5e-4*time.^2, "LineWidth", 3, 'DisplayName', "t^2");
+hold on;
+loglog(time, 5e-4*time, "LineWidth", 3, "DisplayName", 't')
 
 xlabel("Time");
 ylabel("MSD")
 set(gca, "FontSize", 32)
 set(gcf, "Renderer", "Painter")
-
 axis square
 legend()
-
-
-function [cmX, cmY] = calculate_cellCentre(v,inn,num)
-idx = find(inn(:,1) == 0, 1, 'first');
-for i = 1:idx-1
-    vx=v(inn(i,1:num(i)),1);
-    vy=v(inn(i,1:num(i)),2);
-
-    cmX(i) = mean(vx); cmY(i) = mean(vy);
-end
-end

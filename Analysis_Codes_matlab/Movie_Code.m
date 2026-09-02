@@ -1,158 +1,56 @@
 clear; clc; close all;
 
+% ==================== options ====================
+nrun = 1;
+itList = 100000; %10000000;              % list of Fortran timesteps to render as frames
+outFile = "Movie_test.avi";
+frameRate = 1;
+
+% Which per-cell field to color the tissue by. One of:
+%   'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK', 'Area',
+%   'Perimeter', 'ShapeFactor', 'NumVertices'
+% -- see ComputeCellColorData.m for what each one computes.
+colorBy = 'Area';
+
+norm_flag = 'data';   % 'data' | '01' | 'custom'
+norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
+% ===================================================
 
 para2 = load("../para2_in.dat");
 Lx = para2(1);
 Ly = para2(2);
-numdim  = para2(3);
-vdim1 = para2(4);
-vdim2 = para2(5);
-inndim1 = para2(6);
-inndim2 = para2(7);
 
-para1 = readtable("../para1_in.dat");
-dt = table2array(para1(8,1));
+% Only load motility_store.dat if it's actually going to be used --
+% it's a separate file read that every other colorBy option doesn't need.
+etas = [];
+if strcmp(colorBy, 'Motility')
+    fid = fopen('../data/motility_store.dat');
+    fread(fid, 1, 'float32');
+    etas = fread(fid, Inf, 'float64');
+    fclose(fid);
+end
 
+figure("Position", [200 200 800 800])
 
-nrun = 2;
+mov = VideoWriter(outFile);
+mov.FrameRate = frameRate;
+open(mov);
 
+for it = itList
 
+    [Lx, Ly, v, inn, num, forces, biochemdata] = LoadData(it, nrun);
 
+    [colordata, colorbar_string] = ComputeCellColorData( ...
+        colorBy, v, inn, num, forces, biochemdata, etas);
 
-figure("Position",[200 200 800 800])
-
-mov = VideoWriter("Movie_test.avi");
-mov.FrameRate = 1;
-open(mov); % Open the video file    before entering the loop
-
-
-ct = 1;
-for it = 100
-
-    [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity, all_end_data] = LoadData(it, nrun);
-
-
-
-    %colordata = rand(1,numdim);
-    %colorbar_string = "Nothing";
-
-    Fcell =  MeanVertexForceMagnitude_Cell(forces(:,1:2), inn, num, numdim);
-    colordata = Fcell;
-    colorbar_string = "Force";
-
-
-    norm_flag = 'data';
-    norm_range = [];
-
-    % norm_flag = '01';
-    % norm_range = [];
-    %
-    % norm_flag = 'custom';
-    % norm_range = [0 2];
-
-    TisuePlot(Lx,Ly,v,inn,num, colordata, colorbar_string, norm_flag, norm_range)
-
-
-    %%----
-
+    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range);
 
     title(num2str(it))
-    F = getframe(gcf); % Get the frame
-    writeVideo(mov, F); % Add frame to the video file
-
-    % exportgraphics(gcf, 'figure.png', 'Resolution', 300);
+    F = getframe(gcf);
+    writeVideo(mov, F);
 
     hold off;
-
-    ct = ct + 1
 
 end
 
 close(mov)
-
-
-
-function TisuePlot(Lx,Ly,v,inn,num,colordata,colorbar_string,...
-    norm_flag, norm_range)
-
-
-Nc = find(num ~= 0, 1, 'last')
-if isempty(Nc); return; end
-
-% ----- normalization -----
-switch norm_flag
-    case 'data'
-        cmin = min(colordata(1:Nc));
-        cmax = max(colordata(1:Nc));
-    case '01'
-        cmin = 0;
-        cmax = 1;
-    case 'custom'
-        cmin = norm_range(1);
-        cmax = norm_range(2);
-    otherwise
-        error('Unknown norm_flag')
-end
-
-cmap   = jet(256);
-domain = linspace(cmin, cmax, size(cmap,1));
-
-%hold on
-for i = 1:Nc
-    vx = v(inn(i,1:num(i)),1);
-    vy = v(inn(i,1:num(i)),2);
-
-    pl = polyshape(vx,vy);
-
-    rgb = interp1(domain, cmap, colordata(i), 'linear', 'extrap');
-
-    plot(pl, ...
-        FaceColor = rgb, ...
-        FaceAlpha = 0.5, ...
-        LineWidth = 1.5);
-
-    % patch(vx, vy, rgb, ...
-    %      'FaceAlpha', 0.5, ...
-    %      'EdgeColor', 'k', ...
-    %      'LineWidth', 1.0);
-
-    hold on;
-
-end
-
-cb = colorbar;
-cb.Label.String = colorbar_string;
-colormap(cmap)
-clim([cmin cmax])
-
-pbaspect([Lx/Ly 1 1])
-axis([-8 Lx+8 -8 Ly+8])
-axis off
-set(gca,"FontName","Serif","FontSize",30)
-set(gcf,"Renderer","opengl")
-%hold off
-
-end
-
-
-
-
-function Fcell = MeanVertexForceMagnitude_Cell(forces, inn, num, numdim)
-
-% forces(v,1) = Fx(v)
-% forces(v,2) = Fy(v)
-
-% 1) vertex-wise force magnitude
-Fmag_v = sqrt(forces(:,1).^2 + forces(:,2).^2);
-
-% 2) cell-wise averaging
-Fcell = zeros(numdim,1);
-
-Nc = find(num ~= 0, 1, 'last');
-
-for i = 1:Nc
-    vids = inn(i,1:num(i));      % vertices of cell i
-    Fcell(i) = mean(Fmag_v(vids));
-end
-
-end

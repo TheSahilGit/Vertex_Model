@@ -1,103 +1,27 @@
 clear; clc; close all;
+% Thin wrapper around compute_Qt.m -- standalone Q(t) plot, kept for
+% interactive/ad-hoc use. For a multi-panel figure alongside other
+% diagnostics, use PlotAnalysis('doQt', true, ...) instead, which calls
+% the same compute_Qt.m function.
 
+nrun = 1;
+ac = 1;
 
+p1 = ReadPara1Params("../para1_in.dat");
+it_dump = p1.it_dump;
+totT    = p1.totT;
 
-para1 = readtable("../para1_in.dat");
-dt = table2array(para1(8,1));
-nrun = 2;
+itEnd = FindLatestAvailableIt(nrun, it_dump, totT);
+itList = GetSnapshotItList(it_dump, 1000, itEnd, 1000);
 
-
-itInit = 1000; 
-interval = 1000; 
-itfinal = 10000000; 
-
-ac = 1; 
-[time, Qt] = CalculateQt(itInit,interval, itfinal, dt, nrun, ac);
-
+[time, Qt] = compute_Qt(itList, nrun, ac);
 
 writematrix([time' Qt'], 'Qt.dat');
 
-
-
-% % Full path of the current file
-% filePath = matlab.desktop.editor.getActiveFilename;
-% 
-% % Directory containing the file
-% scriptDir = fileparts(filePath);
-% 
-% % Parent directory
-% parentDir = fileparts(scriptDir);
-% 
-% % Extract folder name safely (no dot issues)
-% parts = split(parentDir, filesep);
-% parentName = parts{end};
-% 
-% % Construct filename
-% fname = sprintf('Q-time_%s.dat', parentName)
-% 
-% % Write file
-% writematrix([time' Qt'], fullfile(scriptDir, fname));
-
-
-
-
-
-%%
 figure("Position",[100 100 800 800])
-semilogx(time, Qt,'o', "LineWidth",3, 'MarkerSize',20);
-%hold on; 
+semilogx(time, Qt, 'o', "LineWidth", 3, 'MarkerSize', 20);
 xlabel("Time");
 ylabel("Q(t)")
 set(gca, "FontSize", 32)
 axis square
 legend()
-
-
-
-
-
-function [time, Qt] = CalculateQt(itInit,interval, itfinal, dt, nrun, ac)
-
-%ac = 1.414; 
-time = 0;
-ct = 1;
-for it = itInit:interval:itfinal
-    
-
-    [Lx, Ly, v, inn, num, ~, ~] = LoadData(it, nrun);
-
-
-    for ic = 1:Lx*Ly
-        vx = v(inn(ic, 1:num(ic)),1);
-        vy = v(inn(ic, 1:num(ic)),2);
-
-        vcmX(ic) = mean(vx);
-        vcmY(ic) = mean(vy);
-
-    end
-
-    if it == itInit
-        vcmXIn = vcmX;
-        vcmYIn = vcmY;
-    end
-
-    W = 0; 
-    for ic = 1:Lx*Ly
-        dis = sqrt((vcmX(ic) - vcmXIn(ic)).^2 + (vcmY(ic) - vcmYIn(ic)).^2);
-
-        if ac - dis  > 0
-            W = W + 1;
-        end
-    end
-
-    Qt(ct) = W/(Lx*Ly);
-
-
-    time(ct) = it*dt;
-
-    ct = ct + 1
-
-    clear v inn num
-end
-
-end
