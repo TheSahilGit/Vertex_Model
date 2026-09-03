@@ -82,3 +82,13 @@ Whole-run summary series (rewritten periodically, safe to read while a run is in
 ## Development
 
 Ongoing bug fixes and optimizations are tracked in `log.txt` (file:line references, root cause, fix, and how each was verified) — check there before assuming existing behavior is correct or re-diagnosing a known issue. `Claude_Testing` is the working/review branch; `master` is the main branch.
+
+## Citation
+
+If you use this software, please cite it — see [`CITATION.cff`](CITATION.cff) (also readable via GitHub's "Cite this repository" button). No associated paper yet; this cites the software itself:
+
+> Islam, S. *Vertex Model* [Computer software]. https://github.com/TheSahilGit/Vertex_Model
+
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify, and redistribute (including commercially), with attribution.

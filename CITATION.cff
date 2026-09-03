@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Vertex Model"
+type: software
+authors:
+  - family-names: Islam
+    given-names: Sahil
+    orcid: "https://orcid.org/0009-0001-6197-9625"
+repository-code: "https://github.com/TheSahilGit/Vertex_Model"
+license: MIT
