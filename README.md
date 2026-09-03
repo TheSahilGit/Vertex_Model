@@ -85,7 +85,7 @@ Ongoing bug fixes and optimizations are tracked in `log.txt` (file:line referenc
 
 ## Citation
 
-If you use this software, please cite it — see [`CITATION.cff`](CITATION.cff) (also readable via GitHub's "Cite this repository" button). No associated paper yet; this cites the software itself:
+If you use this software, please cite it — see [`CITATION.cff`](CITATION.cff) (also readable via GitHub's "Cite this repository" button, which can export BibTeX/APA) or [`CITATION.bib`](CITATION.bib) directly. No associated paper yet; this cites the software itself:
 
 > Islam, S. *Vertex Model* [Computer software]. https://github.com/TheSahilGit/Vertex_Model
 
