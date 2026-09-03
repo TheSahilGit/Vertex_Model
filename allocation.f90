@@ -87,7 +87,26 @@ module allocation
       logical :: if_motility
 
       logical :: if_motility_gradient, if_Fixed_boundary, if_Sudden_Shearing, if_Oscillatory_Shearing
-      
+
+      ! Eulerian (spatial-field) vs Lagrangian (per-vertex tag) motility
+      ! gradient, per user request (log.txt): if_motility_gradient assigns
+      ! mot once, at it=1, from each vertex's position at that instant
+      ! (Give_Motility_Gradient, called only before the main loop) -- once
+      ! assigned, a vertex carries that value wherever it physically moves
+      ! for the rest of the run (Lagrangian). Under active motility forces,
+      ! the highest-motility vertices (originally at the gradient's low end)
+      ! also move the most, so the visible gradient erodes over the run
+      ! (confirmed directly: corr(cell mean mot, cell's current y) dropped
+      ! from -0.66 at it=20000 to -0.31 at it=200000 in a real run). Setting
+      ! if_motility_Eulerian=.true. instead re-derives mot from each
+      ! vertex's CURRENT position every step (see the Give_Motility_Gradient
+      ! call in vertexmain.f90's main loop), so the gradient stays anchored
+      ! to physical location -- a true spatial field -- instead of drifting
+      ! with the tissue. Defaults .false. (Lagrangian) to keep every
+      ! existing para_Simulation.dat's behavior unchanged; has no effect
+      ! unless if_motility_gradient is also .true.
+      logical :: if_motility_Eulerian
+
       logical :: if_motility_decay
       real*8 :: motility_decay_timeScale
 
@@ -191,6 +210,7 @@ module allocation
      read(112,*) T2_time_interval
      read(112,*) if_motility
      read(112,*) if_motility_gradient
+     read(112,*) if_motility_Eulerian
      read(112,*) etas_max
      read(112,*) etas_min
      read(112,*) mot_Lc

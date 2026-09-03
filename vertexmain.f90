@@ -37,7 +37,11 @@ program vertexmain
   end if
 
   if(if_motility_gradient)then
-    print*, 'Motility Gradient'
+    if(if_motility_Eulerian)then
+      print*, 'Motility Gradient (Eulerian -- recomputed from current position every step)'
+    else
+      print*, 'Motility Gradient (Lagrangian -- assigned once, carried per vertex)'
+    end if
     call Give_Motility_Gradient
   elseif(if_motility_hotspot)then
     print*, 'Motility Hotspot'
@@ -156,6 +160,21 @@ program vertexmain
     call Force_Calculation
 
     if(if_motility)then
+      ! Eulerian motility (log.txt, user request): if_motility_gradient's
+      ! initial assignment (above, before this loop) is a one-time
+      ! Lagrangian tag -- correct per vertex ID forever after, but blind to
+      ! where that vertex has since moved. if_motility_Eulerian re-derives
+      ! mot from every vertex's CURRENT position each step instead, so the
+      ! gradient stays anchored to physical location rather than drifting
+      ! with the tissue. Cheap enough to call unconditionally every step
+      ! after the Give_Motility_Gradient optimization (Force.f90) -- see
+      ! that subroutine's comment. NOTE: if_motility_decay's effect is
+      ! largely moot combined with this -- decay modifies mot in place
+      ! after this call, but the very next step's recompute discards it,
+      ! so decay never accumulates under Eulerian mode.
+      if(if_motility_gradient .and. if_motility_Eulerian)then
+        call Give_Motility_Gradient
+      end if
       call Motile_Force_Calculation
     end if
 

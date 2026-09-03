@@ -338,10 +338,21 @@ module Proliferation
       num(Nc+1) = n2
 
 
-      ! Assigning motility (being lazy)
-
-      mot(maxinn + 1) = mot(inn(1,ic)) 
-      mot(maxinn + 2) = mot(inn(1,ic)) 
+      ! Assigning motility to the two brand-new vertices created by this
+      ! division (maxinn+1, on the pair1(1)-pair1(2) edge; maxinn+2, on the
+      ! pair2(1)-pair2(2) edge -- see SplitPolygon). Every other vertex in
+      ! both daughter cells is an already-existing mother-cell vertex, so it
+      ! keeps whatever mot value it already had -- only these two are new
+      ! and need one assigned. BUGFIX (log.txt): previously both were copied
+      ! from mot(inn(1,ic)), a single arbitrary vertex of daughter cell ic
+      ! unrelated to either split edge -- correct only when mot is spatially
+      ! uniform (plain if_motility) and silently wrong under
+      ! if_motility_gradient/if_motility_hotspot. Interpolate each new
+      ! vertex from the actual two mother-cell vertices whose edge it splits
+      ! instead, so both daughter cells' motility remains consistent with
+      ! the mother's local field regardless of how it varies in space.
+      mot(maxinn + 1) = 0.5d0 * (mot(idx_pair(1,1)) + mot(idx_pair(1,2)))
+      mot(maxinn + 2) = 0.5d0 * (mot(idx_pair(2,1)) + mot(idx_pair(2,2)))
 
 
 !      print*, 'after inn1', inn(1:num(ic), ic)

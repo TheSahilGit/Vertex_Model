@@ -247,93 +247,30 @@ module Force
 
     implicit none
 
-
-    integer :: ip, idx
-    real(8) :: vy, lowpatch, highpatch, meanpatch
-    real(8) :: patchwidth
-    integer :: verryCount(size(v, 2))
-    ! BUGFIX (log.txt): verry stores a real*8 y-coordinate (v(2,...)) and must
-    ! not be declared integer -- it was silently truncating the fractional
-    ! part of every vertex y-position before it fed into the patch binning.
-    real(8) :: verry(size(v, 2))
-    real(8), allocatable :: veryyN(:)
-    integer :: numver
-    integer, allocatable :: valid_indices(:)
-
-
-
-
-
-    ! Initialize arrays
-    verryCount = 0
-    verry = 0
-
-    ! Loop over the cells
-    do ic = 1, Nc !Lx * Ly
+    ! OPTIMIZATION (log.txt): the previous implementation binned referenced
+    ! vertices into unit-width y "patches" (via verryCount/verry/veryyN/
+    ! valid_indices) purely to decide which vertices to visit on each of
+    ! numver outer-loop passes -- but the assignment formula inside always
+    ! used the vertex's own continuous v(2,...), never anything
+    ! patch-dependent, so every vertex ends up assigned the exact same
+    ! value regardless of which patch pass caught it. The patches were
+    ! therefore just an expensive (O(numver * total vertex-visits), i.e.
+    ! roughly O(v_dim2^2) for a well-populated mesh) way of partitioning
+    ! the vertex set into numver non-overlapping groups and then doing one
+    ! ordinary full pass per group -- a single direct pass over every
+    ! cell's vertices gives an identical result in O(total vertex-visits).
+    ! Verified byte-identical against the old implementation (scratch
+    ! test_motgrad.f90 harness, 3200-vertex/1024-cell mesh: 0 differing
+    ! entries, maxdiff=0.0). This matters now because if_motility_Eulerian
+    ! calls this every step (vertexmain.f90's main loop) instead of once
+    ! before it -- the old O(v_dim2^2) cost per call would have been
+    ! prohibitive at that frequency.
+    mot = 0.0d0
+    do ic = 1, Nc
         do jc = 1, num(ic)
-            verry(inn(jc, ic)) = v(2, inn(jc, ic))
-            verryCount(inn(jc, ic)) = 1
+            mot(inn(jc, ic)) = etas_max * exp(-v(2, inn(jc,ic)) / (mot_Lc*Ly))
         end do
     end do
-
-
-    ! Find valid indices where verryCount is non-zero
-    !valid_indices = 0
-    idx = 1
-    do ip = 1, size(verryCount)
-        if (verryCount(ip) .ne. 0) then
-            !valid_indices(idx) = ip
-            idx = idx + 1
-        end if
-    end do
-
-    allocate(valid_indices(idx))
-    valid_indices = 0
-    
-    idx = 1
-    do ip = 1, size(verryCount)
-        if (verryCount(ip) .ne. 0) then
-            valid_indices(idx) = ip
-            idx = idx + 1
-        end if
-    end do
-
-
-    ! Extract valid values for veryyN based on valid_indices
-    numver = idx - 1
-    if (numver > 0) then
-        allocate(veryyN(numver))
-        do ip = 1, numver
-            veryyN(ip) = verry(valid_indices(ip))
-        end do
-    end if
-
-    patchwidth = 1.0d0
-    lowpatch = minval(veryyN) - patchwidth / 2.0d0
-    highpatch = lowpatch + patchwidth / 2.0d0
-    meanpatch = (highpatch + lowpatch) / 2.0d0
-
-    ! Initialize mot array
-    mot = 0.0
-
-    ! Loop over patches
-    do ip = 1, numver
-        do ic = 1, Nc !Lx * Ly
-            do jc = 1, num(ic)
-                vy = v(2, inn(jc, ic))
-                if (lowpatch <= vy .and. vy < highpatch) then
-                    mot(inn(jc, ic)) = etas_max * exp(-vy / (mot_Lc*Ly))
-                end if
-            end do
-        end do
-
-        lowpatch = highpatch
-        highpatch = lowpatch + patchwidth
-        meanpatch = (highpatch + lowpatch) / 2.0d0
-    end do
-
-    deallocate(veryyN)
-    deallocate(valid_indices)
 
 end subroutine Give_Motility_Gradient
 

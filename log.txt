@@ -1504,3 +1504,170 @@ process, only a fresh launch of the newly-built binary. Its existing
 data/nrun2_motility_store.dat was written by the OLD (boundary-
 suppressing) logic.
 ================================================================================
+
+USER REPORT: at a late snapshot (it=200000) of a real production run
+(gradient motility + division), expected more high-motility ("red")
+cells near the bottom (as set by the gradient at the start) but observed
+low-motility cells surrounding high-motility ones instead -- asked
+whether this is expected or a bug.
+
+DIAGNOSIS (confirmed against the real run's own nrun2_ data, not just
+theory): mot is a per-VERTEX value assigned once, at it=1, from each
+vertex's position AT THAT INSTANT (Give_Motility_Gradient, called only
+before the main loop, vertexmain.f90) -- a vertex carries that value
+wherever it physically moves for the rest of the run (a Lagrangian tag),
+never recomputed from its current position. Measured
+corr(cell-mean-mot, cell's CURRENT y) directly from the real run's
+snapshots: -0.66 at it=20000, degraded to -0.31 by it=200000, with the
+very bottom y-band actually LOWER mean motility than the band above it
+by it=200000 -- a real inversion, not noise.
+
+ROOT MECHANISM, isolated experimentally (scratch A/B pairs, 32x32 mesh,
+same gradient parameters as production): with cell division OFF, the
+gradient does NOT drift at all over 200000 steps (corr stays ~-0.97,
+flat) -- active-force vertex diffusion alone is negligible at these
+parameter values. With division ON (area_0=0.7, matching production),
+Lagrangian-mode correlation measurably degrades (-0.7552 -> -0.7243 over
+it=5000->80000) while an Eulerian-mode variant (see fix below) stays
+flat (~-0.97, confirmed via a scratch-only debug dump of the TRUE
+per-step mot array, byte-exact match to the analytic gradient formula at
+every checked step, maxdiff=0.0). CONCLUSION: cell division -- not
+passive vertex drift -- is the dominant real driver. Every division
+creates new vertices whose motility must be estimated (even with the
+split-edge interpolation fix earlier in this log); compounded over many
+divisions, and diluted further by cell-level color averaging over
+increasingly small/irregular post-division cells, this erodes the
+visible gradient. This is NOT an arithmetic bug in the existing
+Lagrangian implementation -- it is a mismatch between what the code
+does (assign once, carry forever) and what the user's expectation
+implies (an environmental/spatial field that stays anchored to
+location).
+
+FIX (per user request): new if_motility_Eulerian flag, read right after
+if_motility_gradient in para_Simulation.dat (allocation.f90's read_input
+-- inserted mid-file per explicit user request, NOT appended at the end;
+this shifts every parameter read after it, so every existing
+para_Simulation.dat needs the new line manually inserted at this exact
+position -- done for the repo's own copy; ReadPara1Params.m's positional
+`names` list updated to match). When if_motility_gradient is .true.:
+if_motility_Eulerian=.false. (default, preserves all existing behavior)
+keeps the current one-time Lagrangian assignment; =.true. instead calls
+Give_Motility_Gradient again every step, right before
+Motile_Force_Calculation (vertexmain.f90's main loop), re-deriving mot
+from each vertex's CURRENT position -- so the gradient stays anchored to
+physical location regardless of how much the tissue moves, mixes, or
+divides.
+
+OPTIMIZATION REQUIRED FOR THIS (Force.f90): Give_Motility_Gradient's old
+implementation binned vertices into O(numver) y-"patches" purely to
+decide which vertices to visit per pass, even though the assignment
+formula only ever used the vertex's own continuous y (patch-independent)
+-- equivalent to, but far more expensive than (O(numver * total
+vertex-visits) vs O(total vertex-visits)), a single direct pass.
+Replaced with the direct single-pass version. Verified byte-identical
+to the old implementation first (scratch test_motgrad.f90 harness: 0
+differing entries, maxdiff=0.0, on the same 3200-vertex/1024-cell mesh)
+before relying on it being cheap enough to call every step.
+
+VERIFICATION:
+- Real repo: -fsyntax-only clean after all changes (allocation.f90,
+  Force.f90, vertexmain.f90, ReadPara1Params.m, para_Simulation.dat).
+- Scratch A/B (division ON, area_0=0.7, 32x32 mesh): Eulerian mode's
+  runtime mot verified via a temporary scratch-only debug dump to be
+  byte-exact to the analytic formula at every checked step (it=1 through
+  20000, Nc growing 1024->1536 from real divisions in that window) --
+  corr(cell-mean-mot, cell y) stayed ~-0.97-0.97 throughout, essentially
+  flat, vs. Lagrangian's measured -0.76->-0.72 decay over the same
+  division activity.
+- Performance: clean (division-off) A/B runs reached ~320 steps/sec
+  (Lagrangian) vs ~300 steps/sec (Eulerian) under otherwise-identical
+  conditions -- roughly 6% overhead, from one extra O(total
+  vertex-visits) pass per step.
+- if_motility_Eulerian left .false. by default in the repo's
+  para_Simulation.dat -- existing behavior unchanged until the user
+  opts in for a future run.
+
+FOLLOW-UP (user asked directly: was if_motility_Eulerian=.true. actually
+verified to work, not just theorized): the above A/B already showed the
+right qualitative trend, but lag and eul were separate unseeded runs
+(random_number is unseeded in this codebase -- see this log's earlier
+entries), so part of that gap was attributable to each run drawing a
+different random division/motion history, not purely to the code path.
+Redid it as a controlled experiment: identical fixed
+random_seed(put=...) (scratch-only, temporary) patched into both
+variants so lag/eul are identical in every respect except
+if_motility_Eulerian, same mesh (nrun=1, 32x32), same if_cell_division
+area_0=0.7. Confirmed Nc growth and mean-y trajectories track closely
+between the two (e.g. both Nc=1536 by it=2500, matching capacity
+exhaustion timing) -- proof the seed pairing genuinely worked, not just
+superficially. Correlation (cell-mean-mot vs cell-mean-y):
+
+  it        lag (Lagrangian)   eul (Eulerian)
+  1               -0.9692           -0.9692   <- identical, as expected
+                                                  (no code-path difference
+                                                  has had a chance to act yet)
+  2500            -0.7619           -0.9697
+  10000           -0.7520           -0.9701
+  25000           -0.7455           -0.9703
+  50000           -0.7408           -0.9701
+  57500           -0.7375           -0.9701
+
+Both start from the exact same value (confirms the paired setup), then
+Lagrangian degrades monotonically while Eulerian stays flat at
+essentially its starting value throughout -- with RNG variance
+controlled for, this isolates the effect to if_motility_Eulerian itself,
+not to which run happened to divide/move differently. Combined with the
+earlier debug-dump proof (runtime mot byte-exact to the analytic
+gradient formula, maxdiff=0.0, at every checked step), if_motility_
+Eulerian=.true. is verified correct both mechanistically (computes
+exactly the right value every step) and functionally (measurably
+prevents the gradient degradation that .false. exhibits under identical
+conditions).
+================================================================================
+
+BUG (requested fix): daughter cells' motility after division not properly
+inherited from the mother cell (Proliferation.f90, Proliferation_Core)
+
+User request: after a division, the new cells should carry the mother
+cell's motility values.
+
+CONTEXT: mot is a per-VERTEX (not per-cell) array (v_dim2-sized), set once
+at startup -- uniformly (if_motility, mot=etas_max), or spatially via
+Give_Motility_Gradient/Give_Motility_Hotspot. A division creates exactly
+two brand-new vertices (maxinn+1 on the pair1(1)-pair1(2) split edge,
+maxinn+2 on the pair2(1)-pair2(2) split edge -- see SplitPolygon/
+Find_Bisector_Intersections); every other vertex in both daughter cells is
+an already-existing mother-cell vertex that keeps its own mot value
+unchanged by the split, so only these two new vertices ever need a value
+assigned for the daughter cells to fully inherit the mother's motility.
+
+ROOT CAUSE: the existing code (flagged in its own comment as "being
+lazy") copied both new vertices' mot from mot(inn(1,ic)) -- a single
+arbitrary vertex of daughter cell ic, unrelated to either actual split
+edge. Harmless under plain uniform if_motility (every vertex equals
+etas_max anyway), but silently wrong under if_motility_gradient/
+if_motility_hotspot: both new vertices got the same borrowed value
+regardless of where they actually sit, instead of each reflecting the
+local field at its own position.
+
+FIX: interpolate each new vertex from the mean of the two mother-cell
+vertices whose edge it actually splits: mot(maxinn+1) =
+0.5*(mot(idx_pair(1,1))+mot(idx_pair(1,2))), mot(maxinn+2) =
+0.5*(mot(idx_pair(2,1))+mot(idx_pair(2,2))) (idx_pair was already an
+existing argument to Proliferation_Core, unused for this purpose before).
+Both daughter cells now stay consistent with the mother's local motility
+field regardless of how it varies in space.
+
+VERIFICATION: scratch copy (nrun=1, if_motility_gradient on, area_0
+lowered to 0.35 to force immediate mass division on a 32x32 mesh), with a
+temporary debug print comparing the new interpolated values against what
+the old code would have assigned. Confirmed the new values track the
+actual y-position-dependent gradient at each new vertex's real location
+(e.g. two new vertices from the same division at vy~0.98 and vy~1.47
+correctly got DIFFERENT mot, 0.037625 vs 0.036486, matching the gradient's
+direction) while the old code would have assigned both the same borrowed
+value (0.036757) regardless of their different positions. 256 divisions
+sampled this way, all consistent. Confirmed via -fsyntax-only that the
+real repo's Proliferation.f90 (fix applied, no debug prints) still
+compiles cleanly.
+================================================================================
