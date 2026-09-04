@@ -5,10 +5,15 @@ nrun = 2;
 
 [~, ~, ~, ~, ~, ~, ~, ~, all_end_data] = LoadData(it, nrun);
 
-para1 = readtable("../para_Simulation.dat");
-dt = table2array(para1(8,1));
-eps0 = table2array(para1(34,1));
-w0 = table2array(para1(36,1));
+% Was reading these via readtable()+magic row numbers, which silently
+% broke when if_PBC was inserted into para_Simulation.dat (every row
+% after it shifted) -- see ReadPara1Params.m's header for why that
+% pattern is fragile in the first place. Switched to the name-based
+% reader so this can't silently desync again.
+p1 = ReadPara1Params("../para_Simulation.dat");
+dt = p1.dt;
+eps0 = p1.Oscl_shearStrength;
+w0 = p1.Oscl_freq_wo;
 
 
 shearStress = all_end_data(:,2);

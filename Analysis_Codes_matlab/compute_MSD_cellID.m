@@ -35,8 +35,8 @@ time = itList * p1.dt;
 
 % ---- Reference configuration ----
 it0 = itList(1);
-[~, ~, v0, inn0, num0, ~, ~, cell_identity0] = LoadData(it0, nrun);
-[cmX0, cmY0] = calculate_cellCentre(v0, inn0, num0);
+[Lx, Ly, v0, inn0, num0, ~, ~, cell_identity0] = LoadData(it0, nrun);
+[cmX0, cmY0] = calculate_cellCentre(v0, inn0, num0, Lx, Ly);
 
 initPos = containers.Map;
 Nc0 = find(num0 ~= 0, 1, 'last');
@@ -50,8 +50,8 @@ n = numel(itList);
 
 for k = 1:n
     it = itList(k);
-    [~, ~, v, inn, num, ~, ~, cell_identity] = LoadData(it, nrun);
-    [cmX, cmY] = calculate_cellCentre(v, inn, num);
+    [Lx, Ly, v, inn, num, ~, ~, cell_identity] = LoadData(it, nrun);
+    [cmX, cmY] = calculate_cellCentre(v, inn, num, Lx, Ly);
 
     % BUGFIX (log.txt): cell_identity is always num_dim-long (LoadData.m
     % reads the full reserved capacity, not just the live cells), but
@@ -70,6 +70,16 @@ for k = 1:n
             r0 = initPos(key);
             dx = cmX(i) - r0(1);
             dy = cmY(i) - r0(2);
+            % PBC-aware (log.txt): under if_PBC, a cell's raw centroid can
+            % legitimately drift across the periodic wrap between the
+            % reference frame and this one (e.g. x: 31.9 -> 0.1) -- the
+            % raw difference above would then read as a ~Lx spurious jump
+            % instead of the true small displacement. Minimum-image the
+            % displacement itself (same convention as every other PBC fix
+            % in this toolkit); harmless no-op for a non-periodic mesh or
+            % any displacement under half the box size.
+            dx = dx - Lx * round(dx / Lx);
+            dy = dy - Ly * round(dy / Ly);
             msd_sum = msd_sum + (dx^2 + dy^2);
             count = count + 1;
         end
@@ -89,12 +99,25 @@ end
 end
 
 
-function [cmX, cmY] = calculate_cellCentre(v, inn, num)
+function [cmX, cmY] = calculate_cellCentre(v, inn, num, Lx, Ly)
+% PBC-aware (log.txt): a cell straddling the periodic wrap has vertices
+% stored far apart in raw coordinates -- mean(vx)/mean(vy) on those raw
+% values lands in the middle of the box, not at the cell's true (compact)
+% centroid. Unwrap every vertex after the first relative to the cell's own
+% first vertex (minimum image against Lx,Ly), same technique as
+% ComputeCellColorData.m's perCellAreaPerimeter. Harmless no-op for a
+% non-periodic mesh.
 Nc = find(num ~= 0, 1, 'last');
 cmX = zeros(Nc,1); cmY = zeros(Nc,1);
 for i = 1:Nc
     vx = v(inn(i, 1:num(i)), 1);
     vy = v(inn(i, 1:num(i)), 2);
+    if numel(vx) > 1
+        dx = vx(2:end) - vx(1); dx = dx - Lx .* round(dx ./ Lx);
+        vx(2:end) = vx(1) + dx;
+        dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+        vy(2:end) = vy(1) + dy;
+    end
     cmX(i) = mean(vx);
     cmY(i) = mean(vy);
 end

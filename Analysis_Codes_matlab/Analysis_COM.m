@@ -104,6 +104,15 @@ for i = 1:idx-1
     vx = v(inn(i,1:num(i)),1);
     vy = v(inn(i,1:num(i)),2);
 
+    % PBC-aware (log.txt): unwrap a wrap-straddling cell relative to its
+    % own first vertex before averaging (see ComputeCellColorData.m).
+    if numel(vx) > 1
+        dx = vx(2:end) - vx(1); dx = dx - Lx .* round(dx ./ Lx);
+        vx(2:end) = vx(1) + dx;
+        dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+        vy(2:end) = vy(1) + dy;
+    end
+
     cmX(i) = mean(vx);
     cmY(i) = mean(vy);
 end

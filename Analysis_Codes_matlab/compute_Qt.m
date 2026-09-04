@@ -31,13 +31,23 @@ n = numel(itList);
 
 for k = 1:n
     it = itList(k);
-    [~, ~, v, inn, num] = LoadData(it, nrun);
+    [Lx, Ly, v, inn, num] = LoadData(it, nrun);
 
     Nc = find(num ~= 0, 1, 'last');
     vcmX = zeros(Nc,1); vcmY = zeros(Nc,1);
     for ic = 1:Nc
         vx = v(inn(ic, 1:num(ic)), 1);
         vy = v(inn(ic, 1:num(ic)), 2);
+        % PBC-aware (log.txt): unwrap a wrap-straddling cell's vertices
+        % relative to its own first vertex before averaging -- otherwise
+        % the raw mean lands in the middle of the box, not at the cell's
+        % true centroid (same technique as ComputeCellColorData.m).
+        if numel(vx) > 1
+            dxu = vx(2:end) - vx(1); dxu = dxu - Lx .* round(dxu ./ Lx);
+            vx(2:end) = vx(1) + dxu;
+            dyu = vy(2:end) - vy(1); dyu = dyu - Ly .* round(dyu ./ Ly);
+            vy(2:end) = vy(1) + dyu;
+        end
         vcmX(ic) = mean(vx);
         vcmY(ic) = mean(vy);
     end
@@ -50,7 +60,14 @@ for k = 1:n
     % Only compare against cells that existed at the reference time too
     % (division can grow Nc beyond the reference frame's cell count).
     NcRef = min(Nc, numel(vcmXIn));
-    dis = sqrt((vcmX(1:NcRef) - vcmXIn(1:NcRef)).^2 + (vcmY(1:NcRef) - vcmYIn(1:NcRef)).^2);
+    ddx = vcmX(1:NcRef) - vcmXIn(1:NcRef);
+    ddy = vcmY(1:NcRef) - vcmYIn(1:NcRef);
+    % PBC-aware: minimum-image the displacement itself too, so a cell
+    % whose centroid legitimately drifted across the periodic wrap since
+    % the reference frame doesn't read as a ~Lx spurious jump.
+    ddx = ddx - Lx .* round(ddx ./ Lx);
+    ddy = ddy - Ly .* round(ddy ./ Ly);
+    dis = sqrt(ddx.^2 + ddy.^2);
     Qt(k) = sum(ac - dis > 0) / NcRef;
 
     if ~isempty(progressFcn); progressFcn(k, n); end

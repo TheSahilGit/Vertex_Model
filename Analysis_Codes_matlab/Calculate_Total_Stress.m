@@ -1,11 +1,16 @@
 function [total_stress_tensor, ShearStress_Individual] = Calculate_Total_Stress(Lx,Ly,v,inn,num,radius, beta_arr)
 
 % -------------------- PARAMETERS --------------------
-para1 = readtable("../para_Simulation.dat");
-A0     = table2array(para1(1,1));
-lambda = table2array(para1(3,1));
-beta   = table2array(para1(4,1));
-gamma  = table2array(para1(5,1));
+% Was reading these via readtable()+magic row numbers (para1(1,1) etc.),
+% which only worked by relying on an undocumented MATLAB readtable quirk
+% (see ReadPara1Params.m's header) -- switched to the name-based reader so
+% this stays correct if para_Simulation.dat's line count ever changes
+% again (it just did, for if_PBC).
+p1 = ReadPara1Params("../para_Simulation.dat");
+A0     = p1.Ao;
+lambda = p1.lambda;
+beta   = p1.beta;
+gamma  = p1.gamm;
 
 % Optional beta array handling
 if nargin < 7 || isempty(beta_arr)
@@ -35,6 +40,7 @@ for ii = 1:length(inside2)
 
     vx = v(inn(ic,1:num(ic)), 1);
     vy = v(inn(ic,1:num(ic)), 2);
+    [vx, vy] = unwrapCellPBC(vx, vy, Lx, Ly);
 
     [geom, ~, ~] = polygeom(vx, vy);
     area = abs(geom(1));
@@ -52,6 +58,7 @@ for ii = 1:length(inside2)
 
     vx = v(inn(ic,1:num(ic)), 1);
     vy = v(inn(ic,1:num(ic)), 2);
+    [vx, vy] = unwrapCellPBC(vx, vy, Lx, Ly);
 
     [geom, ~, ~] = polygeom(vx, vy);
     area = abs(geom(1));
@@ -99,6 +106,23 @@ for ii = 1:length(inside2)
 
 end
 
+end
+
+
+function [vx, vy] = unwrapCellPBC(vx, vy, Lx, Ly)
+% PBC-aware (log.txt): a cell straddling the periodic wrap has vertices
+% stored far apart in raw coordinates -- polygeom/the edge-length sum
+% below on those raw values then blows up for that cell (same root cause
+% as TisuePlot.m's "wired" rendering bug). Unwrap every vertex after the
+% first relative to the cell's own first vertex (minimum image against
+% the true box size Lx,Ly), mirroring ComputeCellColorData.m's
+% perCellAreaPerimeter. Harmless no-op for a non-periodic mesh.
+if numel(vx) > 1
+    dx = vx(2:end) - vx(1); dx = dx - Lx .* round(dx ./ Lx);
+    vx(2:end) = vx(1) + dx;
+    dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+    vy(2:end) = vy(1) + dy;
+end
 end
 
 

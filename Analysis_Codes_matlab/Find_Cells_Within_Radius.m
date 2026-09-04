@@ -9,6 +9,18 @@ for i = 1:Nc
     vx = v(inn(i,1:num(i)),1);
     vy = v(inn(i,1:num(i)),2);
 
+    % PBC-aware (log.txt): unwrap a wrap-straddling cell relative to its
+    % own first vertex before building the polyshape -- otherwise a cell
+    % that straddles the periodic wrap draws a self-intersecting/huge
+    % polygon and centroid() returns garbage (same root cause as
+    % TisuePlot.m's "wired" rendering bug; see ComputeCellColorData.m).
+    if numel(vx) > 1
+        dx = vx(2:end) - vx(1); dx = dx - Lx .* round(dx ./ Lx);
+        vx(2:end) = vx(1) + dx;
+        dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+        vy(2:end) = vy(1) + dy;
+    end
+
     pl = polyshape(vx, vy);
     [cx, cy] = centroid(pl);
 

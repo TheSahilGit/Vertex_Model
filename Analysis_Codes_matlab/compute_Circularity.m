@@ -28,6 +28,21 @@ end
 p1 = ReadPara1Params("../para_Simulation.dat");
 time = itList * p1.dt;
 
+% Circularity is only meaningful for a tissue with a real outer boundary.
+% A true if_PBC mesh (PARAMETERS.md: verified uniform vertex degree 3
+% everywhere -- no free edge at all) has NO boundary vertices by
+% construction, so FindBorderVertices below returns empty and
+% convhull([],[]) would error rather than silently returning a wrong
+% number. Skip cleanly (NaN + one warning) instead.
+if p1.if_PBC
+    circularity = NaN(size(itList));
+    warning('compute_Circularity:notMeaningfulUnderPBC', ...
+        ['if_PBC is true for this run -- a periodic (torus) mesh has no ' ...
+         'outer boundary, so circularity is undefined. Returning NaN for ' ...
+         'every requested frame.']);
+    return;
+end
+
 circularity = zeros(size(itList));
 n = numel(itList);
 
