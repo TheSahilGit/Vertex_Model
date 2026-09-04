@@ -17,9 +17,8 @@ module System_Info
       do ic = 1, Nc !Lx*Ly
 
         nn = num(ic)
-        
-        vx = v(1, inn(1:nn,ic))
-        vy = v(2, inn(1:nn,ic))
+
+        call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
 
         call CalculateArea(vx, vy, nn, area)
         call CalculatePerimeter(vx, vy, nn, perimeter)
@@ -46,8 +45,7 @@ module System_Info
 
      do ic = 1, Nc !Lx*Ly
 
-       vx = v(1, inn(1:num(ic),ic))
-       vy = v(2, inn(1:num(ic),ic))
+       call Gather_Cell_Vertices_PBC(inn(1:num(ic),ic), num(ic), vx, vy)
 
        cellcen(ic,1) = sum(vx)/dble(size(vx))
        cellcen(ic,2) = sum(vy)/dble(size(vy))

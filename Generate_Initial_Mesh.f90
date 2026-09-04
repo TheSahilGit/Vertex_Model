@@ -26,6 +26,20 @@
 !      StoreData.m (Force.f90's area-gradient formula assumes clockwise
 !      winding).
 !
+! PERIODIC MODE (if_periodic in para_MeshGen.dat, default .false. -- old
+! free-boundary behavior byte-for-byte unchanged when absent/false): steps
+! 1-6 above are unchanged (the ghost-copy clipping in step 3/4 was already
+! geometrically correct), but a new post-pass identifies vertices that were
+! independently computed twice by cells on opposite sides of the box (their
+! raw positions differing by exactly one lattice period, since the ghost
+! copies sit at exactly +-Lx,+-Ly) and unifies their IDs via union-find, so
+! opposite edges become genuinely wrap-connected -- a real periodic torus
+! mesh, not just a free box conditioned by ghost neighbors. Verified via
+! Euler characteristic (V-E+F=0, the torus signature, vs. ~2 for a bounded
+! disk), uniform vertex degree 3 everywhere (zero free-boundary vertices),
+! and total cell area summing to exactly Lx*Ly with zero gaps/overlaps
+! (log.txt has the full verification, run across multiple mesh sizes/seeds).
+!
 ! Compiled standalone (see compile.sh) -- does not touch vertexmain.exe.
 
 module spatial_grid
@@ -329,6 +343,26 @@ program generate_initial_mesh
    integer :: seedsz
    integer, allocatable :: seedarr(:)
 
+   ! ---------------- PBC-related additions ----------------
+   ! if_periodic (new, appended to para_MeshGen.dat so the existing
+   ! positional read order for every parameter above is untouched):
+   ! when .true., a post-pass after the normal cell-building loop below
+   ! identifies vertices that are the same physical point but were
+   ! independently constructed by cells on opposite sides of the box
+   ! (their raw positions differing by exactly one lattice period in x
+   ! and/or y -- see the periodic identification pass), and unifies their
+   ! vertex IDs so the two cells share one real vertex -- turning the
+   ! mesh from a free/bounded box into a genuinely wrap-connected torus.
+   ! Default .false. (old behavior, byte-for-byte unchanged) if this line
+   ! is ever missing from an existing para_MeshGen.dat.
+   logical :: if_periodic
+   integer, allocatable :: vertex_remap(:)
+   integer, allocatable :: edge_cand(:)
+   integer :: n_edge_cand, n_unions
+   real(dp) :: margin
+   integer, allocatable :: vdeg(:)
+   integer :: ios
+
    ! ---------------- read config ----------------
    open(unit=10, file='para_MeshGen.dat', status='old')
    read(10,*) Lx
@@ -341,6 +375,8 @@ program generate_initial_mesh
    read(10,*) cell_headroom
    read(10,*) vertex_slot_headroom
    read(10,*) vertex_pool_headroom
+   read(10,*,iostat=ios) if_periodic
+   if (ios /= 0) if_periodic = .false.   ! missing from an older para_MeshGen.dat -> old behavior
    close(10)
 
    if (mod(Ly, 2) /= 0) then
@@ -373,6 +409,12 @@ program generate_initial_mesh
       y0(k) = dble(iy_lat)
       is_boundary(k) = (iy_lat == 1 .or. iy_lat == Ly .or. ix_lat == 1 .or. ix_lat == Lx)
    end do
+   ! Under periodicity there is no free edge, so every cell should be
+   ! jittered identically (as an "interior" cell would be) -- the
+   ! boundary/interior jitter distinction existed only to keep a FREE
+   ! edge from looking too ragged, which no longer applies once opposite
+   ! edges are wrap-connected.
+   if (if_periodic) is_boundary = .false.
 
    do k = 1, N
       call random_number(r)
@@ -444,6 +486,85 @@ program generate_initial_mesh
       num_raw(k) = ncell_local
       if (ncell_local > maxvert_seen) maxvert_seen = ncell_local
    end do
+
+   ! ---------------- periodic vertex identification pass ----------------
+   ! Each real cell above was built and vertex-merged independently, using
+   ! ghost copies of OTHER cells' seeds only as clipping candidates (see
+   ! module header) -- so a vertex shared between, say, a left-edge cell
+   ! and its right-edge Voronoi neighbor gets computed TWICE: once in the
+   ! left cell's own local frame (landing in world coordinates near x=0),
+   ! once in the right cell's own local frame using its ghost image of the
+   ! left cell (landing near x=Lx, i.e. offset by exactly one lattice
+   ! period). find_or_add_vertex's exact-coincidence merge never
+   ! recognizes these as the same point. This pass finds such pairs
+   ! (their raw positions differ by exactly (+-Lx,0), (0,+-Ly), or a
+   ! diagonal combination -- exact because the ghost tiling is placed at
+   ! exactly +-Lx,+-Ly) and unifies them via a union-find remap, so both
+   ! cells end up referencing the SAME vertex ID. This is what turns the
+   ! mesh from a free/bounded box into a genuinely wrap-connected torus --
+   ! no change to build_cell_polygon/clip_by_point/reorder_cell above is
+   ! needed, since their geometry was already correct; only the merge
+   ! step was missing periodic awareness.
+   if (if_periodic) then
+      allocate(vertex_remap(nglobal))
+      do j = 1, nglobal
+         vertex_remap(j) = j
+      end do
+
+      ! Only vertices plausibly within one lattice period of an edge can
+      ! have a periodic partner; jitter magnitudes are small (<1 lattice
+      ! unit) so a margin of 2.0 is generous without pulling in the whole
+      ! mesh as candidates.
+      margin = 2.0d0
+      allocate(edge_cand(nglobal))
+      n_edge_cand = 0
+      do j = 1, nglobal
+         if (gx(j) < margin .or. gx(j) > dble(Lx) - margin .or. &
+             gy(j) < margin .or. gy(j) > dble(Ly) - margin) then
+            n_edge_cand = n_edge_cand + 1
+            edge_cand(n_edge_cand) = j
+         end if
+      end do
+
+      n_unions = 0
+      call unify_periodic_candidates(edge_cand, n_edge_cand, gx, gy, &
+           dble(Lx), dble(Ly), eps_merge, vertex_remap, n_unions)
+
+      ! Apply the remap to every cell's vertex list before it's copied
+      ! into the final inn array below.
+      do k = 1, N
+         do i = 1, num_raw(k)
+            inn_raw(k, i) = find_root(vertex_remap, inn_raw(k, i))
+         end do
+      end do
+
+      ! Verification: a genuinely closed/periodic mesh has ZERO vertices
+      ! touched by fewer than 3 cells (the same degree test
+      ! Find_boundary_dynamic uses at runtime to detect a free boundary,
+      ! Geometry.f90). If this ever finds one, the periodic identification
+      ! above missed a pair -- stop rather than silently ship a mesh with
+      ! a hidden free edge.
+      allocate(vdeg(nglobal))
+      vdeg = 0
+      do k = 1, N
+         do i = 1, num_raw(k)
+            vdeg(inn_raw(k, i)) = vdeg(inn_raw(k, i)) + 1
+         end do
+      end do
+      do j = 1, nglobal
+         if (vdeg(j) > 0 .and. vdeg(j) < 3) then
+            write(*,*) 'Generate_Initial_Mesh: PERIODIC MESH CHECK FAILED -- vertex', j, &
+                 'has degree', vdeg(j), '(< 3): periodic identification missed a pair.'
+            stop 1
+         end if
+      end do
+      deallocate(vdeg)
+
+      write(*,*) 'Generate_Initial_Mesh: periodic identification unified', n_unions, &
+           'vertex pairs (', n_edge_cand, 'edge candidates examined); zero free-boundary vertices remain.'
+
+      deallocate(vertex_remap, edge_cand)
+   end if
 
    ! ---------------- assemble final padded arrays ----------------
    num_dim = N + cell_headroom
@@ -530,5 +651,76 @@ contains
       call grid_insert(g, x, y, nglobal)
       idx_out = nglobal
    end subroutine find_or_add_vertex
+
+   ! Union-find root lookup with path compression -- remap(j)==j marks a
+   ! root (canonical representative); otherwise follow the chain.
+   recursive function find_root(remap, j) result(root)
+      integer, intent(inout) :: remap(:)
+      integer, intent(in) :: j
+      integer :: root
+      if (remap(j) == j) then
+         root = j
+      else
+         root = find_root(remap, remap(j))
+         remap(j) = root   ! path compression
+      end if
+   end function find_root
+
+   subroutine union_vertices(remap, a, b, did_union)
+      integer, intent(inout) :: remap(:)
+      integer, intent(in) :: a, b
+      logical, intent(out) :: did_union
+      integer :: ra, rb
+      ra = find_root(remap, a)
+      rb = find_root(remap, b)
+      did_union = (ra /= rb)
+      if (did_union) then
+         if (ra < rb) then
+            remap(rb) = ra
+         else
+            remap(ra) = rb
+         end if
+      end if
+   end subroutine union_vertices
+
+   ! For every pair of near-edge candidate vertices, check all 8 periodic
+   ! shifts (+-Lx_box,0), (0,+-Ly_box), and the 4 diagonal combinations --
+   ! exact shifts, since the ghost tiling that produced these vertices was
+   ! placed at exactly +-Lx_box,+-Ly_box. A match within eps means the two
+   ! candidates are the same physical vertex, seen from opposite sides of
+   ! the periodic box (or, at a corner, diagonally opposite) -- union them.
+   ! O(n_edge_cand^2 * 8): n_edge_cand is only ever O(perimeter), so this
+   ! stays cheap even for a large mesh.
+   subroutine unify_periodic_candidates(cand, ncand, gx, gy, Lx_box, Ly_box, &
+        eps, remap, n_unions)
+      integer, intent(in) :: cand(:), ncand
+      real(dp), intent(in) :: gx(:), gy(:), Lx_box, Ly_box, eps
+      integer, intent(inout) :: remap(:)
+      integer, intent(out) :: n_unions
+      integer :: p, q, s, j1, j2
+      real(dp) :: shiftx(8), shifty(8), dx, dy, eps2
+      logical :: did_union
+
+      shiftx = (/ -Lx_box, Lx_box, 0.0d0, 0.0d0, -Lx_box, -Lx_box, Lx_box, Lx_box /)
+      shifty = (/ 0.0d0, 0.0d0, -Ly_box, Ly_box, -Ly_box, Ly_box, -Ly_box, Ly_box /)
+      eps2 = eps * eps
+      n_unions = 0
+
+      do p = 1, ncand - 1
+         j1 = cand(p)
+         do q = p + 1, ncand
+            j2 = cand(q)
+            do s = 1, 8
+               dx = gx(j1) + shiftx(s) - gx(j2)
+               dy = gy(j1) + shifty(s) - gy(j2)
+               if (dx*dx + dy*dy <= eps2) then
+                  call union_vertices(remap, j1, j2, did_union)
+                  if (did_union) n_unions = n_unions + 1
+                  exit
+               end if
+            end do
+         end do
+      end do
+   end subroutine unify_periodic_candidates
 
 end program generate_initial_mesh

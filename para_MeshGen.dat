@@ -8,3 +8,4 @@
 512               ! cell_headroom (extra cell slots beyond Lx*Ly, for later divisions),N
 16               ! vertex_slot_headroom (extra per-cell vertex slots)
 1024               ! vertex_pool_headroom (extra rows in v beyond generated vertex count), safe ~ 2N
+.true.          ! if_periodic (true = wrap-connected torus mesh for runtime PBC; see Generate_Initial_Mesh.f90 header)

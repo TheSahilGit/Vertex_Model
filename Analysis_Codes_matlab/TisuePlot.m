@@ -45,13 +45,41 @@ if cmax == cmin
 end
 
 % ----- build one NaN-padded Faces matrix for the whole tissue -----
+% PBC-aware (log.txt): a periodic mesh (Generate_Initial_Mesh.f90's
+% if_periodic=true) has cells whose vertex list can legitimately span the
+% periodic wrap -- a shared vertex ID with an opposite-edge neighbor cell,
+% stored far away in raw (wrapped) coordinates. Indexing directly into
+% the shared v array (as before) draws a long straight line connecting
+% those raw, far-apart coordinates -- a "wired" look spanning the box.
+% Instead, give each face its OWN local vertex list, each vertex unwrapped
+% (minimum-image) relative to that face's own first vertex -- mirroring
+% the Fortran-side Gather_Cell_Vertices_PBC technique -- so a cell that
+% straddles the wrap is drawn as its true, compact shape. Harmless no-op
+% for a non-periodic mesh: no real vertex pair within one cell is ever
+% more than half the box apart, so the correction below always evaluates
+% to zero there, and rendering is pixel-identical to before.
 maxN = max(num(1:Nc));
 F = NaN(Nc, maxN);
+Vexp = zeros(sum(num(1:Nc)), 2);
+row = 0;
 for i = 1:Nc
-    F(i, 1:num(i)) = inn(i, 1:num(i));
+    n = num(i);
+    ids = inn(i, 1:n);
+    x0 = v(ids(1), 1);
+    y0 = v(ids(1), 2);
+    for k = 1:n
+        row = row + 1;
+        dx = v(ids(k), 1) - x0;
+        dx = dx - Lx * round(dx / Lx);
+        dy = v(ids(k), 2) - y0;
+        dy = dy - Ly * round(dy / Ly);
+        Vexp(row, 1) = x0 + dx;
+        Vexp(row, 2) = y0 + dy;
+        F(i, k) = row;
+    end
 end
 
-patch('Faces', F, 'Vertices', v, ...
+patch('Faces', F, 'Vertices', Vexp, ...
     'FaceVertexCData', colordata(1:Nc), ...
     'FaceColor', 'flat', ...
     'FaceAlpha', 0.5, ...
@@ -64,7 +92,7 @@ colormap(jet(256));
 clim([cmin cmax]);
 
 pbaspect([Lx/Ly 1 1])
-axis([-2 Lx+2 -2 Ly+2])
+axis([-4 Lx+4 -4 Ly+4])
 axis off
 set(gca, "FontName", "Serif", "FontSize", 30)
 set(gcf, "Renderer", "Painters")

@@ -26,8 +26,7 @@ module T1_swap
         if(num(ic).le.3)cycle
 
 
-        vx = v(1, inn(1:num(ic), ic))
-        vy = v(2, inn(1:num(ic), ic))
+        call Gather_Cell_Vertices_PBC(inn(1:num(ic), ic), num(ic), vx, vy)
 
         do jc = 1, num(ic)
 
@@ -160,8 +159,20 @@ module T1_swap
     OldX(2) = v(1, inn(verNoNextT1, cellNoT1))
     OldY(1) = v(2, inn(verNoT1, cellNoT1))
     OldY(2) = v(2, inn(verNoNextT1, cellNoT1))
-     
+
+    ! PBC (log.txt): OldX(2)/OldY(2) must be in the same local unwrapped
+    ! frame as OldX(1)/OldY(1) before the midpoint/bisector below, or a
+    ! genuinely short edge that happens to straddle a periodic wrap would
+    ! get a nonsensical (near-box-spanning) midpoint instead.
+    call Unwrap_Relative(OldX(1), OldY(1), OldX(2), OldY(2))
+
     call PerpendicularBisector2(OldX,OldY,scaling_factor,NewX,NewY)
+
+    ! PBC: NewX/NewY were computed in OldX(1)/OldY(1)'s local frame, which
+    ! may itself sit outside the canonical box (or the flip may push a
+    ! vertex just past a periodic edge) -- re-wrap before storing.
+    call Wrap_Position(NewX(1), NewY(1))
+    call Wrap_Position(NewX(2), NewY(2))
 
     v(1, inn(verNoT1, cellNoT1)) = NewX(2)
     v(1, inn(verNoNextT1, cellNoT1)) = NewX(1)

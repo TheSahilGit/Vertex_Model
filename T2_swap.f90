@@ -24,8 +24,7 @@ module T2_swap
 
       do ic = 1, Nc !Lx*Ly
         if(num(ic).eq.3)then
-          vx = v(1,inn(1:num(ic),ic))
-          vy = v(2,inn(1:num(ic),ic))
+          call Gather_Cell_Vertices_PBC(inn(1:num(ic),ic), num(ic), vx, vy)
           call  CalculateArea(vx,vy,num(ic),area)
           area = abs(area)
 
@@ -101,14 +100,19 @@ module T2_swap
 
       integer :: start_index, stop_index
 
-      vx = v(1,inn(1:num(cellNoT2), cellNoT2))
-      vy = v(2,inn(1:num(cellNoT2), cellNoT2))
+      call Gather_Cell_Vertices_PBC(inn(1:num(cellNoT2), cellNoT2), num(cellNoT2), vx, vy)
 
       VcmX = sum(vx)/size(vx)
       VcmY = sum(vy)/size(vy)
 
+      ! PBC (log.txt): VcmX/VcmY were averaged from vx,vy in cellNoT2's own
+      ! locally-unwrapped frame (via Gather_Cell_Vertices_PBC above), which
+      ! may itself sit outside the canonical box -- wrap back before
+      ! storing so v(:, inn(1,cellNoT2)) stays a canonical position.
+      call Wrap_Position(VcmX, VcmY)
+
       ! Replacing 1st vertex of cellNoT2 with the COM,
-      ! and will update this and delete rest. 
+      ! and will update this and delete rest.
 
       v(1, inn(1,cellNoT2)) = VcmX
       v(2, inn(1,cellNoT2)) = VcmY

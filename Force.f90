@@ -31,8 +31,7 @@ module Force
       
       nn = num(ic)
 
-      vx = v(1,inn(1:nn,ic))
-      vy = v(2,inn(1:nn,ic))
+      call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
       
 
       if(if_RhoROCK)then
@@ -320,8 +319,12 @@ subroutine Give_Motility_Hotspot
 
   do jp = 1, number_of_hotspot
     ip = hotspot_location(jp)
-    xCM(jp) = sum(v(1,inn(1:num(ip),ip)))/dble(num(ip))
-    yCM(jp) = sum(v(2,inn(1:num(ip),ip)))/dble(num(ip))
+    ! PBC (log.txt): a plain average of raw v(:,inn(...)) is only correct
+    ! if this hotspot cell doesn't straddle a periodic wrap -- use the
+    ! same unwrap-relative-to-vertex-1 gather everything else uses.
+    call Gather_Cell_Vertices_PBC(inn(1:num(ip),ip), num(ip), vx, vy)
+    xCM(jp) = sum(vx(1:num(ip)))/dble(num(ip))
+    yCM(jp) = sum(vy(1:num(ip)))/dble(num(ip))
   end do
 
  ! sigma_hotspot = 5.0d0
@@ -362,6 +365,13 @@ subroutine Give_Motility_Hotspot
       do ip = 1, number_of_hotspot
         xij = v(1,iv) - xCM(ip)
         yij = v(2,iv) - yCM(ip)
+        ! PBC (log.txt): minimum-image distance -- a vertex on the far
+        ! side of a periodic wrap from this hotspot's center can still be
+        ! physically close to it via the wrap-around direction.
+        if (if_PBC) then
+          xij = xij - Lx_box * dnint(xij / Lx_box)
+          yij = yij - Ly_box * dnint(yij / Ly_box)
+        end if
         rij = xij**2 + yij**2
 
         mot(iv) = mot(iv) + etas_max * exp(-(rij)/sigma_hotspot**2)
@@ -583,8 +593,7 @@ subroutine Solve_RhoROCK_Euler
   do ic = 1, Nc
 
     nn = num(ic)
-    vx = v(1,inn(1:nn,ic))
-    vy = v(2,inn(1:nn,ic))
+    call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
     call CalculateArea(vx,vy,nn,area)
     area = abs(area)
     area_diff = area - Ao
@@ -745,8 +754,7 @@ subroutine compute_RHS(Rho_in, ROCK_in, M_in, Rho_out, ROCK_out, M_out)
 
   do ic = 1, Nc
     nn = num(ic)
-    vx = v(1, inn(1:nn,ic))
-    vy = v(2, inn(1:nn,ic))
+    call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
 
     call CalculateArea(vx,vy,nn,area)
     area = abs(area)

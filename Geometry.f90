@@ -7,6 +7,69 @@ module Geometry
 
   contains
 
+   ! ---------------------------------------------------------------
+   ! PBC helpers (log.txt, user request). Every geometric routine in this
+   ! file/Force.f90/T1_swap.f90/T2_swap.f90/Proliferation.f90/Stress.f90
+   ! that computes an area, perimeter, edge vector, centroid, or principal
+   ! axis from a cell's own gathered vertex list assumes that list is one
+   ! small, contiguous, unwrapped patch -- true for every cell physically
+   ! (a cell is always much smaller than the periodic box), but broken if
+   ! the RAW stored coordinates of a cell straddling a periodic wrap are
+   ! used directly (some vertices near x=0, others near Lx_box, after
+   ! independently wrapping). These two subroutines fix that uniformly:
+   ! Wrap_Position canonicalizes a position into the primary box, and
+   ! Gather_Cell_Vertices_PBC is a drop-in replacement for the
+   ! `vx = v(1,inn(1:nn,ic)); vy = v(2,inn(1:nn,ic))` gather pattern used
+   ! everywhere in this codebase, unwrapping every vertex after the first
+   ! relative to the cell's own first vertex via minimum-image. Both are
+   ! no-ops (byte-identical to the existing raw pattern) when if_PBC is
+   ! false, so every non-PBC run is completely unaffected.
+   subroutine Wrap_Position(x, y)
+     implicit none
+     real*8, intent(inout) :: x, y
+     if (.not. if_PBC) return
+     x = modulo(x, Lx_box)
+     y = modulo(y, Ly_box)
+   end subroutine Wrap_Position
+
+   ! Shifts (x,y) by the minimum-image translation relative to (x_ref,
+   ! y_ref) -- i.e. replaces (x,y) with whichever periodic image of itself
+   ! is closest to the reference. Assumes |x-x_ref| < Lx_box (and
+   ! similarly for y) to begin with, which always holds for two vertices
+   ! of the same cell (a cell is never larger than the box). No-op if
+   ! if_PBC is false.
+   subroutine Unwrap_Relative(x_ref, y_ref, x, y)
+     implicit none
+     real*8, intent(in) :: x_ref, y_ref
+     real*8, intent(inout) :: x, y
+     real*8 :: dx, dy
+     if (.not. if_PBC) return
+     dx = x - x_ref
+     dx = dx - Lx_box * dnint(dx / Lx_box)
+     dy = y - y_ref
+     dy = dy - Ly_box * dnint(dy / Ly_box)
+     x = x_ref + dx
+     y = y_ref + dy
+   end subroutine Unwrap_Relative
+
+   subroutine Gather_Cell_Vertices_PBC(ids, nn, vx, vy)
+     implicit none
+     integer, intent(in) :: ids(:), nn
+     ! allocatable, whole-array assignment (not vx(1:nn)=...) so this is
+     ! the exact same auto-(re)allocating assignment every existing call
+     ! site already relies on (vx = v(1,inn(1:nn,ic))) -- byte-identical
+     ! when if_PBC is false.
+     real*8, allocatable, intent(out) :: vx(:), vy(:)
+     integer :: i
+     vx = v(1, ids(1:nn))
+     vy = v(2, ids(1:nn))
+     if (.not. if_PBC) return
+     do i = 2, nn
+       call Unwrap_Relative(vx(1), vy(1), vx(i), vy(i))
+     end do
+   end subroutine Gather_Cell_Vertices_PBC
+   ! ---------------------------------------------------------------
+
    subroutine CalculateDistance(x1,y1,x2,y2,distance)
     implicit none
     real*8, intent(in) :: x1,y1,x2,y2
@@ -752,6 +815,19 @@ subroutine reorder_polygon(v, v_dim1, inn, n)
      y(i) = v(2, inn(i))
   end do
 
+  ! PBC (log.txt): unwrap every vertex after the first relative to the
+  ! first, so a polygon straddling a periodic wrap gets a correct
+  ! centroid/angle-sort below instead of one dominated by a spurious
+  ! ~box-sized coordinate jump. No-op when if_PBC is false (this
+  ! subroutine is called from ArrangeVertices for every daughter/neighbor
+  ! cell during a division, and reorder_polygon receives an arbitrary
+  ! vertex-ID list rather than a (cell, count) pair, so it can't route
+  ! through the shared Gather_Cell_Vertices_PBC helper -- it does the same
+  ! unwrap directly instead).
+  do i = 2, n
+     call Unwrap_Relative(x(1), y(1), x(i), y(i))
+  end do
+
   ! centroid
   cx = sum(x) / dble(n)
   cy = sum(y) / dble(n)
@@ -767,17 +843,23 @@ subroutine reorder_polygon(v, v_dim1, inn, n)
   ! sort 'order' by ang(order(i)) descending => clockwise
   call sort_order_by_angle_desc(ang, order, n)
 
-  ! apply sorted order to inn
+  ! apply sorted order to inn, keeping the (already-unwrapped) x,y in sync
+  ! so the tie-break below stays consistent
   inn = inn(order)
+  x = x(order)
+  y = y(order)
 
-  ! Now find index of lowest x (tie-breaker: lowest y) among the reordered list
+  ! Now find index of lowest x (tie-breaker: lowest y) among the reordered
+  ! list -- using the LOCAL unwrapped x,y (not raw v(1,inn(i))), so a
+  ! polygon straddling a periodic wrap picks a consistent starting vertex
+  ! instead of being fooled by a wrapped-around raw coordinate.
   idx_min = 1
   do i = 2, n
-     if ( v(1, inn(i)) < v(1, inn(idx_min)) ) then
+     if ( x(i) < x(idx_min) ) then
         idx_min = i
-     else if ( abs(v(1, inn(i)) - v(1, inn(idx_min))) < 1.0d-12 ) then
+     else if ( abs(x(i) - x(idx_min)) < 1.0d-12 ) then
         ! tie in x -> choose lower y
-        if ( v(2, inn(i)) < v(2, inn(idx_min)) ) idx_min = i
+        if ( y(i) < y(idx_min) ) idx_min = i
      end if
   end do
 
@@ -857,6 +939,24 @@ subroutine Get_Cells_Within_Radius
   real(8) :: cx, cy
   real(8) :: dx, dy, dist
   real*8 :: COM(2)
+
+  ! PBC (log.txt): this subroutine's whole purpose is restricting
+  ! Calculate_StressTensor to an inner disk around the tissue's core, to
+  ! avoid a FREE boundary's edge artifacts -- under full periodicity there
+  ! is no free edge, so every cell is equally "bulk" and the restriction
+  ! is unnecessary. It's also ill-posed to fix properly: averaging cell
+  ! centers into a single "global COM" (below) has no well-defined answer
+  ! on a torus (like averaging angles), unlike the per-cell centroid fix
+  ! elsewhere in this file, which only ever needs a LOCAL reference vertex.
+  ! Simplest correct choice: include every cell.
+  if (if_PBC) then
+     n_inside = Nc
+     do i = 1, Nc
+        inside_cells(i) = i
+     end do
+     n_outside = 0
+     return
+  end if
 
   ! ----------------------------------
   ! Compute cell centers

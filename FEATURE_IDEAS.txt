@@ -1,0 +1,215 @@
+FEATURE IDEAS FOR THE VERTEX MODEL
+===================================
+Generated from a full-repo review (Fortran core + MATLAB analysis toolkit),
+cross-checked with grep against what's actually implemented. Nothing here has
+been built yet -- this is a list to pick from later.
+
+Grouped into three tiers:
+  B - small existing gaps worth closing regardless of what's built next
+  A - new physics/biophysics mechanisms (Fortran core)
+  C - new analysis/observable capabilities (MATLAB toolkit)
+
+
+B. EXISTING GAPS WORTH CLOSING FIRST
+-------------------------------------
+
+B1. Cell division doesn't propagate Rho/ROCK/Myosin/cell_identity to
+    daughter cells. Confirmed by grep -- Proliferation.f90 never touches
+    these arrays. A new daughter cell's biochemical state is just whatever
+    stale value already sat in that array slot, and cell_identity (meant as
+    a lineage label) is silently lost at every division. Only per-vertex
+    motility is correctly inherited (fixed earlier this session). Matters
+    for: any lineage-tracking, cell-type, or RhoROCK+division combined
+    study.
+
+B2. if_RhoROCK and if_active_contractility silently conflict -- if both are
+    on, contractility's beta assignment unconditionally overwrites
+    RhoROCK's, with no warning (Force.f90:51-53). Should be either
+    explicitly exclusive (error if both set) or the interaction defined
+    intentionally.
+
+B3. if_sin_perturb does nothing unless if_dirac_comb is also .true. -- the
+    sinusoidal-perturbation displacement is nested inside the dirac-comb
+    gate (Force.f90:445-464), confirmed by reading the code. To get a
+    continuous (non-pulsed) sine perturbation today you must also enable
+    if_dirac_comb with a long comb_onPeriod. Likely an unintended coupling
+    between two conceptually independent flags.
+
+B4. T2_time_interval is a dead parameter -- Do_T2 is always called from
+    inside the T1_time_interval loop regardless of its value (documented in
+    log.txt, the gated call site is commented out).
+
+B5. etas_min is read but never used in the motility-gradient formula (only
+    etas_max/mot_Lc matter) -- vestigial.
+
+B6. D_rho/D_ROCK/D_Myosin are misleadingly named -- despite the "D"
+    (diffusion) naming, they're pure local linear decay rates; there is no
+    neighbor-coupling/Laplacian term anywhere, so Rho/ROCK/Myosin never
+    actually diffuse between cells (see A3 below -- this is really the
+    entry point for that feature).
+
+
+A. NEW PHYSICS/BIOPHYSICS MECHANISMS (Fortran core)
+----------------------------------------------------
+
+A1. Cell-type heterogeneity (mixed populations). Right now Ao, lambda,
+    gamm, beta are single global scalars -- every cell has identical
+    mechanical properties. Promoting them to per-cell arrays (assigned by a
+    real cell-type tag, replacing today's cosmetic cell_identity) would let
+    you simulate mixed populations: stiff vs. soft cells, proliferative vs.
+    quiescent regions, or two competing cell lines. This is the most common
+    starting point for "biophysics" questions in vertex models (tumor
+    heterogeneity, tissue patterning) and is a natural extension of code
+    that already exists -- the energy/force loops already iterate
+    per-cell, they'd just index into a per-cell parameter array instead of
+    a scalar. Depends on B1 (division must propagate the type tag to
+    daughters).
+
+A2. Differential adhesion (cell-sorting). A direct follow-on from A1: make
+    the line-tension term gamm depend on the PAIR of cell types sharing an
+    edge (a gamm_ij lookup table), not just one cell's type. This is the
+    classic Differential Adhesion Hypothesis mechanism -- reproduces cell
+    sorting/engulfment between two populations, a staple vertex-model
+    demonstration. Needs identifying each edge's two neighboring cells
+    (already computed for T1/division) and a small type x type tension
+    matrix in para_Simulation.dat.
+
+A3. Real intercellular diffusion for Rho/ROCK/Myosin. Currently each cell's
+    biochemical ODEs (compute_RHS in Force.f90) evolve completely
+    independently -- no term couples a cell's Rho/ROCK/Myosin to its
+    neighbors' despite the D_* names implying diffusion. Adding an actual
+    discrete-Laplacian coupling term (D_rho * sum_over_neighbors(Rho_
+    neighbor - Rho_self), weighted by shared-edge length or just neighbor
+    count) would let you study real morphogen-gradient patterning,
+    contraction-wave propagation (e.g. apical-constriction waves in
+    gastrulation-like models), or Turing-pattern myosin organization --
+    currently structurally impossible since nothing propagates between
+    cells. Moderate effort: needs a per-cell neighbor list (derivable from
+    inn/shared edges, similar to what Find_Others_affected already builds
+    for division) fed into the existing Euler/RK4 solvers.
+
+A4. Polarity alignment / collective migration. ABP orientations
+    (theta_ABP) currently diffuse completely independently per cell -- no
+    neighbor-alignment term. Adding a Vicsek-style or nematic torque
+    (theta_ABP drifting toward the local neighbor-average heading, with
+    noise) is the standard way vertex models generate collective/flocking
+    migration, swirls, and banding transitions -- directly relevant if
+    you're interested in collective cell migration rather than independent
+    random motility. Hooks into the existing theta_ABP integration step in
+    vertexmain.f90; needs each cell's live neighbor list (again, similar
+    machinery to A3/division).
+
+A5. True runtime periodic boundary conditions. The only "periodic" logic
+    that exists is a one-time ghost-copy trick used purely to seed the
+    initial Voronoi mesh (Generate_Initial_Mesh.f90) -- not real PBCs
+    during the simulation. Currently boundary artifacts are worked around
+    by restricting analyses (stress tensor, etc.) to an inner disk. Real
+    minimum-image PBCs (wrapping vertex positions and using shortest-image
+    distances/forces across the box edges) would remove finite-size/edge
+    effects entirely for bulk-tissue rheology, MSD, and T1-rate studies --
+    higher effort (touches force calculation, T1/T2 candidate search, and
+    the initial mesh generator) but a common expectation for "bulk tissue"
+    simulations in the field.
+
+A6. Substrate friction/traction heterogeneity. eta is currently one global
+    damping constant for the whole tissue -- no analogue of spatially-
+    varying substrate friction (as measured by traction force microscopy in
+    real epithelial experiments). Could add a per-vertex or per-cell
+    friction field, structurally identical to how the motility gradient
+    (mot) already varies spatially -- same Eulerian/Lagrangian machinery
+    you just built for motility could be reused directly for a friction
+    field.
+
+A7. (lower priority / more specialized) Inertial/viscoelastic dynamics.
+    Dynamics are strictly first-order overdamped everywhere (no mass, no
+    memory kernel). Adding an inertial term (underdamped Langevin /
+    velocity-Verlet) or a viscoelastic (Maxwell-type) cortex-remodeling
+    element would open a different dynamical regime, but is less commonly
+    needed for confluent-tissue studies specifically -- worth having on
+    the list, but treat it as a "someday" rather than a near-term pick.
+
+
+C. NEW ANALYSIS/OBSERVABLE CAPABILITIES (MATLAB toolkit)
+----------------------------------------------------------
+
+C1. Shape-index / jamming-transition tracking. ShapeFactor (P/sqrt(A)) is
+    already computed per-cell as a movie-coloring option
+    (ComputeCellColorData.m) but never tracked as a time series. Wiring it
+    into PlotAnalysis.m as a proper panel (mean + distribution vs. time),
+    with the Bi-Manning jamming-transition reference line (p0* ~ 3.81, the
+    same style as the existing t^1/t^2 MSD guide lines or the
+    circularity=1 reference), would give you a direct, standard handle on
+    the solid-fluid (jamming) transition state of the tissue. Cheap -- the
+    quantity already exists, this is just tracking+plotting it properly.
+
+C2. Velocity field and its spatial correlation length. No velocity field
+    (finite difference of vertex/cell position between consecutive dumps)
+    or velocity-correlation analysis exists anywhere, despite being a
+    standard active-matter/collective-migration diagnostic (swirl size,
+    correlation length of collective motion). Straightforward to add from
+    existing snapshot data (LoadData.m already loads consecutive
+    v_<it>.dat), and would pair naturally with A4 if you add polarity
+    alignment.
+
+C3. Oscillatory-shear modulus extraction (G', G''). The simulation already
+    supports oscillatory shear (if_Oscillatory_Shearing) and a per-timestep
+    stress signal is recorded, but Oscillatory_Shear_Analysis.m currently
+    just overlays strain(t)/stress(t) qualitatively -- no FFT-based
+    storage/loss modulus extraction, no Lissajous (stress-vs-strain) plot
+    exists anywhere in the repo. This is a genuine underused capability:
+    the physics is already there, only the analysis is missing. Would let
+    you characterize the tissue's viscoelastic response quantitatively
+    (solid-like vs. fluid-like, frequency dependence) rather than just
+    eyeballing overlaid curves.
+
+C4. T1/event and division-rate spatial mapping. T1/T2/division counts are
+    currently only tracked as cumulative scalars (whole-tissue, vs. time)
+    -- no script records WHERE these events happen. A spatial heatmap of
+    T1 rate or division rate (binned by position, accumulated over a
+    window) would let you directly correlate topological activity with,
+    e.g., the motility gradient/hotspot pattern from this session's
+    earlier work, or with local stress/shape-index.
+
+C5. Non-affine deformation (D2min, Falk-Langer-style). No local-
+    deformation/plasticity measure exists -- only global MSD/Q(t).
+    Computing a per-cell or per-vertex D2min between two nearby frames (how
+    much a vertex's local neighborhood displacement deviates from the
+    best-fit affine transform) is the standard way to visualize WHERE
+    plastic/T1-driven rearrangements localize in a jammed or flowing tissue
+    -- a natural complement to C4 and C1.
+
+C6. Coordination-number distribution / topological (dislocation) analysis
+    over time. NumVertices (coordination number) is already a movie-
+    coloring option but its distribution is never tracked as a time series
+    or connected to topological-defect statistics (fraction of 5-/7-fold
+    cells, which correlate with local stress/curvature in confluent
+    tissue). Cheap addition given the data's already loaded.
+
+C7. (pairs with A4/A1) Structure factor / g(r) and motility-subpopulation
+    clustering. Two related lower-priority additions: (a) radial
+    distribution function / structure factor to characterize positional
+    order (liquid-like vs. more ordered packing), complementing the
+    existing Q(t)/MSD glassy-dynamics diagnostics; (b) connected-
+    component/domain-size analysis of high- vs. low-motility
+    subpopulations over time -- directly relevant to the motility-mixing
+    investigation from earlier this session, since it would let you
+    QUANTIFY the "salt-and-pepper" mixing pattern you observed, not just
+    see it visually.
+
+
+SUGGESTED STARTING POINTS
+--------------------------
+If you want a natural, contained first step rather than tackling
+everything: B1 (division inheritance) -> A1 (cell-type heterogeneity) ->
+A2 (differential adhesion) is a coherent chain that unlocks a classic,
+well-scoped biophysics study (cell sorting / mixed-population mechanics)
+using mostly-existing machinery. Separately, C1 (shape-index tracking) and
+C3 (oscillatory modulus extraction) are both cheap, high-value analysis
+additions that exploit code/data you already have, if you'd rather start
+on the analysis side.
+
+Next step whenever you pick one: a proper implementation plan (files to
+touch, exact hooks into read_input/Proliferation_Core/vertexmain.f90's
+loop, and a verification strategy matching this repo's established
+convention -- scratch-copy testing, byte-identical/seeded-A/B comparisons
+before trusting a physics change, log.txt documentation).

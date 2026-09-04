@@ -24,6 +24,7 @@ program vertexmain
   call read_data   ! Initialization
 
 
+
   Total_T1_count = 0
   Total_T2_count = 0
 
@@ -244,6 +245,19 @@ program vertexmain
       end if
     end if
 
+    ! PBC (log.txt): wrap every vertex back into the canonical
+    ! [0,Lx_box) x [0,Ly_box) box once per step, after every
+    ! position-modifying step above has run. T1/T2/division already wrap
+    ! their own newly-written/moved vertex positions individually at the
+    ! point of writing (Wrap_Position calls in T1_swap.f90/T2_swap.f90/
+    ! Proliferation.f90) -- wrapping again here is idempotent/harmless for
+    ! those, and catches the ordinary force-integration position update
+    ! (and Apply_perturbation/ShearTissue, if ever combined with if_PBC)
+    ! in one place. A no-op when if_PBC is false.
+    if(if_PBC)then
+      v(1,:) = modulo(v(1,:), Lx_box)
+      v(2,:) = modulo(v(2,:), Ly_box)
+    end if
 
     write(*,'(A,I0,A,I0)', advance='no') achar(13)//'Step: ', it, '/', totT
 

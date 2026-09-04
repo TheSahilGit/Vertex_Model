@@ -35,10 +35,9 @@ module Stress
        do ic = 1,n_inside
           cellNo = inside_cells(ic)
           nn = num(cellNo)
- 
-          vx = v(1,inn(1:nn,cellNo))
-          vy = v(2,inn(1:nn,cellNo))
- 
+
+          call Gather_Cell_Vertices_PBC(inn(1:nn,cellNo), nn, vx, vy)
+
           call CalculateArea(vx,vy,nn,area)
           area = abs(area)
           totalarea = totalarea + area
@@ -48,10 +47,9 @@ module Stress
        do ic = 1, n_inside
          cellNo = inside_cells(ic)
          nn = num(cellNo)
- 
-         vx = v(1,inn(1:nn,cellNo))
-         vy = v(2,inn(1:nn,cellNo))
- 
+
+         call Gather_Cell_Vertices_PBC(inn(1:nn,cellNo), nn, vx, vy)
+
          call CalculateArea(vx,vy,nn,area)
          area = abs(area)
          call CalculatePerimeter(vx,vy,nn,perimeter)

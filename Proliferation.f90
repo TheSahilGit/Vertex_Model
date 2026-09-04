@@ -47,8 +47,7 @@ module Proliferation
         nn = num(ic)
 
 
-        vx = v(1,inn(1:nn,ic))
-        vy = v(2,inn(1:nn,ic))
+        call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
 
 
         call Find_Principle_Axis(vx, vy, nn, &
@@ -123,10 +122,9 @@ module Proliferation
       do ic = 1, Nc !Lx*Ly
   
         nn = num(ic)
-  
-        vx = v(1,inn(1:nn,ic))
-        vy = v(2,inn(1:nn,ic))
-  
+
+        call Gather_Cell_Vertices_PBC(inn(1:nn,ic), nn, vx, vy)
+
         call CalculateArea(vx,vy,nn,area)
         area = abs(area)
         if(area.gt.area0) then
@@ -159,6 +157,7 @@ module Proliferation
 
       integer :: maxinn, ii, jc
       integer :: innaff_pair1(2), innaff_pair2(2)
+      real*8 :: new_x1, new_y1, new_x2, new_y2   ! PBC: wrapped local copies of x_intersection/y_intersection (intent(in), can't be mutated in place)
 
 
       integer :: othercells(num_dim), othercells_count
@@ -214,11 +213,23 @@ module Proliferation
         return
       end if
 
-      v(1, maxinn+1) = x_intersection(1)
-      v(2, maxinn+1) = y_intersection(1)
+      ! PBC (log.txt): x_intersection/y_intersection were computed (via
+      ! Find_Principle_Axis/Find_Bisector_Intersections in Do_Proliferation)
+      ! from this cell's own locally-unwrapped vertex gather, so they live
+      ! in that same local frame -- which may itself sit outside the
+      ! canonical box. Wrap back before storing into the global v array
+      ! (via local copies -- x_intersection/y_intersection are intent(in),
+      ! can't be mutated directly).
+      new_x1 = x_intersection(1); new_y1 = y_intersection(1)
+      new_x2 = x_intersection(2); new_y2 = y_intersection(2)
+      call Wrap_Position(new_x1, new_y1)
+      call Wrap_Position(new_x2, new_y2)
 
-      v(1, maxinn+2) = x_intersection(2)
-      v(2, maxinn+2) = y_intersection(2)
+      v(1, maxinn+1) = new_x1
+      v(2, maxinn+1) = new_y1
+
+      v(1, maxinn+2) = new_x2
+      v(2, maxinn+2) = new_y2
 
       !print*, 'inn(ic)', num(ic), inn(1:num(ic),ic) 
       !print*, 'inn(Nc+1)', inn(:,Nc+1) 

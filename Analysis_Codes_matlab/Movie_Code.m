@@ -2,7 +2,7 @@ clear; clc; close all;
 
 % ==================== options ====================
 nrun = 1;
-itList = (500000);              % list of Fortran timesteps to render as frames
+itList = (609000);              % list of Fortran timesteps to render as frames
 outFile = "Movie_test.avi";
 frameRate = 1;
 
@@ -10,7 +10,7 @@ frameRate = 1;
 %   'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK', 'Area',
 %   'Perimeter', 'ShapeFactor', 'NumVertices'
 % -- see ComputeCellColorData.m for what each one computes.
-colorBy = 'Area';
+colorBy = 'ShapeFactor';
 
 norm_flag = 'data';   % 'data' | '01' | 'custom'
 norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
@@ -74,7 +74,7 @@ for it = itList
     [Lx, Ly, v, inn, num, forces, biochemdata] = LoadData(it, nrun);
 
     [colordata, colorbar_string] = ComputeCellColorData( ...
-        colorBy, v, inn, num, forces, biochemdata, etas);
+        colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
 
     TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range);
 

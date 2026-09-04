@@ -1,10 +1,10 @@
-function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas)
+function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
 % COMPUTECELLCOLORDATA  Dispatch: compute a per-cell scalar field to color
 % the tissue by, given a name. Generalizes what used to be three separate,
 % nearly-identical scripts (Movie_Code.m: Force, MovieCode_halflatt.m:
 % Motility, Movie_Code_WithMyosin.m: Myosin) into one selectable option.
 %
-%   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas)
+%   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
 %
 % colorBy : one of 'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK',
 %           'Area', 'Perimeter', 'ShapeFactor', 'NumVertices'.
@@ -14,6 +14,11 @@ function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, nu
 %               if not needed.
 % etas        : per-vertex motility field (from data/motility_store.dat),
 %               or [] if not needed (only 'Motility' uses it).
+% Lx, Ly      : mesh box dimensions (from para_MeshDims.dat) -- only
+%               needed by 'Area'/'Perimeter'/'ShapeFactor' (log.txt: a
+%               periodic mesh can have a cell straddling the wrap, which
+%               needs the true box size to unwrap correctly before
+%               computing area/perimeter). Pass [] if not needed.
 
 Nc = find(num ~= 0, 1, 'last');
 
@@ -40,16 +45,16 @@ switch colorBy
         colorbar_string = 'ROCK';
 
     case 'Area'
-        colordata = perCellAreaPerimeter(v, inn, num, Nc, 'area');
+        colordata = perCellAreaPerimeter(v, inn, num, Nc, 'area', Lx, Ly);
         colorbar_string = 'Area';
 
     case 'Perimeter'
-        colordata = perCellAreaPerimeter(v, inn, num, Nc, 'perimeter');
+        colordata = perCellAreaPerimeter(v, inn, num, Nc, 'perimeter', Lx, Ly);
         colorbar_string = 'Perimeter';
 
     case 'ShapeFactor'
-        area = perCellAreaPerimeter(v, inn, num, Nc, 'area');
-        perim = perCellAreaPerimeter(v, inn, num, Nc, 'perimeter');
+        area = perCellAreaPerimeter(v, inn, num, Nc, 'area', Lx, Ly);
+        perim = perCellAreaPerimeter(v, inn, num, Nc, 'perimeter', Lx, Ly);
         colordata = perim ./ sqrt(area);
         colorbar_string = 'Shape factor (P/\surdA)';
 
@@ -75,11 +80,25 @@ end
 end
 
 
-function val = perCellAreaPerimeter(v, inn, num, Nc, which)
+function val = perCellAreaPerimeter(v, inn, num, Nc, which, Lx, Ly)
 val = zeros(Nc, 1);
 for i = 1:Nc
     vx = v(inn(i, 1:num(i)), 1);
     vy = v(inn(i, 1:num(i)), 2);
+    % PBC-aware (log.txt): a periodic mesh can have a cell whose vertex
+    % list spans the wrap -- polyarea/the perimeter sum below on the raw
+    % (wrapped) coordinates would then blow up for that cell, same root
+    % cause as TisuePlot.m's "wired" rendering bug. Unwrap every vertex
+    % after the first relative to the cell's own first vertex (minimum
+    % image against the true box size Lx,Ly) before computing area/
+    % perimeter. Harmless no-op for a non-periodic mesh (no real vertex
+    % pair within one cell is ever more than half the box apart).
+    if numel(vx) > 1
+        dx = vx(2:end) - vx(1); dx = dx - Lx .* round(dx ./ Lx);
+        vx(2:end) = vx(1) + dx;
+        dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+        vy(2:end) = vy(1) + dy;
+    end
     if strcmp(which, 'area')
         val(i) = polyarea(vx, vy);
     else

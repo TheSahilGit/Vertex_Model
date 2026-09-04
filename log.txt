@@ -1671,3 +1671,456 @@ sampled this way, all consistent. Confirmed via -fsyntax-only that the
 real repo's Proliferation.f90 (fix applied, no debug prints) still
 compiles cleanly.
 ================================================================================
+
+NEW FEATURE (in progress, Stage 1 of 3): true runtime periodic boundary
+conditions (PBC), user-requested, eventually combined with Lees-Edwards
+shear. Full scope per user: "add flag near the other boundary condition
+flags... do it carefully, that maintains T1, T2, division etc... After
+implementing PBC in the main code, we need the shearing to be maintained
+under PBC as something like Lees-Edwards BC."
+
+EXPLORATION (3 parallel agents, before writing any code): mapped every
+distance/area/perimeter/centroid computation in the codebase to find what
+would break under naive vertex wrapping, and separately confirmed neither
+Generate_Initial_Mesh.f90 nor Main.m produces a genuinely periodic mesh
+today -- both use "8 ghost copies" purely to clip boundary-cell shapes
+against something (so they aren't unbounded), never identifying/merging a
+boundary vertex with its periodic partner on the opposite edge. Confirmed
+by reading the module's own header comment ("a boundary-conditioning
+trick, not true periodic BCs") and empirically (v_in.dat's real x/y range
+already slightly exceeds Lx/Ly, and no vertex ever gets shared between a
+left-edge and right-edge cell). This is Stage 1's target: without a
+genuinely wrap-connected mesh, no amount of runtime PBC logic matters.
+
+Key relief found during exploration: SplitPolygon/UpdateNeighborPolygons
+(division) and every Rho/ROCK/Myosin/cell_identity/num/inn access in
+T2_swap.f90/Proliferation.f90 are already purely vertex/cell-ID-based, not
+coordinate-based -- confirmed via grep, zero hits for coordinate-keyed
+access. So T1/T2/division's TOPOLOGY handling needs no changes at all;
+only the GEOMETRIC primitives they call (CalculateArea/CalculatePerimeter,
+Force_Calculation's edge/gradient formulas, find_T1's short-edge check,
+T1_core's flip geometry via PerpendicularBisector2, T2_core's centroid
+collapse, Proliferation's principal-axis/bisector-intersection/split-line
+geometry, reorder_polygon, Calculate_StressTensor, Get_Cells_Within_Radius,
+Give_Motility_Hotspot) need PBC-awareness -- all via the same pattern
+(unwrap a cell's own vertex list relative to one reference vertex using
+minimum-image, do the geometry in that local unwrapped frame, re-wrap any
+newly-written position before storing back into the global v array). This
+is Stage 2 (not yet done -- see below).
+
+Also found: if_motility_gradient's Eulerian mode (mot = etas_max*exp(-y/L)
+recomputed from current position every step) is NOT periodic in y, so a
+vertex wrapping y=Ly->0 would see a discontinuous motility jump. Per user
+decision: disallow if_PBC + if_motility_gradient/if_motility_Eulerian
+together for now (read_input validation, not yet implemented -- Stage 2).
+Uniform motility, Lagrangian-mode gradient, and hotspot motility (a
+one-time assignment, like Lagrangian) are all unaffected.
+
+STAGE 1 (this entry): periodic initial mesh generation.
+
+ROOT INSIGHT: build_cell_polygon already clips each real cell against
+ghost-shifted candidates in a P-CENTERED (local) frame -- this geometry
+was already exactly correct. The ONLY missing piece: vertices get
+converted to WORLD coordinates (cellx(i)+x0(k)) before merging, and
+find_or_add_vertex only merges EXACT coincidences. A vertex shared between
+a left-edge cell and its right-edge Voronoi neighbor therefore gets built
+TWICE -- once in the left cell's own frame (landing near x=0 in world
+coords), once in the right cell's own frame using ITS ghost image of the
+left cell (landing near x=Lx, offset by exactly one lattice period, since
+ghosts sit at exactly +-Lx,+-Ly) -- and the exact-coincidence merge never
+recognizes these as the same point.
+
+FIX: new if_periodic flag, appended to para_MeshGen.dat (default .false.,
+old behavior byte-for-byte unchanged if the line is missing/false -- this
+preserves every existing free-boundary workflow, e.g. if_Fixed_boundary/
+if_bottom_borders_fixed production runs, which still need a genuine free
+edge to pin). When .true.:
+  - is_boundary jitter distinction is disabled (every cell jittered as
+    "interior" -- there's no free edge left to keep less-ragged).
+  - After the normal per-cell build loop (unchanged), a new post-pass
+    identifies periodic-image vertex duplicates: for every vertex within
+    a small margin of an edge, check all 8 exact shifts
+    (+-Lx,0),(0,+-Ly),(+-Lx,+-Ly) against every other near-edge vertex;
+    a match within eps_merge means they're the same physical point seen
+    from opposite sides of the box (or diagonally, at a corner) -- union
+    them via a union-find remap (path-compressed find_root). O(n_edge^2 * 8)
+    but n_edge is only ever O(perimeter), trivially cheap.
+  - The remap is applied to every cell's inn list before final assembly.
+  - VERIFICATION BUILT INTO THE GENERATOR ITSELF: after remapping, checks
+    that zero vertices have degree <3 (the same test Find_boundary_dynamic
+    uses at runtime to detect a free boundary) -- stops with an error
+    rather than silently shipping an incomplete periodic mesh if the
+    identification pass ever missed a pair.
+  - No changes needed to build_cell_polygon/clip_by_point/reorder_cell --
+    their geometry was already correct; only the merge step was missing
+    periodic awareness.
+
+VERIFICATION (two independent mesh configs, both if_periodic=.true.):
+- 32x32, seed=9874 (jitter 0.1): periodic identification unified 128
+  vertex pairs (608 edge candidates examined), zero free-boundary
+  vertices remained (generator's own built-in check passed). Independent
+  Python geometric/topological audit: Euler characteristic V-E+F=0 EXACTLY
+  (V=2048 live vertices, E=3072, F=1024 cells) -- the torus signature (a
+  bounded disk would give ~2); every single live vertex has degree exactly
+  3; total cell area (computed via the SAME minimum-image-unwrap-relative-
+  to-vertex-1 technique Stage 2 will use at runtime) sums to EXACTLY
+  -1024.0000 = -(Lx*Ly), i.e. the tessellation exactly tiles the periodic
+  box with zero gaps/overlaps; 0/1024 non-convex cells; all 1024 cells
+  wound consistently (uniform sign); mean 6.0 vertices/cell.
+- 18x24 (non-square), seed=777 (jitter 0.15): same full audit, same clean
+  result -- V-E+F=0 (V=864,E=1296,F=432), all degree 3, area sum exactly
+  -432.0000=-(18*24), 0/432 non-convex, all consistently wound, mean 6.0
+  vertices/cell. Confirms the fix generalizes, not a one-mesh coincidence.
+- Regression: the ORIGINAL para_MeshGen.dat (if_periodic line absent)
+  reproduces byte-identical v_in.dat/inn_in.dat/num_in.dat/
+  para_MeshDims.dat (md5sum-verified) to the currently-shipped files --
+  old behavior is completely unaffected.
+- Real repo: Generate_Initial_Mesh.f90 and the unchanged main-simulation
+  Fortran files (allocation/array_info/Geometry/T1_swap/T2_swap/
+  System_Info/Force/Stress/Proliferation/vertexmain) all -fsyntax-only
+  clean. Real repo's para_MeshGen.dat now has if_periodic=.false. appended
+  (existing production mesh files untouched -- the generator was never
+  run inside the real repo directory, only in scratch copies, per
+  standing convention).
+
+NEXT (Stage 2, not yet done): the "unwrap relative to a cell's own
+reference vertex" runtime helper, wired into every geometric primitive
+listed above, plus the new if_PBC flag in para_Simulation.dat (placed
+right after if_top_borders_fixed per its read-order position), box-length
+constants (Lx_box=Lx, Ly_box=Ly exactly -- the ghost-tiling period), and
+disabling if_Fixed_boundary/if_bottom_borders_fixed/if_top_borders_fixed/
+if_squeeze_tissue/if_limb_force when if_PBC is on (all rooted in a "free
+edge exists" assumption that's meaningless under full periodicity).
+Verification plan: scratch runs with T1/T2/division individually forced
+to trigger near a periodic edge, comparing area/energy/topology sanity
+against the same checks used here for the mesh itself. Stage 3 (Lees-
+Edwards) after Stage 2 is verified.
+================================================================================
+
+NEW FEATURE (Stage 2 of 3): true runtime PBC -- physics wiring.
+
+ARCHITECTURE: a single central pattern fixes nearly everything. Every
+place in the codebase that gathers a cell's own vertex list (the
+`vx = v(1,inn(1:nn,ic)); vy = v(2,inn(1:nn,ic))` pattern, used identically
+in Force_Calculation, find_T1, find_T2/T2_core, Find_Proliferation/
+Do_Proliferation, Calculate_StressTensor, Calculate_Energy, Solve_RhoROCK_
+Euler, compute_RHS, Give_Motility_Hotspot -- confirmed via grep, all using
+the SAME shared module-level vx,vy scratch arrays from allocation.f90) now
+calls a new Gather_Cell_Vertices_PBC(ids, nn, vx, vy) (Geometry.f90)
+instead. It gathers exactly as before, then -- only if if_PBC -- unwraps
+every vertex after the first relative to the cell's own first vertex via
+minimum-image (Unwrap_Relative), so the gathered vx,vy form one locally-
+consistent unwrapped patch regardless of whether the cell straddles a
+periodic wrap. A no-op (byte-identical to the raw gather) when if_PBC is
+false, so this single change makes CalculateArea/CalculatePerimeter/
+Force_Calculation's edge_dx-edge_dy-grad_area-grad_perimeter/find_T1's
+short-edge check/T2's area-threshold check/Calculate_StressTensor's own
+inline edge-sum/Calculate_Energy PBC-correct "for free" -- none of those
+downstream formulas needed to change at all, only the gather feeding them.
+
+New if_PBC flag (allocation.f90, para_Simulation.dat -- inserted right
+after if_top_borders_fixed per user request, mirrored in ReadPara1Params.m
+same as the if_motility_Eulerian precedent); new Lx_box/Ly_box (real*8,
+set once from Lx,Ly at the top of read_input -- the ghost-tiling period is
+exact, not approximate, so these are exact box lengths, deliberately a
+separate name from the integer lattice-count Lx,Ly used everywhere else
+for array-sizing/index-range logic).
+
+Handful of call sites needed their OWN fix beyond the shared gather,
+because they either don't fit the (cell, count) shape or write a NEW
+position back to the global v array (which must be wrapped before
+storing, since it was computed in a local unwrapped frame that may itself
+sit outside the canonical box):
+- T1_core's flip geometry (PerpendicularBisector2): unwrap the shrinking
+  edge's second endpoint relative to the first before computing the
+  midpoint/bisector; wrap the two resulting new positions before storing.
+- T2_core's centroid collapse: gather via the shared helper, average,
+  THEN wrap the result before storing into v(:,inn(1,cellNoT2)).
+- Proliferation_Core's two brand-new division vertices (x_intersection/
+  y_intersection, computed upstream in the dividing cell's own unwrapped
+  frame via Find_Principle_Axis/Find_Bisector_Intersections, which
+  automatically became PBC-correct once Do_Proliferation's gather was
+  fixed): wrap before storing (via local copies -- the dummy args are
+  intent(in), can't be mutated directly).
+- reorder_polygon (Geometry.f90): called from ArrangeVertices on an
+  arbitrary vertex-ID list (not a (cell,count) pair), so it can't route
+  through the shared helper -- given its own internal unwrap-relative-to-
+  vertex-1 before the centroid/angle-sort, and its "lowest-x" rotation-
+  anchor tie-break switched from raw v(1,inn(i)) to the local (already-
+  unwrapped, now reordered-in-sync) x(:) array, so a polygon straddling a
+  wrap doesn't get fooled into picking an inconsistent starting vertex.
+- Give_Motility_Hotspot: its cell-center average routed through the shared
+  gather; its vertex-to-hotspot-center distance given an explicit
+  minimum-image correction (not via the shared helper, since it's a
+  distance between two independent points, not a within-cell gather).
+- Get_Cells_Within_Radius (Stress.f90's stress-tensor region selection):
+  its whole purpose (restrict to an inner disk to avoid a FREE boundary's
+  edge artifacts) is moot under full periodicity -- there is no free edge,
+  every cell is equally bulk -- and "averaging cell centers into one
+  global COM" has no well-defined answer on a torus anyway (like averaging
+  angles), unlike the per-cell fixes elsewhere which only ever need a
+  LOCAL reference vertex. Simplest correct choice when if_PBC: skip the
+  restriction entirely, include every cell.
+
+VALIDATION (read_input, allocation.f90): if_PBC means periodic in both x
+and y -- no free edge exists, so flags whose entire purpose is pinning/
+detecting one are meaningless (and would silently mispin/misdetect a
+periodic mesh's genuine interior vertices). Stop with a clear error if
+if_PBC is combined with: if_Fixed_boundary / if_bottom_borders_fixed /
+if_top_borders_fixed (no edge to pin); if_squeeze_tissue (assumes a real
+bottom edge to compress against); if_limb_force (assumes real corners);
+if_motility_gradient+if_motility_Eulerian (per prior user decision --
+mot=etas_max*exp(-y/L) isn't periodic in y, so a vertex wrapping y=Ly->0
+would see a discontinuous motility jump); if_Shear_tissue (ShearTissue
+directly displaces every vertex's raw position -- not equivalent to
+genuine Lees-Edwards periodic shear, which is Stage 3, not yet built --
+running the two together now would silently produce wrong physics).
+
+Position wrapping: vertexmain.f90's main loop wraps v(1,:)/v(2,:) into
+[0,Lx_box) x [0,Ly_box) once per step (modulo), after every position-
+modifying step for that iteration has run -- a no-op when if_PBC is
+false. T1/T2/division already wrap their own individual new/moved vertex
+at the point of writing (see above); wrapping everything again here is
+idempotent and just catches the ordinary force-integration update in one
+place too.
+
+VERIFICATION:
+- Regression (if_PBC=false, the only value every existing para_
+  Simulation.dat has): a from-scratch A/B against the UNMODIFIED source,
+  identical fixed RNG seed in both (unseeded random_number in this
+  codebase -- seed controls for run-to-run RNG divergence, not a code
+  difference), same mesh/config -- byte-identical output (md5sum-verified
+  v_*.dat/inn_*.dat/num_*.dat/Energy.dat/force_*.dat) both with division
+  OFF and with division ON (exercising the Proliferation_Core local-
+  variable refactor). Confirms zero behavior change for every existing
+  run when if_PBC is off, which it always has been until now.
+- PBC stress test (if_PBC=true, mesh built with if_periodic=.true. from
+  Stage 1, if_motility uniform, if_Do_T1/if_Do_T2/if_cell_division all on,
+  area_0=0.7 to force heavy division activity): ran cleanly to it=9000
+  (512 successful divisions, Nc 1024->1536 until cell_headroom capacity),
+  zero runtime errors with -fbounds-check active. Independent Python
+  audit at 4 snapshots (it=1,3000,6000,9000): Euler characteristic
+  V-E+F=0 EXACTLY at every single snapshot (the closed-torus signature,
+  maintained through T1 exchanges, T2 removals, and 512 divisions); every
+  live vertex degree exactly 3 at every snapshot (no boundary artifact
+  ever emerges); total cell area (computed via the same minimum-image-
+  unwrap-relative-to-vertex-1 technique used at runtime) conserved to
+  EXACT machine precision -- mean-area * Nc = 0.6667*1536 = 1024.0000 =
+  Lx*Ly exactly, at every snapshot, despite Nc changing from divisions;
+  zero cells with an absurd area (>5 or <0.01) at any snapshot; and,
+  critically, 63-99 cells at every snapshot genuinely straddle the
+  periodic wrap (their raw stored vertex coordinates span more than half
+  the box) -- proof the PBC-aware code paths are being heavily exercised
+  by this test, not just passively present and untested.
+- Real repo: -fsyntax-only clean (all 10 Fortran files). Both readers
+  (Fortran read_input, MATLAB ReadPara1Params.m) verified against the
+  real para_Simulation.dat field-by-field -- if_PBC lands correctly in
+  both, and the LAST parameter in the file (polar_motility_strength)
+  still parses correctly in both, confirming no downstream field got
+  shifted by the insertion.
+
+KNOWN LIMITATIONS, left for later (not attempted now, out of the scope
+the user asked for this pass):
+- MSD in the MATLAB toolkit (AnalysisMSD.m, compute_MSD_cellID.m) reads
+  raw v_*.dat snapshots with no unwrapping -- once a vertex wraps under
+  if_PBC, these will silently underestimate its true displacement. No
+  unwrapped-position or wrap-count field is dumped anywhere yet; adding
+  one (e.g. alongside write_output's v dump) is a separate future task.
+- if_motility_gradient's Eulerian mode and if_Shear_tissue are both
+  disallowed with if_PBC for now (validated, not silently wrong) -- a
+  periodic-safe gradient formula and Lees-Edwards shear are both explicit
+  future work (the latter is Stage 3, next).
+- Squeeze_Tissue/Apply_Limb_Force/if_Fixed_boundary family are simply
+  disallowed with if_PBC, not given a periodic-aware redefinition (their
+  underlying concept -- a real free edge/corner -- doesn't exist under
+  full periodicity, so there's no periodic analogue to build here).
+
+NEXT (Stage 3, not yet done): Lees-Edwards periodic shear. Needs genuine
+new state (an accumulated shear-strain/offset scalar, persistent across
+steps, distinct from the direct-displacement ShearTissue mechanism --
+confirmed via exploration that no box-geometry/lattice-vector/strain-
+accumulator concept exists anywhere in the codebase today), consulted
+specifically when wrapping/computing minimum-image across the y-periodic
+boundary (an x-shift of strain*Ly_box, mod Lx_box, applied only at that
+wrap -- not a global per-step displacement of every vertex like today's
+ShearTissue). Every minimum-image computation added in this stage
+(Unwrap_Relative, the main-loop wrap, and the few explicit inline
+corrections) will need to become Lees-Edwards-aware in the y direction.
+================================================================================
+
+BUGS FOUND VIA USER TESTING: periodic mesh + if_PBC mismatch causes NaN;
+MATLAB rendering/analysis doesn't know about periodic meshes at all
+
+User report: turned on if_periodic (Generate_Initial_Mesh.f90) but NOT
+if_PBC (para_Simulation.dat) -- TisuePlot's it=2 render showed the tissue
+"wired" (long lines crossing the box), and the run went to NaN shortly
+after. Turning if_PBC on too (matching the mesh) fixed it.
+
+DIAGNOSIS 1 (the NaN): exactly the failure mode Stage 2's if_PBC
+validation was designed to prevent for OTHER flag combinations, but there
+was no check for THIS one -- a periodic mesh fed to non-PBC-aware physics
+(if_PBC=.false., so Gather_Cell_Vertices_PBC is a no-op) has cells that
+genuinely straddle the wrap (confirmed in Stage 1's own verification: 63
+such cells in this exact mesh) get their area/perimeter computed from raw,
+far-apart coordinates as if it were one small ordinary polygon -- a huge,
+wrong value, hence huge forces, hence NaN within a handful of steps.
+
+FIX: new sanity check in read_data (allocation.f90), right after Nc is
+computed -- counts each loaded vertex's degree (how many cells reference
+it). A mesh built with if_periodic=.true. has ZERO vertices with degree
+<3 by construction (verified by Generate_Initial_Mesh.f90 itself before
+ever writing the mesh out); a normal free-boundary mesh always has some.
+This makes the mismatch detectable from the loaded mesh alone, with no
+extra input:
+  - if_PBC=.false. but mesh has zero degree-<3 vertices (looks periodic):
+    STOP with a clear explanation, before the run wastes any steps or
+    silently NaNs.
+  - if_PBC=.true. but mesh HAS degree-<3 vertices (looks non-periodic):
+    WARNING only (not fatal -- if_Fixed_boundary is already forced off
+    under if_PBC, and no real nearby vertex pair is ever far enough apart
+    to trigger a spurious wrap, so this doesn't corrupt anything, it just
+    means if_PBC isn't doing what's likely intended with this mesh).
+
+DIAGNOSIS 2 (the "wired" plot -- a real, SEPARATE bug from the NaN,
+affecting ANY periodic mesh regardless of if_PBC): TisuePlot.m
+(Analysis_Codes_matlab/) builds its patch Faces/Vertices directly from
+the shared, raw v array with zero periodic awareness -- a cell whose
+vertex list spans the wrap (same 63-cell set as above) gets drawn as a
+straight line connecting its raw, far-apart stored coordinates instead of
+its true compact shape. This would happen even in the CORRECT (if_PBC=
+true, matching mesh) case -- it's purely a rendering gap, not a physics
+one.
+
+FIX: TisuePlot.m now builds a face-LOCAL vertex list -- each (cell,
+vertex-slot) gets its own row, positioned via the same minimum-image
+unwrap-relative-to-the-cell's-own-first-vertex technique used on the
+Fortran side (Gather_Cell_Vertices_PBC), instead of indexing directly
+into the shared v array. Harmless no-op for a non-periodic mesh (no real
+vertex pair within one cell is ever more than half the box apart).
+
+ALSO FOUND while fixing the above (same root cause, not user-reported --
+proactively checked since it's directly reachable from the same Movie_
+Code.m path): ComputeCellColorData.m's 'Area'/'Perimeter'/'ShapeFactor'
+options (perCellAreaPerimeter) call polyarea/sum a raw per-cell vertex
+gather with the identical vulnerability. Fixed the same way, needing the
+true box size (Lx,Ly, not inferable from a snapshot's own coordinate
+range -- a first attempt at that was caught and corrected before
+shipping) -- threaded as new trailing Lx,Ly parameters into
+ComputeCellColorData (only caller, Movie_Code.m, updated to pass them
+through; confirmed via grep no other caller exists).
+
+VERIFICATION:
+- All 4 combinations of {mesh periodic, mesh non-periodic} x {if_PBC
+  true, if_PBC false} tested directly: periodic+true and non-periodic+
+  false pass silently (matching config); periodic+false STOPS immediately
+  with the diagnostic message (reproducing and PREVENTING the user's
+  exact NaN scenario before it can happen); non-periodic+true prints the
+  WARNING but completes normally. All three non-stopping cases ran
+  cleanly to completion.
+- TisuePlot.m: on the periodic mesh, 63/1024 cells confirmed straddling
+  the wrap (raw coords), but after the fix the max per-face rendered
+  coordinate span across all 1024 cells is 1.3449 -- normal cell size, not
+  ~Lx=32. On the non-periodic mesh, rendered vertices match the old
+  (pre-fix) raw-v rendering to 2.22e-16 (floating-point noise) -- a true
+  no-op regression check.
+- ComputeCellColorData.m: periodic mesh 'Area' now gives min/max/mean =
+  0.8585/1.1402/1.0000 (matches Stage 1's own known initial-mesh area
+  statistics exactly) instead of blowing up for the 63 wrap-straddling
+  cells; 'ShapeFactor' gives 3.72-3.78 (physically sane, near the
+  hexagonal ideal). Non-periodic mesh gives the identical 0.8585/1.1402/
+  1.0000 -- confirmed no regression.
+
+STILL NOT FIXED (broader than what was asked/found here -- flagged, not
+attempted): any OTHER MATLAB analysis script that computes a centroid or
+distance directly from raw v (COM tracking, MSD, stress-tensor-adjacent
+scripts, etc.) has the same class of vulnerability for a periodic mesh --
+only the two paths actually exercised by this bug report (TisuePlot
+rendering, ComputeCellColorData's Area/Perimeter/ShapeFactor) were fixed.
+================================================================================
+
+BUG: compute_MSD_cellID.m array-index-out-of-bounds; separately, a
+"file not found" that turned out not to be a bug
+
+User report: MSD calculation breaks with an array-element-mismatch error;
+force calculation breaks with a file-not-found error, on the current real
+data. Neither is related to PBC -- reproduced both directly with
+RunPlotAnalysis.m against the real data/ directory.
+
+BUG 1 (real, pre-existing, unrelated to PBC) -- compute_MSD_cellID.m:58:
+`for i = 1:length(cell_identity)` -- but cell_identity is ALWAYS
+num_dim-long (LoadData.m reads the full reserved cell-array capacity,
+padding included, not just the live cells), while cmX/cmY
+(calculate_cellCentre, same file) are only Nc-long (the live cell count
+at that specific snapshot). The moment num_dim > Nc -- essentially always,
+since num_dim = Nc + cell_headroom -- this indexes cmX/cmY out of bounds.
+The reference-cohort loop a few lines above (line 43) already gets this
+right (loops to Nc0 = find(num0~=0,1,'last'), not
+length(cell_identity0)); this per-frame loop just never got the same fix.
+
+FIX: compute the current frame's own Nc the same way (find(num~=0,1,
+'last')) and loop 1:Nc instead of 1:length(cell_identity).
+
+VERIFICATION: reproduced the exact reported error first (RunPlotAnalysis
+with doMSD=true against the real data/, nrun=2, itEnd=999000 -- failed
+immediately, "Index exceeds the number of array elements... Index must
+not exceed 1239" at compute_MSD_cellID.m:62). After the fix, the same run
+progressed correctly through 94% of the requested 99 frames before
+hitting the SEPARATE issue below (not the same bug -- confirms the
+array-bounds bug itself is fully fixed).
+
+NOT A BUG -- the file-not-found ("force calculation breaks"): LoadData.m
+failed to open nrun2_inn_00940000.dat (and every other nrun2_*_00940000
+file) with "Invalid file identifier" at it=940000 -- because the nrun=2
+restart run's data on disk genuinely only extends to it=936000 (confirmed
+via ls; no vertexmain.exe process was running at the time). RunPlotAnalysis.m
+was requesting itEnd=999000, past what that run has actually produced.
+Not a code bug -- the requested range simply exceeds the available data.
+
+FIX: set itEnd=[] in RunPlotAnalysis.m (auto-detect the latest snapshot
+actually on disk -- a feature PlotAnalysis.m's own header comment already
+documents as "safe to leave empty for a still-running simulation", just
+not what was actually set). Re-ran with this change: completed cleanly to
+100% (93/93 frames), both requested panels (Energy, MSD) drawn
+successfully end to end on the real production data.
+================================================================================
+
+FOLLOW-UP: "force calculation" file-not-found against a still-running job
+-- user correction: not the race condition first suspected
+
+User report: running RunPlotAnalysis while the job was still going gave a
+file-not-found on the force file inside compute_ForceStats/LoadData.
+Initial diagnosis (before the user corrected it): FindLatestAvailableIt.m
+only checked inn_<it>.dat's existence, while write_output (allocation.f90)
+opens all six per-snapshot files together but writes them in sequence
+(inn/num/v/force/Myosin/cell_identity) -- inn's file appears on disk as
+soon as it's opened, before force is written, so a still-running job
+could in principle be caught mid-dump. A MATLAB-side fix (require all six
+files present, not just inn) was written and verified (including live,
+against the real running job's actual data -- confirmed the fix correctly
+rejects a snapshot with a faked-present inn but a genuinely missing
+force) -- but the USER THEN CLARIFIED the actual run that hit this had
+`nrun` left at 2 in their script when it should have been 1 (matching
+their currently-running nrun=1 job) -- i.e. this specific report was
+requesting a different run's data entirely, not a same-run write race.
+The FindLatestAvailableIt.m change was REVERTED per the user's explicit
+instruction (back to checking inn only) since it wasn't what caused this
+report.
+
+KEPT, independently: while investigating, found iunit_Myosin/
+iunit_cell_identity (write_output, allocation.f90) were never explicitly
+closed at all -- unlike iunit_inn/iunit_num/iunit_v/iunit_force just
+above them, which are closed every call. This is a real, independent
+latent bug regardless of the misdiagnosis above (relying on the NEXT
+write_output call's open() -- same fixed unit number, new filename -- to
+implicitly close the previous file, rather than closing it explicitly
+when its own write is actually done). Fixed: added close(iunit_Myosin)
+and close(iunit_cell_identity) alongside the other four. Real repo
+-fsyntax-only clean.
+
+Open question, NOT re-investigated: whether the original still-running
+scenario (mid-dump file ordering) is a real, reproducible risk in this
+codebase remains unconfirmed either way -- it was never actually
+triggered by the report that prompted looking into it. If it resurfaces
+with nrun set correctly, revisit FindLatestAvailableIt.m then rather than
+assuming either this session's fix or its revert settles the question.
+================================================================================

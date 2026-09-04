@@ -7,11 +7,11 @@ clear; clc; close all;
 % ==================== options ====================
 nrun = 1;
 
-itStart    = 500000;          % first Fortran timestep to include
-itEnd      = 500000 %[];         % last timestep to include; [] = auto-detect the
+itStart    = 10000;          % first Fortran timestep to include
+itEnd      = [];          % auto-detect latest available snapshot
                           % latest snapshot actually on disk (safe to leave
                           % empty for a still-running simulation)
-itInterval = 500000;     % sampling stride, in units of it -- does NOT have
+itInterval = 10000;     % sampling stride, in units of it -- does NOT have
                           % to be it_dump; use a bigger number for a
                           % faster/coarser check, smaller for more detail.
                           % Must be a multiple of it_dump (only multiples of
@@ -26,9 +26,9 @@ doPressure     = false;
 doForce        = true;
 doCircularity  = false;
 doQt           = false;
-doMSD          = false;
-doCumsumT1     = false;   % only actually plotted once the run has reached
-doCumsumT2     = false;   % it==totT -- see PlotAnalysis.m's header comment
+doMSD          = true;
+doCumsumT1     = true;   % only actually plotted once the run has reached
+doCumsumT2     = true;   % it==totT -- see PlotAnalysis.m's header comment
 
 % ---- extra parameters used by specific panels ----
 ac     = 0.8;   % Qt cage/persistence length scale

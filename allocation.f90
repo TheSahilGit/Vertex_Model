@@ -112,6 +112,31 @@ module allocation
 
       logical :: if_bottom_borders_fixed, if_top_borders_fixed
 
+      ! True runtime periodic boundary conditions (log.txt, user request).
+      ! Placed here, right after the other boundary-condition flags (its
+      ! read(112,*) counterpart is inserted right after if_top_borders_
+      ! fixed in read_input, mirrored at the same position in
+      ! para_Simulation.dat) since if_PBC is fundamentally a fourth
+      ! boundary-condition choice, mutually exclusive with the three
+      ! above -- there is no free edge left for if_Fixed_boundary/
+      ! if_bottom_borders_fixed/if_top_borders_fixed to pin once the
+      ! tissue is periodic in both x and y (enforced in read_input).
+      ! Requires a mesh built with if_periodic=.true. in
+      ! para_MeshGen.dat/Generate_Initial_Mesh.f90 (a genuinely
+      ! wrap-connected torus, not the default free-boundary mesh) --
+      ! nothing here checks that at runtime; using if_PBC with an
+      ! ordinary free-boundary mesh would silently treat its real free
+      ! edge as if it wrapped, which is wrong.
+      logical :: if_PBC
+      ! Exact periodic box lengths, set once from Lx,Ly (cast to real*8)
+      ! at the end of read_data, once Lx,Ly are known -- deliberately a
+      ! separate name from the integer lattice-count Lx,Ly (used all over
+      ! the rest of the code for index-range/array-sizing logic) to avoid
+      ! any accidental mixing of "cell count" and "physical length"
+      ! meanings. The mesh generator's ghost-copy tiling places periodic
+      ! images at exactly +-Lx,+-Ly, so this is exact, not approximate.
+      real*8 :: Lx_box, Ly_box
+
       real*8, allocatable, dimension(:,:) :: cellcen
       real*8 :: global_cellCenX, global_cellCenY
 
@@ -188,6 +213,13 @@ module allocation
      read(121,*) inn_dim1
      read(121,*) inn_dim2
 
+     ! Exact periodic box lengths -- see the Lx_box/Ly_box declaration
+     ! comment. Computed here (Lx,Ly are already known) rather than at the
+     ! end of read_input, so it's available regardless of where if_PBC
+     ! itself is later validated.
+     Lx_box = dble(Lx)
+     Ly_box = dble(Ly)
+
      read(112,*) nrun
      read(112,*) nrun2_initialTime_r
      read(112,*) Ao
@@ -205,6 +237,21 @@ module allocation
      read(112,*) if_Fixed_boundary
      read(112,*) if_bottom_borders_fixed
      read(112,*) if_top_borders_fixed
+     read(112,*) if_PBC
+
+     ! Validation (log.txt): if_PBC means the tissue is periodic in both x
+     ! and y -- there is no free edge left, so a flag that means "pin/
+     ! detect a free edge" is meaningless (and, worse, would silently
+     ! mispin/misdetect on a periodic mesh's genuine interior vertices).
+     ! Stop rather than run with an ambiguous/contradictory configuration.
+     if (if_PBC) then
+       if (if_Fixed_boundary .or. if_bottom_borders_fixed .or. if_top_borders_fixed) then
+         write(*,*) 'read_input: if_PBC is incompatible with if_Fixed_boundary/', &
+           'if_bottom_borders_fixed/if_top_borders_fixed (no free edge exists under PBC).'
+         stop 1
+       end if
+     end if
+
      read(112,*) it_dump
      read(112,*) T1_time_interval
      read(112,*) T2_time_interval
@@ -304,6 +351,42 @@ module allocation
      summary_dump_interval = max(it_dump, it_dump * nint(dble(totT) / dble(it_dump * 200)))
 
      pi = acos(-1.0d0)
+
+     ! Further if_PBC validation (log.txt) -- these flags are read later in
+     ! this same subroutine than if_Fixed_boundary/if_bottom_borders_fixed/
+     ! if_top_borders_fixed above, so they're checked here instead:
+     !  - if_squeeze_tissue/if_limb_force both assume a bounded domain with
+     !    a real bottom edge / real corners to act on -- meaningless under
+     !    full periodicity (no edge, no corners).
+     !  - if_motility_gradient's Eulerian mode (if_motility_Eulerian)
+     !    recomputes mot = etas_max*exp(-y/(mot_Lc*Ly)) from each vertex's
+     !    CURRENT y every step -- not periodic in y, so a vertex wrapping
+     !    y=Ly->0 would see a discontinuous motility jump. Disallowed for
+     !    now per explicit user decision; a periodic-safe gradient formula
+     !    is a separate future feature, not attempted here.
+     if (if_PBC) then
+       if (if_squeeze_tissue) then
+         write(*,*) 'read_input: if_PBC is incompatible with if_squeeze_tissue', &
+           ' (assumes a real bottom edge to compress against).'
+         stop 1
+       end if
+       if (if_limb_force) then
+         write(*,*) 'read_input: if_PBC is incompatible with if_limb_force', &
+           ' (assumes real tissue corners to push outward from).'
+         stop 1
+       end if
+       if (if_motility_gradient .and. if_motility_Eulerian) then
+         write(*,*) 'read_input: if_PBC with if_motility_gradient+if_motility_Eulerian', &
+           ' is not supported yet (the gradient formula is not periodic in y).'
+         stop 1
+       end if
+       if (if_Shear_tissue) then
+         write(*,*) 'read_input: if_PBC with if_Shear_tissue is not supported yet -- ', &
+           'ShearTissue directly displaces every vertex, which is not equivalent to ', &
+           'genuine Lees-Edwards periodic shear (a separate, not-yet-implemented feature).'
+         stop 1
+       end if
+     end if
 
      close(121)
      close(112)
@@ -501,6 +584,63 @@ module allocation
      ! value for nrun=2.
      Nc = count(num /= 0)
 
+     ! PBC sanity check (log.txt -- confirmed live by the user hitting
+     ! exactly this): a mesh built with if_periodic=.true.
+     ! (Generate_Initial_Mesh.f90) has every vertex touched by exactly 3
+     ! cells -- zero free-boundary (degree <3) vertices, by construction
+     ! (the same invariant that generator itself verifies before ever
+     ! writing the mesh out). Running such a mesh with if_PBC=.false. feeds
+     ! cells that genuinely straddle the periodic wrap into non-wrap-aware
+     ! geometry (CalculateArea/Force_Calculation/etc treat their raw,
+     ! far-apart stored coordinates as one ordinary polygon) -- this
+     ! reliably corrupts area/perimeter for those cells into huge, wrong
+     ! values, blowing up forces into NaN within a handful of steps.
+     ! Detect the mismatch here, before the run starts, instead of letting
+     ! it silently NaN partway through.
+     block
+       integer, allocatable :: deg_check(:)
+       integer :: kk, ll
+       logical :: mesh_looks_periodic
+
+       allocate(deg_check(v_dim2))
+       deg_check = 0
+       do kk = 1, Nc
+         do ll = 1, num(kk)
+           deg_check(inn(ll,kk)) = deg_check(inn(ll,kk)) + 1
+         end do
+       end do
+
+       mesh_looks_periodic = .true.
+       do kk = 1, v_dim2
+         if (deg_check(kk) > 0 .and. deg_check(kk) < 3) then
+           mesh_looks_periodic = .false.
+           exit
+         end if
+       end do
+       deallocate(deg_check)
+
+       if ((.not. if_PBC) .and. mesh_looks_periodic) then
+         write(*,*) 'read_data: STOPPING -- this mesh has ZERO free-boundary vertices', &
+           ' (every vertex has degree exactly 3) -- it looks like a periodic mesh', &
+           ' (if_periodic=.true. in Generate_Initial_Mesh.f90) but if_PBC is .false. in', &
+           ' para_Simulation.dat. Running non-PBC-aware physics on a wrap-connected mesh', &
+           ' corrupts area/perimeter for any cell straddling the wrap and reliably blows', &
+           ' up into NaN within a few steps. Set if_PBC=.true. to match this mesh, or', &
+           ' generate a non-periodic mesh (if_periodic=.false.) to match if_PBC=.false.'
+         stop 1
+       end if
+
+       if (if_PBC .and. (.not. mesh_looks_periodic)) then
+         write(*,*) 'read_data: WARNING -- if_PBC is .true. but this mesh has free-boundary', &
+           ' (degree < 3) vertices -- it does not look like a mesh built with', &
+           ' if_periodic=.true. in Generate_Initial_Mesh.f90. This is not immediately', &
+           ' dangerous (if_Fixed_boundary is already forced off under if_PBC, and no real', &
+           ' vertex pair is far enough apart to trigger a spurious wrap), but the tissue''s', &
+           ' true free edge is now just an ordinary unpinned edge, not a periodic one --', &
+           ' if_PBC is not doing what you likely intend with this mesh.'
+       end if
+     end block
+
     end subroutine read_data
 
     subroutine write_output
@@ -624,6 +764,17 @@ module allocation
        close(iunit_num)
        close(iunit_v)
        close(iunit_force)
+       ! BUGFIX (log.txt): these two were never closed at all -- unlike
+       ! inn/num/v/force just above, iunit_Myosin/iunit_cell_identity were
+       ! left open after every single write_output call, relying on the
+       ! NEXT call's open() (same fixed unit number, new filename) to
+       ! implicitly close them. That leaves each snapshot's Myosin/
+       ! cell_identity file in a not-yet-finalized state for up to a full
+       ! it_dump interval (until the next dump event reopens the unit) --
+       ! a real, independent bug from the read-side race this was found
+       ! alongside (see that entry for the MATLAB-side half of the fix).
+       close(iunit_Myosin)
+       close(iunit_cell_identity)
 
     end subroutine write_output
 

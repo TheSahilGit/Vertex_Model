@@ -53,9 +53,18 @@ for k = 1:n
     [~, ~, v, inn, num, ~, ~, cell_identity] = LoadData(it, nrun);
     [cmX, cmY] = calculate_cellCentre(v, inn, num);
 
+    % BUGFIX (log.txt): cell_identity is always num_dim-long (LoadData.m
+    % reads the full reserved capacity, not just the live cells), but
+    % cmX/cmY (calculate_cellCentre, below) are only Nc-long -- looping to
+    % length(cell_identity) indexes cmX/cmY out of bounds the moment
+    % num_dim > Nc (i.e. essentially always, since num_dim = Nc +
+    % headroom). The reference-cohort loop above already gets this right
+    % (loops to Nc0, not length(cell_identity0)); this loop just needs the
+    % same fix for the current frame's own Nc.
+    Nc = find(num ~= 0, 1, 'last');
     msd_sum = 0;
     count = 0;
-    for i = 1:length(cell_identity)
+    for i = 1:Nc
         key = cell_identity(i);
         if isKey(initPos, key)
             r0 = initPos(key);
