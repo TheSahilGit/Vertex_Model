@@ -31,7 +31,7 @@ A 2D vertex model of epithelial/confluent tissue mechanics, written in Fortran, 
 | `Generate_Initial_Mesh.f90` | Standalone Fortran initial-mesh generator (jittered hexagonal lattice + Voronoi tessellation) — a dependency-free alternative to `Main.m`. |
 | `Main.m` | MATLAB initial-mesh generator (original method; still works, kept as reference/fallback). |
 | `compile.sh` | Builds `vertexmain.exe` (and optionally `generate_initial_mesh.exe`). |
-| `para_Simulation.dat` | Main simulation parameters (physics, feature flags, timestepping). |
+| `para_Simulation.dat` | Main simulation parameters (physics, feature flags, timestepping). Inline comments are kept short; see [`PARAMETERS.md`](PARAMETERS.md) for anything that needs more explanation. |
 | `para_MeshDims.dat` | Mesh/array dimensioning (`Lx`, `Ly`, array capacities). |
 | `para_MeshGen.dat` | Parameters for `Generate_Initial_Mesh.f90`. |
 | `v_in.dat`, `inn_in.dat`, `num_in.dat` | Initial mesh state (vertex positions, cell-vertex connectivity, vertices-per-cell). |
@@ -58,7 +58,7 @@ Produces `vertexmain.exe`. `Generate_Initial_Mesh.f90`'s build line is commented
 1. **Generate an initial mesh** (skip this if `v_in.dat`/`inn_in.dat`/`num_in.dat` already exist and you're restarting or reusing a mesh):
    - Fortran: edit `para_MeshGen.dat`, then build and run `generate_initial_mesh.exe`.
    - MATLAB: run `Main.m` (uses `voronoin`; slower, kept as the original/reference method).
-2. **Set parameters** in `para_Simulation.dat` — physics constants, feature flags (motility, division, shear, ...), `totT`/`dt`/`it_dump`. Note this file is read **positionally** (plain sequential `read()` in `allocation.f90::read_input`) — if you add a parameter, insert the corresponding line at the exact matching position, and update `Analysis_Codes_matlab/ReadPara1Params.m`'s `names` list to match.
+2. **Set parameters** in `para_Simulation.dat` — physics constants, feature flags (motility, division, shear, ...), `totT`/`dt`/`it_dump`. Inline comments are intentionally short; see [`PARAMETERS.md`](PARAMETERS.md) for flags whose behavior needs more explanation than a one-liner. Note this file is read **positionally** (plain sequential `read()` in `allocation.f90::read_input`) — if you add a parameter, insert the corresponding line at the exact matching position, and update `Analysis_Codes_matlab/ReadPara1Params.m`'s `names` list to match.
 3. **Run**:
    ```sh
    ./vertexmain.exe

@@ -15,13 +15,13 @@
 .false.          ! if_Fixed_boundary
 .false.          ! if_bottom_borders_fixed
 .false.          ! if_top_borders_fixed
-.true.          ! if_PBC (true = periodic in both x and y; requires a mesh built with if_periodic=.true. in para_MeshGen.dat; mutually exclusive with if_Fixed_boundary/if_bottom_borders_fixed/if_top_borders_fixed/if_squeeze_tissue/if_limb_force/if_Shear_tissue and with if_motility_gradient+if_motility_Eulerian -- see allocation.f90 read_input)
+.true.          ! if_PBC (periodic BCs -- see PARAMETERS.md)
 1000             ! it_dump (unit of it)
 1                ! T1_time_interval  (unit of it)
 1                ! T2_time_interval (unit of it)
 .true.           ! if_motility (Apolar_cell_motility)
 .false.          ! if_motility_gradient ! If false takes 'etas_max' to be uniform motility.
-.false.          ! if_motility_Eulerian ! If true, motility gradient is recomputed from CURRENT vertex position every step (Eulerian/spatial field, stays anchored to location). If false, motility is assigned once at it=1 and carried by each vertex thereafter (Lagrangian/tag, can drift/mix over time). Only matters if if_motility_gradient is .true.
+.false.          ! if_motility_Eulerian (Eulerian vs Lagrangian gradient -- see PARAMETERS.md)
 0.03d0            ! etas_max ! (Apolar_motility_strength)
 0.0              ! etas_min ! (motility)
 0.5              ! mot_Lc   !(motility gradient length scale/Ly)
@@ -77,3 +77,12 @@
 1.0d0               ! coupling_noise_strength
 .false.              ! if_polar_motility
 0.4d0               ! polar_motility_strength
+
+! -----------------------------------------------------------------------
+! Everything above this line is read positionally by allocation.f90's
+! read_input -- do not add/remove/reorder lines above without updating
+! that subroutine (and ReadPara1Params.m's matching `names` list) at the
+! exact same position. Comments here are deliberately short; parameters
+! whose behavior needs real explanation (if_PBC, if_motility_Eulerian,
+! ...) are documented in PARAMETERS.md instead, to keep this file quick
+! to scan. Nothing below this line is ever read.
