@@ -39,6 +39,16 @@ function PlotAnalysis(varargin)
 %   doQt             (false)  self-overlap order parameter Q(t)
 %   doMSD            (false)  mean-squared displacement, tracked by
 %                             cell_identity (robust to T2 cell removal)
+%   doShapeMetrics   (false)  mean tissue area, perimeter, and shape factor
+%                             (P/sqrt(A)) vs. time, one panel, three lines
+%                             -- see compute_ShapeMetrics.m. Shape factor
+%                             is the mean of each cell's OWN P/sqrt(A), not
+%                             perimeter-of-means/sqrt(area-of-means) (the
+%                             standard jamming-literature convention).
+%   doBiochem        (false)  mean tissue Rho, ROCK, and Myosin vs. time,
+%                             one panel, three lines (if_RhoROCK/
+%                             if_active_contractility -- see
+%                             compute_BiochemMeans.m).
 %   doCumsumT1       (false)  cumulative T1 count -- ONLY plotted once the
 %                             run has reached it==totT (see below); a
 %                             partial cumulative count mid-run would be
@@ -115,6 +125,8 @@ addParameter(p, 'doForce', false);
 addParameter(p, 'doCircularity', false);
 addParameter(p, 'doQt', false);
 addParameter(p, 'doMSD', false);
+addParameter(p, 'doShapeMetrics', false);
+addParameter(p, 'doBiochem', false);
 addParameter(p, 'doCumsumT1', false);
 addParameter(p, 'doCumsumT2', false);
 addParameter(p, 'ac', 1.0);
@@ -189,6 +201,14 @@ end
 if opt.doMSD
     requested{end+1} = reqPanel('MSD', 'MSD (cell-ID tracked)', @() computeMSD(itList, opt), ...
         @plotMSDAx, false, '');
+end
+if opt.doShapeMetrics
+    requested{end+1} = reqPanel('ShapeMetrics', 'Area / Perimeter / Shape factor vs. time', ...
+        @() computeShapeMetrics(itList, opt), @plotShapeMetricsAx, false, '');
+end
+if opt.doBiochem
+    requested{end+1} = reqPanel('Biochem', 'Rho / ROCK / Myosin vs. time', ...
+        @() computeBiochem(itList, opt), @plotBiochemAx, false, '');
 end
 if opt.doCumsumT1
     requested{end+1} = reqPanel('CumsumT1', 'Cumulative T1 count', @() computeCumsum('T1', opt.nrun), ...
@@ -306,6 +326,18 @@ progressFcn = makeProgressPrinter('MSD');
 [time, MSD] = compute_MSD_cellID(itList, opt.nrun, progressFcn);
 end
 
+function [time, y] = computeShapeMetrics(itList, opt)
+progressFcn = makeProgressPrinter('Shape metrics');
+[time, meanArea, meanPerimeter, meanShapeFactor] = compute_ShapeMetrics(itList, opt.nrun, progressFcn);
+y = [meanArea(:), meanPerimeter(:), meanShapeFactor(:)];   % columns: area, perimeter, shape factor -- see plotShapeMetricsAx
+end
+
+function [time, y] = computeBiochem(itList, opt)
+progressFcn = makeProgressPrinter('Rho/ROCK/Myosin');
+[time, meanRho, meanROCK, meanMyosin] = compute_BiochemMeans(itList, opt.nrun, progressFcn);
+y = [meanRho(:), meanROCK(:), meanMyosin(:)];   % columns: Rho, ROCK, Myosin -- see plotBiochemAx
+end
+
 function [time, y] = computeCumsum(which, nrun)
 [time, ~, ~, ~, ~, cumsum_T1, cumsum_T2] = LoadGlobalTimeSeries(nrun);
 if strcmp(which, 'T1')
@@ -357,6 +389,29 @@ semilogy(ax, time, y(:,2), '--', 'LineWidth', style.lineWidth, ...
     'DisplayName', 'mean');
 hold(ax, 'off');
 xlabel(ax, 'Time'); ylabel(ax, 'Force magnitude');
+legend(ax, 'Location', 'best');
+end
+
+function plotShapeMetricsAx(ax, time, y, style)
+% y is [meanArea, meanPerimeter, meanShapeFactor] (see computeShapeMetrics)
+% -- three lines, one panel, same convention as plotForceAx's max/mean.
+plot(ax, time, y(:,1), '-', 'LineWidth', style.lineWidth, 'DisplayName', 'Area');
+hold(ax, 'on');
+plot(ax, time, y(:,2), '--', 'LineWidth', style.lineWidth, 'DisplayName', 'Perimeter');
+plot(ax, time, y(:,3), ':', 'LineWidth', style.lineWidth, 'DisplayName', 'Shape factor');
+hold(ax, 'off');
+xlabel(ax, 'Time'); ylabel(ax, 'Area / Perimeter / Shape factor');
+legend(ax, 'Location', 'best');
+end
+
+function plotBiochemAx(ax, time, y, style)
+% y is [meanRho, meanROCK, meanMyosin] (see computeBiochem).
+plot(ax, time, y(:,1), '-', 'LineWidth', style.lineWidth, 'DisplayName', 'Rho');
+hold(ax, 'on');
+plot(ax, time, y(:,2), '--', 'LineWidth', style.lineWidth, 'DisplayName', 'ROCK');
+plot(ax, time, y(:,3), ':', 'LineWidth', style.lineWidth, 'DisplayName', 'Myosin');
+hold(ax, 'off');
+xlabel(ax, 'Time'); ylabel(ax, 'Rho / ROCK / Myosin');
 legend(ax, 'Location', 'best');
 end
 

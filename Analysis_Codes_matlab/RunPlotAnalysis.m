@@ -5,13 +5,13 @@ clear; clc; close all;
 % Movie_Code.m uses for its own "options" block.
 
 % ==================== options ====================
-nrun = 1;
+nrun = 2;
 
-itStart    = 10000;          % first Fortran timestep to include
+itStart    = 1000;          % first Fortran timestep to include
 itEnd      = [];          % auto-detect latest available snapshot
                           % latest snapshot actually on disk (safe to leave
                           % empty for a still-running simulation)
-itInterval = 10000;     % sampling stride, in units of it -- does NOT have
+itInterval = 1000;     % sampling stride, in units of it -- does NOT have
                           % to be it_dump; use a bigger number for a
                           % faster/coarser check, smaller for more detail.
                           % Must be a multiple of it_dump (only multiples of
@@ -20,13 +20,15 @@ itInterval = 10000;     % sampling stride, in units of it -- does NOT have
                           % automatically, with a warning.
 
 % ---- which panels to draw ----
-doEnergy       = true;
+doEnergy       = false;
 doShearStress  = false;
 doPressure     = false;
-doForce        = true;
+doForce        = false;
 doCircularity  = false;
 doQt           = false;
-doMSD          = true;
+doMSD          = false;
+doShapeMetrics = false;  % mean Area/Perimeter/Shape factor, one panel
+doBiochem      = true;  % mean Rho/ROCK/Myosin, one panel
 doCumsumT1     = true;   % only actually plotted once the run has reached
 doCumsumT2     = true;   % it==totT -- see PlotAnalysis.m's header comment
 
@@ -52,6 +54,7 @@ showTitles = false;   % set false to draw every panel without its title
 PlotAnalysis('nrun', nrun, 'itStart', itStart, 'itEnd', itEnd, 'itInterval', itInterval, ...
     'doEnergy', doEnergy, 'doShearStress', doShearStress, 'doPressure', doPressure, ...
     'doForce', doForce, 'doCircularity', doCircularity, 'doQt', doQt, 'doMSD', doMSD, ...
+    'doShapeMetrics', doShapeMetrics, 'doBiochem', doBiochem, ...
     'doCumsumT1', doCumsumT1, 'doCumsumT2', doCumsumT2, ...
     'ac', ac, 'radius', radius, ...
     'onlyPlot', onlyPlot, 'cacheFile', cacheFile, 'showTitles', showTitles, ...
