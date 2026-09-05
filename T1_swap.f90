@@ -369,6 +369,16 @@ module T1_swap
       integer :: il, im
       logical :: affected_computed
 
+      ! Event-log locals (log.txt: T1/T2 spatial/cell-identity tracking, for
+      ! Movie_Code.m to later overlay). Only used right before T1_core, once
+      ! T1_pass has survived every rejection check above. ev_ids holds the
+      ! numeric suffix of each affected cell's persistent cell_identity
+      ! (CellIdNum, allocation.f90), not the string itself -- see
+      ! Open_Event_Logs' comment for why.
+      real*8 :: ev_x1, ev_y1, ev_x2, ev_y2, ev_mx, ev_my
+      real*8 :: ev_ids(4)
+      integer :: ev_ik
+
       T1_pass = .true.
       affected_computed = .false.
 
@@ -463,6 +473,27 @@ module T1_swap
           end do
 
           if (T1_pass) then
+            ! Event log (log.txt): capture the flipping edge's midpoint and
+            ! the (up to 4) affected cells' PERSISTENT identities *before*
+            ! T1_core overwrites the edge's vertex positions in place --
+            ! afterward, v(:,inn(verNoT1/verNoNextT1,cellNoT1)) holds the
+            ! POST-flip positions, not the event location. PBC-unwrapped
+            ! (Unwrap_Relative/Wrap_Position), same convention as every
+            ! other geometric routine in this codebase.
+            ev_x1 = v(1, inn(verNoT1,     cellNoT1)); ev_y1 = v(2, inn(verNoT1,     cellNoT1))
+            ev_x2 = v(1, inn(verNoNextT1, cellNoT1)); ev_y2 = v(2, inn(verNoNextT1, cellNoT1))
+            call Unwrap_Relative(ev_x1, ev_y1, ev_x2, ev_y2)
+            ev_mx = 0.5d0 * (ev_x1 + ev_x2)
+            ev_my = 0.5d0 * (ev_y1 + ev_y2)
+            call Wrap_Position(ev_mx, ev_my)
+
+            ev_ids = 0.0d0
+            do ev_ik = 1, min(4, size(Affected))
+              ev_ids(ev_ik) = CellIdNum(cell_identity(Affected(ev_ik)))
+            end do
+            write(iunit_T1events) dble(it), ev_mx, ev_my, &
+              ev_ids(1), ev_ids(2), ev_ids(3), ev_ids(4)
+
             call T1_core
            ! print*, "T1 Happened at it = ", it
             Total_T1_count(it) = Total_T1_count(it) + 1

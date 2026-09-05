@@ -22,6 +22,7 @@ program vertexmain
   call read_input
   call allocate_arrays
   call read_data   ! Initialization
+  call Open_Event_Logs   ! T1/T2 spatial/cell-identity event log (log.txt)
 
 
 
@@ -267,7 +268,7 @@ program vertexmain
 
   end do ! ends it
 
-
+  call Close_Event_Logs
 
 !  write(*,*)"Total T1 count", Total_T1_count
 !  write(*,*)"Total T2 count", Total_T2_count

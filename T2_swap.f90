@@ -87,9 +87,16 @@ module T2_swap
 
     end subroutine find_T2_Affected
 
-    subroutine T2_core
+    subroutine T2_core(VcmX_out, VcmY_out)
 
       implicit none
+
+      ! Event log (log.txt): expose the extruded cell's centroid to Do_T2 --
+      ! VcmX/VcmY below are local to this subroutine and get overwritten in
+      ! place into v(:,inn(1,cellNoT2)), whose OWN cell column is itself
+      ! shifted/reused by the in-place array shift further down, so Do_T2
+      ! cannot recover this location any other way once T2_core returns.
+      real*8, intent(out) :: VcmX_out, VcmY_out
 
       integer :: ik, il, im
 
@@ -110,6 +117,8 @@ module T2_swap
       ! may itself sit outside the canonical box -- wrap back before
       ! storing so v(:, inn(1,cellNoT2)) stays a canonical position.
       call Wrap_Position(VcmX, VcmY)
+      VcmX_out = VcmX
+      VcmY_out = VcmY
 
       ! Replacing 1st vertex of cellNoT2 with the COM,
       ! and will update this and delete rest.
@@ -214,6 +223,12 @@ module T2_swap
      integer :: im, il
      logical :: affected_computed
 
+     ! Event-log locals (log.txt: see Do_T1's matching comment -- numeric
+     ! cell_identity suffixes via CellIdNum, not the strings themselves).
+     real*8 :: ev_extruded_id, ev_nbr_ids(6)
+     integer :: ev_ik
+     real*8 :: ev_x, ev_y
+
      T2_pass = .true.
      affected_computed = .false.
 
@@ -302,7 +317,30 @@ module T2_swap
        end do
 
        if (T2_pass) then
-         call T2_core
+         ! Event log (log.txt): capture the extruded cell's own PERSISTENT
+         ! identity and its neighbors' identities *before* calling T2_core --
+         ! afterward, cell_identity(cellNoT2:Nc-1) has already been
+         ! shifted down by one (T2_core's in-place removal), so cellNoT2's
+         ! slot no longer holds the extruded cell's own identity, and any
+         ! neighbor with index > cellNoT2 has shifted too.
+         ev_extruded_id = CellIdNum(cell_identity(cellNoT2))
+         ev_nbr_ids = 0.0d0
+         ev_ik = 0
+         do il = 1, size(Affected_T2)
+           ! Occurrences_T2==3 marks the extruded cell itself (see T2_core's
+           ! own comment above) -- everything else is a real neighbor.
+           if (Affected_T2(il) /= cellNoT2) then
+             ev_ik = ev_ik + 1
+             if (ev_ik <= 6) ev_nbr_ids(ev_ik) = CellIdNum(cell_identity(Affected_T2(il)))
+           end if
+         end do
+
+         call T2_core(ev_x, ev_y)
+
+         write(iunit_T2events) dble(it), ev_x, ev_y, ev_extruded_id, &
+           ev_nbr_ids(1), ev_nbr_ids(2), ev_nbr_ids(3), ev_nbr_ids(4), &
+           ev_nbr_ids(5), ev_nbr_ids(6)
+
          Nc = Nc - 1
          Total_T2_count(it) = Total_T2_count(it) + 1
          print*, 'T2_happened, Nc = ', Nc

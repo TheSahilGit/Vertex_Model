@@ -63,6 +63,11 @@ module allocation
       character(100) :: fname_Myosin, fname_cell_identity
       character(100) :: fname_inn2, fname_num2, fname_v2
       integer*4 :: iunit_inn, iunit_num, iunit_v
+      ! T1/T2 event log (log.txt: spatial/cell-identity tracking for
+      ! Movie_Code.m). Opened once (Open_Event_Logs) before the main loop,
+      ! written to incrementally (one line per actual event, from Do_T1/
+      ! Do_T2), closed once (Close_Event_Logs) after it.
+      integer, parameter :: iunit_T1events = 941, iunit_T2events = 942
 
       integer*4 :: it_dump, T1_time_interval, T2_time_interval
       integer*4 :: summary_dump_interval
@@ -642,6 +647,67 @@ module allocation
      end block
 
     end subroutine read_data
+
+    subroutine Open_Event_Logs
+      ! T1/T2 event log (log.txt): opened ONCE before the main it-loop
+      ! (unlike write_output's snapshot files, which are reopened every
+      ! dump) -- events are sparse and irregular, so they're appended to
+      ! these two long-lived file handles as they happen, closed once at
+      ! the very end (Close_Event_Logs). Same nrun2_ prefix convention as
+      ! every other output file: a restart run's log never overwrites the
+      ! original run's.
+      implicit none
+      character(100) :: fname_T1events, fname_T2events
+
+      if (nrun.eq.1) then
+        fname_T1events = 'data/T1_events.dat'
+        fname_T2events = 'data/T2_events.dat'
+      else
+        fname_T1events = 'data/nrun2_T1_events.dat'
+        fname_T2events = 'data/nrun2_T2_events.dat'
+      end if
+
+      ! BINARY (log.txt): one Fortran unformatted record per event (each
+      ! WRITE statement on Do_T1/Do_T2's already-open unit produces its own
+      ! fixed-size record, leading/trailing 4-byte length markers included
+      ! -- the same convention every other output file in this codebase
+      ! uses, just one small record per event instead of one big record for
+      ! the whole run). All-real*8, matching this codebase's own habit of
+      ! using real*8 even for integer-valued quantities (e.g.
+      ! Total_T1_count) -- avoids ever mixing types within one unformatted
+      ! record. Cell identities are stored as the numeric suffix of their
+      ! 'cell_<N>' string (see CellIdNum below), 0.0d0 for 'cell_0'/no-cell
+      ! padding -- matching this codebase's existing "0 means empty" idiom
+      ! (e.g. num(i)==0). Roughly half the size of an equivalent formatted
+      ! (ASCII) log, and keeps the same "readable while still running"
+      ! property every other incrementally-written file here has.
+      open(unit=iunit_T1events, file=fname_T1events, form='unformatted', status='replace')
+      open(unit=iunit_T2events, file=fname_T2events, form='unformatted', status='replace')
+
+    end subroutine Open_Event_Logs
+
+    function CellIdNum(id_str) result(num_out)
+      ! T1/T2 event log (log.txt): cell_identity is always exactly
+      ! 'cell_'//<integer> (allocation.f90's read_data, T2_core's 'cell_0'
+      ! placeholder) -- extract that integer directly rather than storing
+      ! the whole padded string, for the compact binary event log above.
+      implicit none
+      character(len=*), intent(in) :: id_str
+      real*8 :: num_out
+      integer :: n, ios
+      read(id_str(6:), *, iostat=ios) n
+      if (ios /= 0) then
+        num_out = 0.0d0
+      else
+        num_out = dble(n)
+      end if
+    end function CellIdNum
+
+    subroutine Close_Event_Logs
+      implicit none
+      close(iunit_T1events)
+      close(iunit_T2events)
+    end subroutine Close_Event_Logs
 
     subroutine write_output
 
