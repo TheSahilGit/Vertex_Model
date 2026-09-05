@@ -8,8 +8,11 @@ frameRate = 1;
 
 % Which per-cell field to color the tissue by. One of:
 %   'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK', 'Area',
-%   'Perimeter', 'ShapeFactor', 'NumVertices'
-% -- see ComputeCellColorData.m for what each one computes.
+%   'Perimeter', 'ShapeFactor', 'NumVertices', 'Pressure', 'ShearStress',
+%   'FTLE'
+% -- see ComputeCellColorData.m for what each one computes, except 'FTLE'
+% which is handled separately below (see ftle_lookahead) since it's
+% inherently a two-snapshot quantity, not a single-frame field.
 colorBy = 'ShapeFactor';
 
 norm_flag = 'data';   % 'data' | '01' | 'custom'
@@ -21,6 +24,15 @@ show_T1T2_events = false;   % overlay recent event markers + highlight the cells
 t1t2_fade_window = 10000;   % "recent" = within this many `it` units of the frame being
                            % drawn; markers fade linearly to invisible over this window,
                            % cell highlights are on/off (not faded) within it, for speed.
+
+% ---- FTLE (colorBy = 'FTLE' only; log.txt, see compute_FTLE.m) ----
+% Each frame at time `it` shows the spatial FTLE field computed forward
+% to `it + ftle_lookahead` -- i.e. this many `it` units of "look-ahead"
+% per frame, not a fixed reference time. Needs a real, non-tiny gap
+% (comparable to how long it takes cells to actually rearrange) to be
+% meaningful -- too small and every cell's local neighborhood is still
+% near-identical, giving a near-uniform, uninformative field.
+ftle_lookahead = 5000;
 % ===================================================
 
 para2 = load("../para_MeshDims.dat");
@@ -90,8 +102,17 @@ for it = itList
 
     [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity] = LoadData(it, nrun);
 
-    [colordata, colorbar_string] = ComputeCellColorData( ...
-        colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
+    if strcmp(colorBy, 'FTLE')
+        % Two-snapshot quantity -- bypasses ComputeCellColorData.m's
+        % single-frame dispatch entirely; reuses this frame's
+        % already-loaded v/inn/num/cell_identity as the reference
+        % snapshot instead of having compute_FTLE.m reload it.
+        colordata = compute_FTLE(it, it + ftle_lookahead, nrun, v, inn, num, cell_identity);
+        colorbar_string = sprintf('FTLE (look-ahead %d)', ftle_lookahead);
+    else
+        [colordata, colorbar_string] = ComputeCellColorData( ...
+            colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
+    end
 
     TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range);
 

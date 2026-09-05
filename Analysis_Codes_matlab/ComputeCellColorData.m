@@ -7,7 +7,8 @@ function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, nu
 %   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
 %
 % colorBy : one of 'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK',
-%           'Area', 'Perimeter', 'ShapeFactor', 'NumVertices'.
+%           'Area', 'Perimeter', 'ShapeFactor', 'NumVertices', 'Pressure',
+%           'ShearStress'.
 % forces      : vdim2 x 8 array from LoadData (fxx,fyy,fxx_ran,fyy_ran,
 %               fxx_ABP,fyy_ABP,fxx_Polar,fyy_Polar), or [] if not needed.
 % biochemdata : numdim x 3 array from LoadData (Rho, ROCK, Myosin), or []
@@ -62,10 +63,23 @@ switch colorBy
         colordata = double(num(1:Nc));
         colorbar_string = 'Number of vertices';
 
+    case 'Pressure'
+        % Per-cell virial stress (log.txt, compute_CellStress.m) -- NOT
+        % the same as PlotAnalysis.m's "Pressure" panel, which is a single
+        % radius-restricted, area-weighted scalar per frame; this is a
+        % raw per-cell field, every live cell, for coloring the tissue.
+        [colordata, ~] = compute_CellStress(v, inn, num, biochemdata, Lx, Ly);
+        colorbar_string = 'Pressure';
+
+    case 'ShearStress'
+        [~, colordata] = compute_CellStress(v, inn, num, biochemdata, Lx, Ly);
+        colorbar_string = 'Shear stress (\sigma_{xy})';
+
     otherwise
         error('ComputeCellColorData:unknownField', ...
             ['Unknown colorBy option "%s". Valid options: Force, Motility, ' ...
-             'Myosin, Rho, ROCK, Area, Perimeter, ShapeFactor, NumVertices.'], colorBy);
+             'Myosin, Rho, ROCK, Area, Perimeter, ShapeFactor, NumVertices, ' ...
+             'Pressure, ShearStress.'], colorBy);
 end
 
 end
