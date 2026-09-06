@@ -1,7 +1,19 @@
-function TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range)
+function TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range, cmap_colors)
 % TISUEPLOT  Draw the whole tissue as a single colored patch object.
 %
 %   TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range)
+%   TisuePlot(..., norm_range, cmap_colors)
+%
+% cmap_colors  : optional Nx3 RGB colormap (e.g. from slanCM.m via
+%                GetFieldColormap.m) -- see log.txt. Omit/[] for the
+%                original default (jet(256)); every existing caller that
+%                doesn't pass this keeps its exact previous look. Whether
+%                a field needs diverging treatment (e.g. Pressure/
+%                ShearStress: a symmetric-about-zero clim, not raw
+%                min/max) is decided by the caller (Movie_Code.m, via
+%                GetFieldColormap.m) and folded into an ordinary
+%                norm_flag/norm_range before it ever reaches here --
+%                TisuePlot itself has no notion of "diverging".
 %
 % OPTIMIZATION: previously drew each cell as its own polyshape+plot() call
 % in a loop -- one separate graphics object per cell. For a mesh of
@@ -26,6 +38,10 @@ function TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, n
 Nc = find(num ~= 0, 1, 'last');
 if isempty(Nc); return; end
 
+if nargin < 10 || isempty(cmap_colors)
+    cmap_colors = jet(256);
+end
+
 % ----- normalization -----
 switch norm_flag
     case 'data'
@@ -41,7 +57,13 @@ switch norm_flag
         error('TisuePlot:unknownNormFlag', 'Unknown norm_flag: %s', norm_flag);
 end
 if cmax == cmin
-    cmax = cmin + eps;   % avoid a degenerate clim range
+    % BUGFIX (log.txt): plain `eps` is eps(1) (~2.22e-16) regardless of
+    % cmin's own magnitude -- for any |cmin| bigger than ~1, that's smaller
+    % than a double's actual precision (ULP) at cmin, so `cmin + eps` was
+    % silently rounding straight back down to cmin, leaving clim degenerate
+    % anyway (clim() then errors: "Limits must be ... increasing"). eps(cmin)
+    % scales the increment to cmin's own magnitude, always representable.
+    cmax = cmin + eps(cmin);   % avoid a degenerate clim range
 end
 
 % ----- build one NaN-padded Faces matrix for the whole tissue -----
@@ -88,7 +110,7 @@ patch('Faces', F, 'Vertices', Vexp, ...
 
 cb = colorbar;
 cb.Label.String = colorbar_string;
-colormap(jet(256));
+colormap(cmap_colors);
 clim([cmin cmax]);
 
 pbaspect([Lx/Ly 1 1])

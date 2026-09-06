@@ -77,6 +77,12 @@ if show_T1T2_events
         LoadT1T2Events(nrun);
 end
 
+% Which colormap to render colorBy with -- one central lookup (log.txt),
+% picked once (not per frame: colorBy doesn't change frame-to-frame, and
+% slanCM.m's interpolation isn't free). Edit GetFieldColormap.m to change
+% any field's colormap later.
+[cmap, isDiverging] = GetFieldColormap(colorBy);
+
 fig = figure("Position", [800 800 1000 1000], 'Color','w');
 % BUGFIX (log.txt): VideoWriter requires every frame to be EXACTLY the
 % same pixel size -- 'Position' above only sets the figure's *nominal*
@@ -114,7 +120,20 @@ for it = itList
             colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
     end
 
-    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, norm_range);
+    % Diverging fields (Pressure/ShearStress -- decided by GetFieldColormap.m
+    % based on the quantity itself, not a flag threaded through TisuePlot.m)
+    % get their colorbar centered symmetrically about zero instead of the
+    % field's raw (usually asymmetric) min/max, folded into an ordinary
+    % 'custom' norm_flag/norm_range here -- TisuePlot.m never needs to know
+    % "diverging" is a concept (log.txt).
+    if isDiverging && strcmp(norm_flag, 'data')
+        L = max(abs(colordata(1:find(num ~= 0, 1, 'last'))));
+        [frame_norm_flag, frame_norm_range] = deal('custom', [-L L]);
+    else
+        [frame_norm_flag, frame_norm_range] = deal(norm_flag, norm_range);
+    end
+
+    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, frame_norm_flag, frame_norm_range, cmap);
 
     if show_T1T2_events
         hold on;

@@ -9,8 +9,17 @@ function [total_stress_tensor, ShearStress_Individual] = Calculate_Total_Stress(
 p1 = ReadPara1Params("../para_Simulation.dat");
 A0     = p1.Ao;
 lambda = p1.lambda;
-beta   = p1.beta;
-gamma  = p1.gamm;
+
+% BUGFIX (log.txt, compute_CellStress.m): p1.beta/p1.gamm are the RAW
+% para_Simulation.dat values. allocation.f90::read_input nondimensionalizes
+% them exactly ONCE right after reading (beta = beta/(lambda*Ao); gamm =
+% gamm/(lambda*Ao^1.5)) before Force.f90/Stress.f90 ever use them -- so the
+% values the simulation's own stress tensor actually uses are the RESCALED
+% ones, not the file's raw numbers. Was previously read raw here, silently
+% wrong whenever lambda*Ao (or lambda*Ao^1.5) isn't 1 -- a no-op for this
+% repo's current para_Simulation.dat (lambda=Ao=1) but wrong in general.
+beta   = p1.beta / (lambda * A0);
+gamma  = p1.gamm / (lambda * A0^1.5);
 
 % Optional beta array handling
 if nargin < 7 || isempty(beta_arr)
