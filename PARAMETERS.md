@@ -63,7 +63,7 @@ with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
 | `if_Fixed_boundary` | Pin (zero the force on) every vertex on the tissue's free outer edge. |
 | `if_bottom_borders_fixed` | Pin only the bottom-most border vertices. Independent of `if_Fixed_boundary` — can be used alone for a "one wall" setup. |
 | `if_top_borders_fixed` | Pin only the top-most border vertices. |
-| `if_PBC` | Periodic boundary conditions — periodic in both x and y (a torus). See `Generate_Initial_Mesh.f90`'s `if_periodic` above for the matching mesh requirement, and the note there on the safety check at startup. Mutually exclusive with all three flags above (no free edge exists to pin under full periodicity), with `if_squeeze_tissue`/`if_limb_force` (both assume a real edge/corners), with `if_Shear_tissue` (today's shear mechanism directly displaces every vertex, not equivalent to genuine periodic/Lees-Edwards shear — not yet implemented), and with `if_motility_gradient`+`if_motility_Eulerian` together (that gradient formula isn't periodic in y). All checked at startup (`read_input` stops with an error if violated). Full design rationale and verification: `log.txt`. |
+| `if_PBC` | Periodic boundary conditions — periodic in both x and y (a torus). See `Generate_Initial_Mesh.f90`'s `if_periodic` above for the matching mesh requirement, and the note there on the safety check at startup. Mutually exclusive with all three flags above (no free edge exists to pin under full periodicity), with `if_squeeze_tissue`/`if_limb_force` (both assume a real edge/corners), with `if_Shear_tissue` (today's shear mechanism directly displaces every vertex, not equivalent to genuine periodic/Lees-Edwards shear — not yet implemented), with `if_motility_gradient`+`if_motility_Eulerian` together (that gradient formula isn't periodic in y), and with `if_free_edge_adhesion` (no free edge exists under full periodicity, so `gamm_free` would never be used). All checked at startup (`read_input` stops with an error if violated). Full design rationale and verification: `log.txt`. |
 
 ### Output cadence
 
@@ -180,3 +180,10 @@ with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
 |---|---|
 | `if_polar_motility` | A random 2D kick per cell per step, applied to all its vertices. Despite the name, this has **no persistence/direction memory** (redrawn independently every step, unlike `if_ABP`'s diffusing orientation) — it's cell-scale white noise, not a polarized/directed active force. |
 | `polar_motility_strength` | Kick magnitude. |
+
+### Differential (free-edge) line tension
+
+| Parameter | Description |
+|---|---|
+| `if_free_edge_adhesion` | Gives free edges (touched by exactly one cell — only possible with `if_PBC=.false.`) their own line-tension value, `gamm_free`, instead of the usual `gamm`. Every other edge (shared by two cells) keeps `gamm`, unchanged. Which edges are free is never stored — recomputed fresh from `inn`/`num` every time it's needed (`Get_Free_Edges`, `Geometry.f90`), so T1/T2/division topology changes need no bookkeeping. Mutually exclusive with `if_PBC` (checked at startup): a periodic mesh has no free edges, so `gamm_free` would never be used. |
+| `gamm_free` | Line-tension modulus for free edges only, used only when `if_free_edge_adhesion` is on. Non-dimensionalized once at startup exactly like `gamm` (divided by `lambda*Ao^1.5`) — the value here is the physical one, not the rescaled internal one. |

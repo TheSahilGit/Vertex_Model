@@ -94,8 +94,16 @@ program vertexmain
 
   do it = 1,totT
 
-    
-    call Calculate_Energy
+
+    ! Differential line tension (log.txt): branch at the call site, not
+    ! inside Calculate_Energy, so that subroutine's compiled code is
+    ! completely unaffected when if_free_edge_adhesion is off (see
+    ! System_Info.f90's comment on Calculate_Energy_FreeEdge for why).
+    if (if_free_edge_adhesion) then
+      call Calculate_Energy_FreeEdge
+    else
+      call Calculate_Energy
+    end if
 
 !*********************************************************************
     if(modulo(it,it_dump).eq.0.or.it.eq.1.or.it.eq.2)then

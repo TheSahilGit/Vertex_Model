@@ -70,6 +70,97 @@ module Geometry
    end subroutine Gather_Cell_Vertices_PBC
    ! ---------------------------------------------------------------
 
+   subroutine Get_Free_Edges(is_free_edge)
+     ! GET_FREE_EDGES  Classify every live cell's own edges as FREE (touched
+     ! by no other cell -- only possible with if_PBC=.false.) or SHARED
+     ! (found in exactly one other cell too), purely from the CURRENT
+     ! inn/num/Nc (log.txt, if_free_edge_adhesion). No persistent state: an
+     ! edge's free/shared status is recomputed fresh every call, so T1/T2/
+     ! division topology changes need no special-case bookkeeping here --
+     ! unlike Rho/ROCK/Myosin/cell_identity, there is no array to shift or
+     ! propagate to daughter cells.
+     !
+     ! is_free_edge(k, ic) matches inn's own (local-vertex-slot, cell) shape:
+     ! .true. iff the edge from local vertex k to local vertex k+1 (wrapped
+     ! at num(ic)) within cell ic's own vertex list is free.
+     !
+     ! Algorithm: canonicalize each edge as the unordered pair
+     ! (min(va,vb), max(va,vb)) and count, across every cell's every edge,
+     ! how many times each pair occurs -- 1 = free, 2 = shared (more would
+     ! mean a degenerate/invalid mesh; treated defensively as shared, same
+     ! spirit as this codebase's other "should never happen" guards). Counts
+     ! are kept in a small per-vertex adjacency list (MAX_DEG slots, keyed
+     ! by the LOWER vertex id of each pair) so this is O(total edges), not
+     ! O(Nc^2) -- a topologically valid vertex-model mesh has vertex degree
+     ! <= 3 (Find_boundary_dynamic's own convention), so MAX_DEG is a
+     ! generous safety margin, not a hard assumption.
+     implicit none
+     logical, intent(out) :: is_free_edge(inn_dim1, num_dim)
+     integer, parameter :: MAX_DEG = 8
+     integer :: partner(MAX_DEG, v_dim2)
+     integer :: pcount(MAX_DEG, v_dim2)
+     integer :: pused(v_dim2)
+     integer :: ic2, jc2, nn2, next_idx2, va, vb, lo, hi, slot
+     logical :: found
+
+     pused = 0
+     partner = 0
+     pcount = 0
+
+     ! Pass 1: count every cell's every edge once.
+     do ic2 = 1, Nc
+       nn2 = num(ic2)
+       do jc2 = 1, nn2
+         next_idx2 = jc2 + 1
+         if (jc2 == nn2) next_idx2 = 1
+         va = inn(jc2, ic2)
+         vb = inn(next_idx2, ic2)
+         lo = min(va, vb)
+         hi = max(va, vb)
+         found = .false.
+         do slot = 1, pused(lo)
+           if (partner(slot, lo) == hi) then
+             pcount(slot, lo) = pcount(slot, lo) + 1
+             found = .true.
+             exit
+           end if
+         end do
+         if (.not. found) then
+           pused(lo) = pused(lo) + 1
+           if (pused(lo) > MAX_DEG) then
+             write(*,*) 'Get_Free_Edges: MAX_DEG exceeded at vertex', lo, &
+               '-- mesh has an unexpectedly high-degree vertex; increase MAX_DEG.'
+             stop 1
+           end if
+           partner(pused(lo), lo) = hi
+           pcount(pused(lo), lo) = 1
+         end if
+       end do
+     end do
+
+     ! Pass 2: look up each cell's each edge's count -> free iff count == 1.
+     is_free_edge = .false.
+     do ic2 = 1, Nc
+       nn2 = num(ic2)
+       do jc2 = 1, nn2
+         next_idx2 = jc2 + 1
+         if (jc2 == nn2) next_idx2 = 1
+         va = inn(jc2, ic2)
+         vb = inn(next_idx2, ic2)
+         lo = min(va, vb)
+         hi = max(va, vb)
+         do slot = 1, pused(lo)
+           if (partner(slot, lo) == hi) then
+             is_free_edge(jc2, ic2) = (pcount(slot, lo) == 1)
+             exit
+           end if
+         end do
+       end do
+     end do
+
+   end subroutine Get_Free_Edges
+   ! ---------------------------------------------------------------
+
    subroutine CalculateDistance(x1,y1,x2,y2,distance)
     implicit none
     real*8, intent(in) :: x1,y1,x2,y2

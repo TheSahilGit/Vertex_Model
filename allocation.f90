@@ -191,6 +191,15 @@ module allocation
       real*8 :: polar_motility_strength
       real*8, dimension(:), allocatable :: fxx_Polar, fyy_Polar
 
+      ! Differential line tension (log.txt): gamm stays the "bulk"/shared-edge
+      ! value; gamm_free is a second line-tension value used only for FREE
+      ! edges (touched by exactly one cell -- only possible with if_PBC=
+      ! .false.). Which edges are free is never stored -- Get_Free_Edges
+      ! (Geometry.f90) recomputes it fresh from inn/num every time it's
+      ! needed, so T1/T2/division topology changes need no bookkeeping here.
+      logical :: if_free_edge_adhesion
+      real*8 :: gamm_free
+
       integer :: n_inside, n_outside
       real*8 :: radius_from_core
       real*8, allocatable, dimension(:,:) :: cell_centers
@@ -318,8 +327,10 @@ module allocation
      read(112,*) coupling_noise_strength
      read(112,*) if_polar_motility
      read(112,*) polar_motility_strength
+     read(112,*) if_free_edge_adhesion
+     read(112,*) gamm_free
 
-     
+
 
 
 
@@ -333,6 +344,11 @@ module allocation
      ! over the run). Doing it once here, right after read, fixes that.
      beta = beta/(lambda*Ao)
      gamm = gamm/(lambda*(Ao)**1.5)
+     ! gamm_free plays the exact same physical role as gamm (a line-tension
+     ! coefficient), just for a different edge population -- must be
+     ! nondimensionalized identically or the two would be in inconsistent
+     ! units whenever lambda*Ao^1.5 /= 1 (log.txt, if_free_edge_adhesion).
+     gamm_free = gamm_free/(lambda*(Ao)**1.5)
 
      totT = int(totTr)
      nrun2_initialTime = int(nrun2_initialTime_r)
@@ -389,6 +405,12 @@ module allocation
          write(*,*) 'read_input: if_PBC with if_Shear_tissue is not supported yet -- ', &
            'ShearTissue directly displaces every vertex, which is not equivalent to ', &
            'genuine Lees-Edwards periodic shear (a separate, not-yet-implemented feature).'
+         stop 1
+       end if
+       if (if_free_edge_adhesion) then
+         write(*,*) 'read_input: if_PBC with if_free_edge_adhesion makes no sense -- ', &
+           'a periodic mesh has no free edges (every edge is shared by exactly two ', &
+           'cells), so gamm_free would never be used. Set if_PBC=.false. to use this.'
          stop 1
        end if
      end if

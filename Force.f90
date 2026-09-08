@@ -19,6 +19,15 @@ module Force
     ! the sqrt calls in this hot loop -- run every cell, every timestep).
     real*8 :: edge_dx(inn_dim1), edge_dy(inn_dim1), edge_len(inn_dim1)
 
+    ! Differential line tension (log.txt, if_free_edge_adhesion): per-edge
+    ! gamm, not a single scalar -- is_free_edge is computed ONCE per call
+    ! (whole-mesh, not per-cell) since Get_Free_Edges needs every cell's
+    ! edges to classify any one of them. gamm_prev_edge/gamm_jc_edge pick
+    ! gamm_free or gamm for the two specific edges touching vertex jc.
+    ! When the flag is off, both are just gamm every time -- byte-identical
+    ! to the old single-gamm force below.
+    logical :: is_free_edge(inn_dim1, num_dim)
+    real*8 :: gamm_prev_edge, gamm_jc_edge
 
     fxx = 0.0d0
     fyy = 0.0d0
@@ -26,6 +35,8 @@ module Force
     ! BUGFIX (log.txt): beta/gamm nondimensionalization moved to read_input
     ! (allocation.f90), done once instead of every call -- see log.txt for why
     ! repeating it here compounded beta/gamm every timestep.
+
+    if (if_free_edge_adhesion) call Get_Free_Edges(is_free_edge)
 
     do ic = 1, Nc !Lx*Ly
       
@@ -94,14 +105,39 @@ module Force
         grad_perimeter_X = edge_dx(prev_idx)/edge_len(prev_idx) - edge_dx(jc)/edge_len(jc)
         grad_perimeter_Y = edge_dy(prev_idx)/edge_len(prev_idx) - edge_dy(jc)/edge_len(jc)
 
+        ! Differential line tension (log.txt): grad_perimeter_X/Y above is
+        ! really the SUM of two separate edge-length gradients (the
+        ! prev_idx->jc edge and the jc->next_idx edge) -- when
+        ! if_free_edge_adhesion is on, decompose back into its two terms so
+        ! each can take its OWN gamm (free vs bulk) instead of one shared
+        ! coefficient for both. Kept as an explicit branch (not folded into
+        ! one formula with gamm_prev_edge=gamm_jc_edge=gamm when off) so the
+        ! off-case is the ORIGINAL "-gamm*grad_perimeter_X" expression,
+        ! bit-for-bit -- gamm*(A-B) is not guaranteed identical to
+        ! gamm*A-gamm*B in floating point, which this codebase's
+        ! byte-identical-regression testing convention depends on.
+        if (if_free_edge_adhesion) then
+          gamm_prev_edge = merge(gamm_free, gamm, is_free_edge(prev_idx, ic))
+          gamm_jc_edge   = merge(gamm_free, gamm, is_free_edge(jc, ic))
 
-        fxx(inn(jc,ic)) = fxx(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_X &
-          - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_X &
-          - gamm * grad_perimeter_X
+          fxx(inn(jc,ic)) = fxx(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_X &
+            - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_X &
+            - ( gamm_prev_edge * edge_dx(prev_idx)/edge_len(prev_idx) &
+              - gamm_jc_edge * edge_dx(jc)/edge_len(jc) )
 
-        fyy(inn(jc,ic)) = fyy(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_Y  &
-          - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_Y &
-          - gamm * grad_perimeter_Y
+          fyy(inn(jc,ic)) = fyy(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_Y  &
+            - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_Y &
+            - ( gamm_prev_edge * edge_dy(prev_idx)/edge_len(prev_idx) &
+              - gamm_jc_edge * edge_dy(jc)/edge_len(jc) )
+        else
+          fxx(inn(jc,ic)) = fxx(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_X &
+            - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_X &
+            - gamm * grad_perimeter_X
+
+          fyy(inn(jc,ic)) = fyy(inn(jc,ic)) - 2.0d0 * lambda * (area - Ao)* grad_area_Y  &
+            - 2.0d0 * beta * (perimeter - Co)* grad_perimeter_Y &
+            - gamm * grad_perimeter_Y
+        end if
 
       end do
 
