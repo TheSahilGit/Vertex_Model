@@ -365,6 +365,59 @@ module Proliferation
       mot(maxinn + 1) = 0.5d0 * (mot(idx_pair(1,1)) + mot(idx_pair(1,2)))
       mot(maxinn + 2) = 0.5d0 * (mot(idx_pair(2,1)) + mot(idx_pair(2,2)))
 
+      ! BUGFIX (log.txt): Rho/ROCK/Myosin/cell_identity were never assigned
+      ! for the new daughter cell (Nc+1) at all -- it silently kept whatever
+      ! stale value already sat in that array slot (FEATURE_IDEAS.txt item
+      ! B1). Rho/ROCK/Myosin are single per-cell scalars (unlike mot, there
+      ! are no two mother-cell vertices to interpolate between -- the
+      ! daughter simply starts identical to its mother, the standard
+      ! "inherit the mother's state" convention). cell_identity gets a
+      ! brand-new label instead of a copy: it is meant to be a unique
+      ! per-cell tracking id (T1/T2 event logs, compute_MSD_cellID.m,
+      ! compute_FTLE.m all key off it), so both daughters must NOT share
+      ! one -- the mother (ic) keeps its own existing identity unchanged,
+      ! and the new daughter gets the next never-before-used number.
+      Rho(Nc+1) = Rho(ic)
+      ROCK(Nc+1) = ROCK(ic)
+      Myosin(Nc+1) = Myosin(ic)
+      write(cell_identity(Nc+1), '(A,I0)') 'cell_', next_new_cell_id
+      next_new_cell_id = next_new_cell_id + 1
+
+      ! ABP orientation (theta_ABP) for the same two brand-new vertices as
+      ! the mot fix above, same reasoning -- but a plain average would be
+      ! wrong for an angle (e.g. averaging 359 degrees and 1 degree should
+      ! give 0, not 180): use a circular mean instead (atan2 of the summed
+      ! unit vectors) of the two mother-cell vertices whose edge each new
+      ! vertex splits, so ABP polarity stays spatially consistent with the
+      ! mother's own field.
+      theta_ABP(maxinn + 1) = atan2( &
+        sin(theta_ABP(idx_pair(1,1))) + sin(theta_ABP(idx_pair(1,2))), &
+        cos(theta_ABP(idx_pair(1,1))) + cos(theta_ABP(idx_pair(1,2))) )
+      theta_ABP(maxinn + 2) = atan2( &
+        sin(theta_ABP(idx_pair(2,1))) + sin(theta_ABP(idx_pair(2,2))), &
+        cos(theta_ABP(idx_pair(2,1))) + cos(theta_ABP(idx_pair(2,2))) )
+
+      ! Division event log (log.txt, Movie_Code.m overlay -- same idea as
+      ! T1/T2's own event logs): records the split location (PBC-aware
+      ! midpoint of the two new vertices, mirroring T1's own "flipping
+      ! edge midpoint" convention) and both daughters' identities -- ic
+      ! keeps its own existing identity (one daughter), Nc+1 is the
+      ! brand-new one (the other) -- so a viewer can find both
+      ! post-division cells later by identity, the same way T1/T2 events
+      ! already do.
+      block
+        real*8 :: ev_x1, ev_y1, ev_x2, ev_y2, ev_mx, ev_my
+        ev_x1 = v(1, maxinn+1)
+        ev_y1 = v(2, maxinn+1)
+        ev_x2 = v(1, maxinn+2)
+        ev_y2 = v(2, maxinn+2)
+        call Unwrap_Relative(ev_x1, ev_y1, ev_x2, ev_y2)
+        ev_mx = 0.5d0 * (ev_x1 + ev_x2)
+        ev_my = 0.5d0 * (ev_y1 + ev_y2)
+        call Wrap_Position(ev_mx, ev_my)
+        write(iunit_Divisionevents) dble(it), ev_mx, ev_my, &
+          CellIdNum(cell_identity(ic)), CellIdNum(cell_identity(Nc+1))
+      end block
 
 !      print*, 'after inn1', inn(1:num(ic), ic)
 !      print*, 'after inn2', inn(1:num(Nc+1), Nc+1)

@@ -21,19 +21,6 @@ para2 = load("../para_MeshDims.dat");
 Lx = para2(1);
 Ly = para2(2);
 
-% BUGFIX (log.txt, see Movie_Code.m): motility_store.dat is written under
-% a "nrun2_" prefix for nrun==2 (a restart run must not overwrite the
-% original nrun==1 run's own file).
-if nrun == 1
-    motFile = '../data/motility_store.dat';
-else
-    motFile = '../data/nrun2_motility_store.dat';
-end
-fid = fopen(motFile);
-fread(fid, 1, 'float32');
-etas = fread(fid, Inf, 'float64');
-fclose(fid);
-
 fig = figure('Position', [100 100 800 800], 'Color', 'w');
 set(fig, 'Resize', 'off');   % BUGFIX (log.txt): see Movie_Code.m
 
@@ -47,6 +34,29 @@ for it = itList
     clf
 
     [Lx, Ly, v, inn, num, forces, biochemdata] = LoadData(it, nrun);
+
+    % BUGFIX (log.txt, see Movie_Code.m/LoadMotility): motility_store.dat
+    % used to be a single frozen-at-it=1 snapshot, loaded once outside this
+    % loop -- every frame showed the SAME t=1 motility regardless of which
+    % it it was actually rendering. allocation.f90 now writes a per-frame
+    % motility_<it>.dat (same convention as v/inn/num/force/Myosin/
+    % cell_identity); read THAT here, falling back to the old static file
+    % only for data/ directories from before this fix.
+    if nrun == 1
+        motFile = sprintf('../data/motility_%08d.dat', it);
+        motFileLegacy = '../data/motility_store.dat';
+    else
+        motFile = sprintf('../data/nrun2_motility_%08d.dat', it);
+        motFileLegacy = '../data/nrun2_motility_store.dat';
+    end
+    if isfile(motFile)
+        fid = fopen(motFile);
+    else
+        fid = fopen(motFileLegacy);
+    end
+    fread(fid, 1, 'float32');
+    etas = fread(fid, Inf, 'float64');
+    fclose(fid);
 
     [colordata, colorbar_string] = ComputeCellColorData( ...
         colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);

@@ -68,6 +68,7 @@ module allocation
       ! written to incrementally (one line per actual event, from Do_T1/
       ! Do_T2), closed once (Close_Event_Logs) after it.
       integer, parameter :: iunit_T1events = 941, iunit_T2events = 942
+      integer, parameter :: iunit_Divisionevents = 943
 
       integer*4 :: it_dump, T1_time_interval, T2_time_interval
       integer*4 :: summary_dump_interval
@@ -186,6 +187,13 @@ module allocation
       real*8 :: coupling_noise_strength
 
       character(500), dimension(:), allocatable :: cell_identity
+      ! Division inheritance (log.txt): monotonically-increasing counter for
+      ! the NEXT never-before-used cell_identity number a new daughter cell
+      ! (Proliferation.f90) gets -- must not just reuse Nc+1 (the new live
+      ! array index), since a T2 extrusion can shrink Nc first, and reusing
+      ! a small index would collide with an already-extruded cell's old
+      ! identity. Initialized once in allocate_arrays.
+      integer :: next_new_cell_id
 
       logical :: if_polar_motility
       real*8 :: polar_motility_strength
@@ -514,6 +522,7 @@ module allocation
      do iic = 1, Lx*Ly
       write(cell_identity(iic), '(A,I0)') 'cell_', iic
      end do
+     next_new_cell_id = Lx*Ly + 1
 
      inside_cells = 0
      outside_cells = 0
@@ -679,14 +688,16 @@ module allocation
       ! every other output file: a restart run's log never overwrites the
       ! original run's.
       implicit none
-      character(100) :: fname_T1events, fname_T2events
+      character(100) :: fname_T1events, fname_T2events, fname_Divisionevents
 
       if (nrun.eq.1) then
         fname_T1events = 'data/T1_events.dat'
         fname_T2events = 'data/T2_events.dat'
+        fname_Divisionevents = 'data/Division_events.dat'
       else
         fname_T1events = 'data/nrun2_T1_events.dat'
         fname_T2events = 'data/nrun2_T2_events.dat'
+        fname_Divisionevents = 'data/nrun2_Division_events.dat'
       end if
 
       ! BINARY (log.txt): one Fortran unformatted record per event (each
@@ -705,6 +716,7 @@ module allocation
       ! property every other incrementally-written file here has.
       open(unit=iunit_T1events, file=fname_T1events, form='unformatted', status='replace')
       open(unit=iunit_T2events, file=fname_T2events, form='unformatted', status='replace')
+      open(unit=iunit_Divisionevents, file=fname_Divisionevents, form='unformatted', status='replace')
 
     end subroutine Open_Event_Logs
 
@@ -729,6 +741,7 @@ module allocation
       implicit none
       close(iunit_T1events)
       close(iunit_T2events)
+      close(iunit_Divisionevents)
     end subroutine Close_Event_Logs
 
     subroutine write_output
@@ -736,6 +749,7 @@ module allocation
       integer :: iunit_inn, iunit_num, iunit_v, iunit_force
       integer :: iunit_Myosin
       integer :: iunit_cell_identity
+      integer :: iunit_motility
       character(100) :: fname_Energy, fname_ShearStress, fname_T1count, &
         fname_T2count, fname_motility
 
@@ -746,6 +760,7 @@ module allocation
        iunit_force = 961
        iunit_Myosin = 966
        iunit_cell_identity = 967
+       iunit_motility = 968
 
        if(nrun.eq.1)then
          write(fname_inn, '("data/inn_", I8.8,".dat")')(it)
@@ -754,11 +769,26 @@ module allocation
          write(fname_force, '("data/force_", I8.8,".dat")')(it)
          write(fname_Myosin, '("data/Myosin_", I8.8,".dat")')(it)
          write(fname_cell_identity, '("data/cell_identity_", I8.8,".dat")')(it)
+         ! BUGFIX (log.txt): motility_store.dat used to be written ONCE, at
+         ! it==1, and never again -- a frozen snapshot of the INITIAL
+         ! per-vertex motility field. Any vertex created afterward (cell
+         ! division; Proliferation.f90's mot inheritance fix) simply had no
+         ! entry at all (its slot in the file was whatever the zero-filled
+         ! array held at it=1), so Movie_Code.m's colorBy='Motility' showed
+         ! every post-division cell as motility exactly 0 regardless of its
+         ! true (correctly inherited) value -- confirmed directly: 598/598
+         ! division-created vertices had frozen-file value 0.0 vs. nonzero
+         ! live mot, in a real if_motility_hotspot+if_cell_division run.
+         ! This also affected if_motility_decay/if_motility_Eulerian, which
+         ! evolve mot over time for EVERY vertex, not just new ones. Now
+         ! written every dump, same cadence/naming convention as every
+         ! other per-vertex/per-cell array above -- no more special-cased
+         ! "write once" file.
+         write(fname_motility, '("data/motility_", I8.8,".dat")')(it)
          fname_Energy = 'data/Energy.dat'
          fname_ShearStress = 'data/ShearStress.dat'
          fname_T1count = 'data/T1_count.dat'
          fname_T2count = 'data/T2_count.dat'
-         fname_motility = 'data/motility_store.dat'
        elseif(nrun.eq.2)then
          write(fname_inn, '("data/nrun2_inn_", I8.8,".dat")')(it)
          write(fname_num, '("data/nrun2_num_", I8.8,".dat")')(it)
@@ -766,39 +796,41 @@ module allocation
          write(fname_force, '("data/nrun2_force_", I8.8,".dat")')(it)
          write(fname_Myosin, '("data/nrun2_Myosin_", I8.8,".dat")')(it)
          write(fname_cell_identity, '("data/nrun2_cell_identity_", I8.8,".dat")')(it)
-         ! BUGFIX (log.txt): these 5 were still hardcoded to the same
+         write(fname_motility, '("data/nrun2_motility_", I8.8,".dat")')(it)
+         ! BUGFIX (log.txt): these 4 were still hardcoded to the same
          ! filenames as nrun=1 regardless of nrun -- unlike every other
          ! output above, an nrun=2 restart run silently overwrote the
-         ! original nrun=1 run's Energy/ShearStress/T1_count/T2_count/
-         ! motility_store files with its own (shorter, restarted) data,
-         ! destroying that part of the original run's record. Matched to
-         ! the same nrun2_ prefix convention as everything else here.
+         ! original nrun=1 run's Energy/ShearStress/T1_count/T2_count
+         ! files with its own (shorter, restarted) data, destroying that
+         ! part of the original run's record. Matched to the same nrun2_
+         ! prefix convention as everything else here.
          fname_Energy = 'data/nrun2_Energy.dat'
          fname_ShearStress = 'data/nrun2_ShearStress.dat'
          fname_T1count = 'data/nrun2_T1_count.dat'
          fname_T2count = 'data/nrun2_T2_count.dat'
-         fname_motility = 'data/nrun2_motility_store.dat'
        end if
 
 
 
-       open(unit = iunit_inn, file=fname_inn, form = 'unformatted', status='unknown')             
+       open(unit = iunit_inn, file=fname_inn, form = 'unformatted', status='unknown')
        open(unit = iunit_num,file=fname_num, form ='unformatted', status='unknown')
        open(unit = iunit_v, file=fname_v, form='unformatted', status='unknown')
        open(unit = iunit_force, file=fname_force, form='unformatted', status='unknown')
        open(unit = iunit_Myosin,file=fname_Myosin, form ='unformatted', status='unknown')
        ! open(unit = iunit_force, file=fname_force, status='unknown')
        open(unit = iunit_cell_identity,file=fname_cell_identity, form ='unformatted', status='unknown')
- 
- 
+       open(unit = iunit_motility,file=fname_motility, form ='unformatted', status='unknown')
+
+
        write(iunit_inn)((inn(i,j),i=1,inn_dim1),j=1,inn_dim2)
        write(iunit_num)(num(i), i=1,num_dim)
        write(iunit_v)((v(i,j), i=1,v_dim1),j=1,v_dim2)
-       write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), & 
-        fxx_ABP(i), fyy_ABP(i), & 
+       write(iunit_force)(fxx(i), fyy(i), fxx_ran(i), fyy_ran(i), &
+        fxx_ABP(i), fyy_ABP(i), &
         fxx_Polar(i), fyy_Polar(i), i = 1, v_dim2)
        write(iunit_Myosin)(Rho(i), ROCK(i), Myosin(i), i = 1, num_dim)
        write(iunit_cell_identity)(cell_identity(i),  i=1,num_dim)
+       write(iunit_motility)(mot(i), i = 1, v_dim2)
       
       
  
@@ -837,14 +869,6 @@ module allocation
        end if
 
 
-       if(it.eq.1)then
-         open(unit=720, file=fname_motility, form='unformatted',status='unknown')
-         write(720)(mot(i), i = 1, v_dim2)
-         close(720)
-
-       end if
-
-
 
  
  
@@ -863,6 +887,7 @@ module allocation
        ! alongside (see that entry for the MATLAB-side half of the fix).
        close(iunit_Myosin)
        close(iunit_cell_identity)
+       close(iunit_motility)
 
     end subroutine write_output
 

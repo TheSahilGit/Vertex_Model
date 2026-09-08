@@ -25,6 +25,11 @@ t1t2_fade_window = 10000;   % "recent" = within this many `it` units of the fram
                            % drawn; markers fade linearly to invisible over this window,
                            % cell highlights are on/off (not faded) within it, for speed.
 
+% ---- Division event overlay (log.txt: spatial/cell-identity tracking,
+% read from Division_events.dat -- see LoadDivisionEvents.m) ----
+show_division_events = false;   % overlay recent division markers + highlight both daughter cells
+division_fade_window = 10000;   % same "recent"/fade convention as t1t2_fade_window above.
+
 % ---- FTLE (colorBy = 'FTLE' only; log.txt, see compute_FTLE.m) ----
 % Each frame at time `it` shows the spatial FTLE field computed forward
 % to `it + ftle_lookahead` -- i.e. this many `it` units of "look-ahead"
@@ -39,33 +44,26 @@ para2 = load("../para_MeshDims.dat");
 Lx = para2(1);
 Ly = para2(2);
 
-% Only load motility_store.dat if it's actually going to be used --
-% it's a separate file read that every other colorBy option doesn't need.
+% Motility (etas) is only loaded if colorBy actually needs it -- an extra
+% file read every other colorBy option doesn't need -- and is now loaded
+% PER FRAME, inside the loop below (LoadMotility), not once here.
 %
-% BUGFIX (log.txt): this was hardcoded to 'motility_store.dat' regardless
-% of nrun. allocation.f90 writes it under a "nrun2_" prefix for nrun==2
-% (a restart run must not overwrite the original nrun==1 run's own
-% motility_store.dat) -- so for nrun=2 this was silently reading the
-% ORIGINAL run's motility field, not the current one. Concretely: this
-% run's own if_motility_hotspot pattern (nrun2_motility_store.dat, 2177
-% distinct values) was masked by a stale nrun=1 file that happened to be
-% completely uniform (motility_store.dat, exactly etas_max everywhere --
-% from an earlier run with if_motility_hotspot off), which is exactly why
-% the 'Motility' coloring showed no spatial variation at all while
-% 'Force' coloring (already correctly nrun-aware via LoadData.m) showed
-% the hotspots in the right place.
+% BUGFIX (log.txt): allocation.f90's motility output used to be written
+% ONCE, at it==1, to a single motility_store.dat -- a frozen snapshot of
+% the INITIAL per-vertex field. Loading it once here, outside the frame
+% loop, matched that (there was only ever one snapshot to load) but meant
+% every frame of a movie showed the SAME t=1 motility regardless of which
+% it it was actually rendering -- wrong for if_motility_decay/
+% if_motility_Eulerian (which evolve mot over time) and for
+% if_cell_division (new cells born after t=1 showed motility exactly 0,
+% confirmed directly: 598/598 division-created vertices had frozen value
+% 0.0 vs. nonzero live mot, in a real hotspot+division run). Fixed on the
+% Fortran side first (allocation.f90 now writes motility_<it>.dat every
+% dump, same convention as v/inn/num/force/Myosin/cell_identity) --
+% LoadMotility below reads THAT per-frame file, falling back to the old
+% static motility_store.dat only for data/ directories from before this
+% fix (same staleness limitation those always had).
 etas = [];
-if strcmp(colorBy, 'Motility')
-    if nrun == 1
-        motFile = '../data/motility_store.dat';
-    else
-        motFile = '../data/nrun2_motility_store.dat';
-    end
-    fid = fopen(motFile);
-    fread(fid, 1, 'float32');
-    etas = fread(fid, Inf, 'float64');
-    fclose(fid);
-end
 
 % Loaded once, reused every frame -- same pattern as `etas` above. Empty
 % arrays if the flag is off, or if the simulation never had if_Do_T1/
@@ -75,6 +73,11 @@ T2_it = []; T2_x = []; T2_y = []; T2_extruded_id = {}; T2_nbr_ids = {};
 if show_T1T2_events
     [T1_it, T1_x, T1_y, T1_ids, T2_it, T2_x, T2_y, T2_extruded_id, T2_nbr_ids] = ...
         LoadT1T2Events(nrun);
+end
+
+Division_it = []; Division_x = []; Division_y = []; Division_id1 = {}; Division_id2 = {};
+if show_division_events
+    [Division_it, Division_x, Division_y, Division_id1, Division_id2] = LoadDivisionEvents(nrun);
 end
 
 % Which colormap to render colorBy with -- one central lookup (log.txt),
@@ -108,6 +111,10 @@ for it = itList
 
     [Lx, Ly, v, inn, num, forces, biochemdata, cell_identity] = LoadData(it, nrun);
 
+    if strcmp(colorBy, 'Motility')
+        etas = LoadMotility(it, nrun);
+    end
+
     if strcmp(colorBy, 'FTLE')
         % Two-snapshot quantity -- bypasses ComputeCellColorData.m's
         % single-frame dispatch entirely; reuses this frame's
@@ -139,6 +146,12 @@ for it = itList
         hold on;
         Overlay_T1T2_Events(it, t1t2_fade_window, Lx, Ly, v, inn, num, cell_identity, ...
             T1_it, T1_x, T1_y, T1_ids, T2_it, T2_x, T2_y, T2_nbr_ids);
+    end
+
+    if show_division_events
+        hold on;
+        Overlay_Division_Events(it, division_fade_window, Lx, Ly, v, inn, num, cell_identity, ...
+            Division_it, Division_x, Division_y, Division_id1, Division_id2);
     end
 
     title(num2str(it))
@@ -246,6 +259,107 @@ if ~isempty(hi)
     end
     patch('Faces', F, 'Vertices', Vexp, 'FaceColor', 'none', ...
         'EdgeColor', [0.15 0.8 0.15], 'LineWidth', 3);
+end
+
+end
+
+
+function etas = LoadMotility(it, nrun)
+% LOADMOTILITY  Per-vertex motility field for frame `it` (log.txt). Reads
+% the per-timestep dump allocation.f90 now writes every it_dump
+% (motility_<it8digit>.dat, same convention as v/inn/num/force/Myosin/
+% cell_identity); falls back to the old single frozen-at-it=1
+% motility_store.dat only for data/ directories from before that fix
+% existed (isfile-gated, so a fixed-up Fortran run's per-frame files are
+% always preferred when present).
+if nrun == 1
+    motFile = sprintf('../data/motility_%08d.dat', it);
+    motFileLegacy = '../data/motility_store.dat';
+else
+    motFile = sprintf('../data/nrun2_motility_%08d.dat', it);
+    motFileLegacy = '../data/nrun2_motility_store.dat';
+end
+
+if isfile(motFile)
+    fid = fopen(motFile);
+elseif isfile(motFileLegacy)
+    fid = fopen(motFileLegacy);
+else
+    etas = [];
+    return;
+end
+fread(fid, 1, 'float32');
+etas = fread(fid, Inf, 'float64');
+fclose(fid);
+end
+
+
+function Overlay_Division_Events(it, fade_window, Lx, Ly, v, inn, num, cell_identity, ...
+    Division_it, Division_x, Division_y, Division_id1, Division_id2)
+% OVERLAY_DIVISION_EVENTS  Draw recent division-location markers (circle,
+% cyan) on top of the current TisuePlot, fading linearly to invisible over
+% `fade_window` (it) units -- same fade/lookup technique as
+% Overlay_T1T2_Events, distinct marker shape and color (cyan, not magenta/
+% orange) so both overlays can be shown together without confusion -- and
+% outline every currently-live daughter cell from a recent division
+% (cyan, not faded).
+%
+% Looks up each event's persistent cell_identity strings (Division_id1,
+% the daughter that kept the mother's own index/identity; Division_id2,
+% the brand-new daughter) against the CURRENT frame's cell_identity array,
+% same cohort-tracking convention as Overlay_T1T2_Events/
+% compute_MSD_cellID.m -- a daughter that has since divided again or been
+% extruded simply finds no match and is skipped.
+
+Nc = find(num ~= 0, 1, 'last');
+highlighted = false(Nc, 1);
+
+Division_color = [0 0.75 0.75];  % cyan -- distinct from T1 (magenta), T2
+                                  % (orange), and the T1/T2 highlight outline (green)
+for k = 1:numel(Division_it)
+    age = it - Division_it(k);
+    if age < 0 || age > fade_window
+        continue;
+    end
+    fade = min(0.85, age / fade_window);
+    c = Division_color * (1 - fade) + [1 1 1] * fade;
+    plot(Division_x(k), Division_y(k), 'o', 'Color', c, 'LineWidth', 2, 'MarkerSize', 9);
+
+    idx1 = find(strcmp(cell_identity(1:Nc), Division_id1{k}), 1);
+    if ~isempty(idx1)
+        highlighted(idx1) = true;
+    end
+    idx2 = find(strcmp(cell_identity(1:Nc), Division_id2{k}), 1);
+    if ~isempty(idx2)
+        highlighted(idx2) = true;
+    end
+end
+
+% ---- highlight outline on every currently-live, recently-divided cell ----
+% Same combined-patch technique as Overlay_T1T2_Events/TisuePlot.m.
+hi = find(highlighted);
+if ~isempty(hi)
+    maxN = max(num(hi));
+    F = NaN(numel(hi), maxN);
+    Vexp = zeros(sum(num(hi)), 2);
+    row = 0;
+    for ii = 1:numel(hi)
+        i = hi(ii);
+        n = num(i);
+        vids = inn(i, 1:n);
+        x0 = v(vids(1), 1);
+        y0 = v(vids(1), 2);
+        for k = 1:n
+            row = row + 1;
+            dx = v(vids(k), 1) - x0; dx = dx - Lx * round(dx / Lx);
+            dy = v(vids(k), 2) - y0; dy = dy - Ly * round(dy / Ly);
+            Vexp(row, 1) = x0 + dx;
+            Vexp(row, 2) = y0 + dy;
+            F(ii, k) = row;
+        end
+    end
+    patch('Faces', F, 'Vertices', Vexp, 'FaceColor', 'none', ...
+        'EdgeColor', [0 0.6 0.6], 'LineWidth', 3);
 end
 
 end
