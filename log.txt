@@ -2507,3 +2507,20 @@ Pure rename, no content changes: scripts/ -> shellscripts/ (still holds
 finaldata_copy.sh and tcsh/). Updated the two places that referenced the
 old path: README.md's repository-layout table, and a comment in run.sh.
 ================================================================================
+
+--------------------------------------------------------------------------------
+11) License changed MIT -> GPLv3 (copyleft, user request)
+--------------------------------------------------------------------------------
+LICENSE replaced with the verbatim, unmodified canonical GNU GPLv3 text
+(fetched directly from https://www.gnu.org/licenses/gpl-3.0.txt via curl,
+byte-diffed against the downloaded copy to confirm an exact match --
+not reproduced from memory, given it's a legal document). Updated the
+two other places that named the license: README.md's License section,
+and CITATION.cff's `license:` field (MIT -> GPL-3.0-only; -only rather
+than -or-later since no per-file "or any later version" notice was
+added anywhere in the codebase). CITATION.bib has no license field, left
+alone. Did not add GPL's suggested per-file source-header notices
+(the "How to Apply These Terms" boilerplate) to every .f90/.m file --
+out of scope for what was asked; only the three files that actually
+declare the project's license were touched.
+================================================================================

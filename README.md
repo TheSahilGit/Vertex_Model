@@ -110,4 +110,4 @@ If you use this software, please cite it — see [`CITATION.cff`](CITATION.cff) 
 
 ## License
 
-Released under the [MIT License](LICENSE) — free to use, modify, and redistribute (including commercially), with attribution.
+Released under the [GNU General Public License v3.0](LICENSE) — free to use, modify, and redistribute, but any distributed derivative work must also be licensed under GPLv3 and made available with source (copyleft). Previously MIT-licensed; see `git log -- LICENSE` for the history.
