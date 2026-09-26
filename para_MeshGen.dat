@@ -1,5 +1,5 @@
-32               ! Lx
-32               ! Ly (must be even)
+64               ! Lx
+64               ! Ly (must be even)
 9874             ! seed (fixed -> reproducible mesh; change to get a different one)
 0.1d0            ! jitter_interior_x
 0.1d0            ! jitter_interior_y

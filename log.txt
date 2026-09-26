@@ -2124,3 +2124,40 @@ triggered by the report that prompted looking into it. If it resurfaces
 with nrun set correctly, revisit FindLatestAvailableIt.m then rather than
 assuming either this session's fix or its revert settles the question.
 ================================================================================
+
+--------------------------------------------------------------------------------
+2) FILE: Analysis_Codes_matlab/TisuePlot.m, Analysis_Codes_matlab/Movie_Code.m
+--------------------------------------------------------------------------------
+BUG (user report: "high RAM usage and code failing" on another machine):
+  TisuePlot.m's last line unconditionally forced
+  set(gcf, "Renderer", "Painters"). This was originally 'opengl' until the
+  user's own earlier commit d6ce0ff6 switched it (bundled with an
+  unrelated axis-padding change, no stated reason).
+
+  Verified directly with a realistic stress test (real 10,000-cell/
+  20,400-vertex mesh, 150 frames, same clf+patch+getframe loop
+  Movie_Code.m actually uses):
+    Painters : ~208s, RSS grew ~1.76GB -> ~2.25GB (+490MB, still growing),
+               crashed on 1 of 2 runs at frame 13:
+               "Error using getframe: A valid figure or axes handle must
+               be specified" -- MATLAB's Painters renderer doesn't fully
+               support transparency (FaceAlpha, used here) and is known
+               to be less robust under repeated clf/patch/getframe cycles.
+    opengl   : ~64s (3.3x faster), RSS flat ~1.86GB throughout, no crash.
+  Visual output (edges, transparency, colors) confirmed identical between
+  the two renderers via a zoomed side-by-side comparison.
+
+FIX:
+  Default renderer switched back to 'opengl' in TisuePlot.m (nargin<11 or
+  empty -> 'opengl'). Painters is kept available, not removed, since the
+  user wants to switch back to it occasionally (e.g. if opengl misbehaves
+  on a machine with no GPU/driver, or a headless/software-only display):
+  TisuePlot.m gained an 11th optional arg `renderer_mode`
+  ('opengl'|'painters'), and Movie_Code.m exposes it as a top-of-file
+  option `rendererMode = 'opengl';` (options block), threaded through to
+  its TisuePlot call. All other existing callers (Movie_Code_WithMyosin.m,
+  Analysis_FTLE.m, MovieCode_halflatt.m, test_tissue_bulk.m, testPlots.m)
+  pass fewer than 11 args and are unaffected -- they now default to
+  opengl instead of the old hardcoded Painters, which is the intended fix
+  for them too (none of them had any reason to want Painters specifically).
+================================================================================

@@ -5,13 +5,13 @@ clear; clc; close all;
 % Movie_Code.m uses for its own "options" block.
 
 % ==================== options ====================
-nrun = 2;
+nrun = 1;
 
-itStart    = 1000;          % first Fortran timestep to include
+itStart    = 5000;          % first Fortran timestep to include
 itEnd      = [];          % auto-detect latest available snapshot
                           % latest snapshot actually on disk (safe to leave
                           % empty for a still-running simulation)
-itInterval = 1000;     % sampling stride, in units of it -- does NOT have
+itInterval = 5000;     % sampling stride, in units of it -- does NOT have
                           % to be it_dump; use a bigger number for a
                           % faster/coarser check, smaller for more detail.
                           % Must be a multiple of it_dump (only multiples of
@@ -20,15 +20,15 @@ itInterval = 1000;     % sampling stride, in units of it -- does NOT have
                           % automatically, with a warning.
 
 % ---- which panels to draw ----
-doEnergy       = false;
+doEnergy       = true;
 doShearStress  = false;
 doPressure     = false;
-doForce        = false;
+doForce        = true;
 doCircularity  = false;
 doQt           = false;
 doMSD          = false;
 doShapeMetrics = false;  % mean Area/Perimeter/Shape factor, one panel
-doBiochem      = true;  % mean Rho/ROCK/Myosin, one panel
+doBiochem      = false;  % mean Rho/ROCK/Myosin, one panel
 doCumsumT1     = true;   % only actually plotted once the run has reached
 doCumsumT2     = true;   % it==totT -- see PlotAnalysis.m's header comment
 

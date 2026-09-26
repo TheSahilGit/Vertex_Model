@@ -1,8 +1,9 @@
-clear; clc; close all;
+clear; clc; 
+%close all;
 
 % ==================== options ====================
 nrun = 1;
-itList = (300000);              % list of Fortran timesteps to render as frames
+itList = (2000);              % list of Fortran timesteps to render as frames
 outFile = "Movie_test.avi";
 frameRate = 1;
 
@@ -13,8 +14,12 @@ frameRate = 1;
 % -- see ComputeCellColorData.m for what each one computes, except 'FTLE'
 % which is handled separately below (see ftle_lookahead) since it's
 % inherently a two-snapshot quantity, not a single-frame field.
-colorBy = 'ShapeFactor';
+colorBy = 'Force';
 
+% norm_flag = 'data';   % 'data' | '01' | 'custom'
+% norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
+
+% For FTLE
 norm_flag = 'data';   % 'data' | '01' | 'custom'
 norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
 
@@ -37,7 +42,17 @@ division_fade_window = 10000;   % same "recent"/fade convention as t1t2_fade_win
 % (comparable to how long it takes cells to actually rearrange) to be
 % meaningful -- too small and every cell's local neighborhood is still
 % near-identical, giving a near-uniform, uninformative field.
-ftle_lookahead = 5000;
+ftle_lookahead = 10000;
+
+% ---- Renderer (log.txt) ----
+% 'opengl' (default): hardware-accelerated, memory-stable, ~3x faster --
+% measured directly on a 10,000-cell/150-frame stress test: 'painters'
+% leaked ~490MB of RSS over the run and crashed intermittently (getframe:
+% "A valid figure or axes handle must be specified"); opengl stayed flat
+% with no crashes, and both render visually identically (transparency/
+% edges). Switch to 'painters' only if opengl misbehaves on a given
+% machine (e.g. no GPU/driver, headless/software-only display).
+rendererMode = 'opengl';   % 'opengl' (default) | 'painters'
 % ===================================================
 
 para2 = load("../para_MeshDims.dat");
@@ -85,6 +100,8 @@ end
 % slanCM.m's interpolation isn't free). Edit GetFieldColormap.m to change
 % any field's colormap later.
 [cmap, isDiverging] = GetFieldColormap(colorBy);
+
+%cmap  = slanCM("jet");
 
 fig = figure("Position", [800 800 1000 1000], 'Color','w');
 % BUGFIX (log.txt): VideoWriter requires every frame to be EXACTLY the
@@ -140,7 +157,7 @@ for it = itList
         [frame_norm_flag, frame_norm_range] = deal(norm_flag, norm_range);
     end
 
-    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, frame_norm_flag, frame_norm_range, cmap);
+    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, frame_norm_flag, frame_norm_range, cmap, rendererMode);
 
     if show_T1T2_events
         hold on;
