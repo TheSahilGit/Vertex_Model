@@ -48,7 +48,7 @@ function FTLE = compute_FTLE(it0, it1, nrun, v0, inn0, num0, cell_identity0)
 if nargin < 4
     [Lx, Ly, v0, inn0, num0, ~, ~, cell_identity0] = LoadData(it0, nrun);
 else
-    para2 = load('../para_MeshDims.dat');
+    para2 = load('../mesh/para_MeshDims.dat');
     Lx = para2(1);
     Ly = para2(2);
 end

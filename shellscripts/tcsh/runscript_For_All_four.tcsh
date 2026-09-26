@@ -104,11 +104,11 @@ foreach type ($types)
                 # RUN SIMULATION
                 # -----------------------------
 
-                sh clear.sh
-                sh compile.sh
+                make clean
+                make
                 
                 echo "Launching simulation..."
-                nohup ./vertexmain.exe > nohup.out &
+                nohup ./bin/vertexmain > nohup.out &
 
                 cd ../../
                 echo "Done + Launched: $newDir"
@@ -157,11 +157,11 @@ foreach type ($types)
             # RUN SIMULATION
             # -----------------------------
 
-            sh clear.sh
-            sh compile.sh
+            make clean
+            make
 
             echo "Launching simulation..."
-            nohup ./vertexmain.exe > nohup.out &
+            nohup ./bin/vertexmain > nohup.out &
 
             cd ../../
             echo "Done + Launched: $newDir"

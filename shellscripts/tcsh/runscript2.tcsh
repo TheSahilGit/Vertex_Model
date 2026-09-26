@@ -29,9 +29,9 @@ foreach etas_max ($etas_arr)
 
         cat para_Simulation.dat
 
-        sh clear.sh
-        sh compile.sh
-        nohup ./vertexmain.exe  > nohup.out &
+        make clean
+        make
+        nohup ./bin/vertexmain  > nohup.out &
 
         cd ../
 

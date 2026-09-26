@@ -29,7 +29,7 @@ else
 end
 
 % -------------------- DOMAIN INFO --------------------
-para2 = load(strcat("../para_MeshDims.dat"));
+para2 = load(strcat("../mesh/para_MeshDims.dat"));
 Lx = para2(1);
 Ly = para2(2);
 

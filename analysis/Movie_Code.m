@@ -3,7 +3,7 @@ clear; clc;
 
 % ==================== options ====================
 nrun = 1;
-itList = (2000);              % list of Fortran timesteps to render as frames
+itList = (10000);              % list of Fortran timesteps to render as frames
 outFile = "Movie_test.avi";
 frameRate = 1;
 
@@ -16,12 +16,12 @@ frameRate = 1;
 % inherently a two-snapshot quantity, not a single-frame field.
 colorBy = 'Force';
 
-% norm_flag = 'data';   % 'data' | '01' | 'custom'
-% norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
-
-% For FTLE
 norm_flag = 'data';   % 'data' | '01' | 'custom'
 norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
+
+% For FTLE
+% norm_flag = 'data';   % 'data' | '01' | 'custom'
+% norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
 
 % ---- T1/T2 event overlay (log.txt: spatial/cell-identity tracking, read
 % from T1_events.dat/T2_events.dat -- see LoadT1T2Events.m) ----
@@ -55,7 +55,7 @@ ftle_lookahead = 10000;
 rendererMode = 'opengl';   % 'opengl' (default) | 'painters'
 % ===================================================
 
-para2 = load("../para_MeshDims.dat");
+para2 = load("../mesh/para_MeshDims.dat");
 Lx = para2(1);
 Ly = para2(2);
 

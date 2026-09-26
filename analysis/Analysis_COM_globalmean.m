@@ -2,7 +2,7 @@ clear; clc ;
 %close all;
 
 
-para2 = load("../para_MeshDims.dat");
+para2 = load("../mesh/para_MeshDims.dat");
 %etas_in = load("../motility_in.dat");
 
 para1 = readtable("../para_Simulation.dat");

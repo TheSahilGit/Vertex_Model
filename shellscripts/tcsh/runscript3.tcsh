@@ -18,26 +18,10 @@ set types = ( \
 # -----------------------------
 # Parameter values
 # -----------------------------
-
-## Keep the order intact. 
-#  values1 --> Apolar_cell_motility, etas
-#  values2 --> Polar_cell_motility, vo
-#  values3 --> Run_Fluctuating_contractility, active_contr_strength
-#  values4 --> Run_Mechano_chemical_regulation, coupling_noise_strength
-##
-
-# 1st set
-
-#set values1 = ("0.02d0" "0.03d0" "0.04d0")
-#set values2 = ("1.0d-1" "2.0d-1" "2.5d-1")
-#set values3 = ("6.0d-1" "7.0d-1" "8.0d-1")
-#set values4 = ("1.0d0" "1.1d0" "1.2d0")
-
-## 2nd set
-
-#set values1 = ("0.045" "0.05")
-#set values2 = ("3.0d-1" "3.5d-1")
-
+set values1 = ("0.02d0" "0.03d0" "0.04d0")
+set values2 = ("1.0d-1" "2.0d-1" "2.5d-1")
+set values3 = ("6.0d-1" "7.0d-1" "8.0d-1")
+set values4 = ("1.0d0" "1.1d0" "1.2d0")
 
 # -----------------------------
 # Loop over types
@@ -49,41 +33,20 @@ foreach type ($types)
     echo "Processing type: $type"
     echo "======================================"
 
-
-     # Reset variables to avoid carry-over
-      unset vals
-      unset param_name
-
-      # --------------------------------------------------
-      # Select parameter set for this type (SAFE)
-      # --------------------------------------------------
-      if ($itype == 1 && $?values1) then
-          set vals = ($values1)
-          set param_name = "Apolar_cell_motility"
-
-      else if ($itype == 2 && $?values2) then
-          set vals = ($values2)
-          set param_name = "vo"
-
-      else if ($itype == 3 && $?values3) then
-          set vals = ($values3)
-          set param_name = "active_contr_strength"
-
-      else if ($itype == 4 && $?values4) then
-          set vals = ($values4)
-          set param_name = "coupling_noise_strength"
-      endif
-
-      # --------------------------------------------------
-      # Skip if no values defined
-      # --------------------------------------------------
-      if (! $?vals || $#vals == 0) then
-          echo "No values defined for $type — skipping"
-          @ itype++
-          continue
-      endif
-
-
+    # Select correct values array
+    if ($itype == 1) then
+        set vals = ($values1)
+        set param_name = "Apolar_cell_motility"
+    else if ($itype == 2) then
+        set vals = ($values2)
+        set param_name = "vo"
+    else if ($itype == 3) then
+        set vals = ($values3)
+        set param_name = "active_contr_strength"
+    else if ($itype == 4) then
+        set vals = ($values4)
+        set param_name = "coupling_noise_strength"
+    endif
 
     # -----------------------------
     # Loop over values
@@ -117,9 +80,9 @@ foreach type ($types)
 
         ## Run simulation
 
-        sh clear.sh
-        sh compile.sh
-        nohup ./vertexmain.exe > nohup.out &
+        make clean
+        make
+        nohup ./bin/vertexmain > nohup.out &
 
         cd ../../
         echo "Done: $newDir"

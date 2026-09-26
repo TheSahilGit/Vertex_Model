@@ -46,9 +46,9 @@ foreach value ($etas_max)
         echo "Updated para_Simulation.dat with new values"
         cat para_Simulation.dat
 
-        sh clear.sh
-        sh compile.sh
-        nohup ./vertexmain.exe > nohup.out &
+        make clean
+        make
+        nohup ./bin/vertexmain > nohup.out &
     
         # Multiply by 10 for next iteration
         set sudden_shearStrength_use = `echo "$sudden_shearStrength_use * 10.0" | bc -l` 

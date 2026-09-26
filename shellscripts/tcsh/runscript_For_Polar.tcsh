@@ -60,9 +60,9 @@ foreach vo ($values2)
         # Run simulation
         # -----------------------------
 
-        sh clear.sh
-        sh compile.sh
-        nohup ./vertexmain.exe > nohup.out &
+        make clean
+        make
+        nohup ./bin/vertexmain > nohup.out &
 
         cd ../../
         echo "Done: $newDir"

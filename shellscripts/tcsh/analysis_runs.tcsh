@@ -8,7 +8,7 @@ set ANALYSIS_NAME = "Analysis_Circularity"
 #set ANALYSIS_NAME = "Analysis_MSD_cellID"
 #set ANALYSIS_NAME = "Analysis_Qt"
 
-set ANALYSIS_SRC = "Vertex_Model/Analysis_Codes_matlab/${ANALYSIS_NAME}.m"
+set ANALYSIS_SRC = "Vertex_Model/analysis/${ANALYSIS_NAME}.m"
 
 # ==========================================================
 # Run types (top-level directories)
@@ -50,13 +50,13 @@ foreach type ($types)
         echo "Processing analysis in: $rundir"
 
         # Ensure analysis directory exists
-        mkdir -p $rundir/Analysis_Codes_matlab
+        mkdir -p $rundir/analysis
 
         # Copy MATLAB analysis code
-        cp $ANALYSIS_SRC $rundir/Analysis_Codes_matlab/
+        cp $ANALYSIS_SRC $rundir/analysis/
 
         # Run MATLAB headless
-        cd $rundir/Analysis_Codes_matlab
+        cd $rundir/analysis
 
         #pwd
         if (-e circularity.dat) then

@@ -2,7 +2,7 @@ clear; clc ;
 %close all;
 
 
-para2 = load("para_MeshDims.dat");
+para2 = load("mesh/para_MeshDims.dat");
 etas = load("motility_in.dat");
 
 

@@ -2161,3 +2161,349 @@ FIX:
   opengl instead of the old hardcoded Painters, which is the intended fix
   for them too (none of them had any reason to want Painters specifically).
 ================================================================================
+
+--------------------------------------------------------------------------------
+3) REPO RESTRUCTURE (no code/behavior changes)
+--------------------------------------------------------------------------------
+WHAT: Reorganized the repo layout for clarity -- no changes to any .f90/.m
+file's logic, no changes to compiler flags or source compilation order.
+
+  src/      - all Fortran source (was at repo root)
+  bin/      - compiled executables (gitignored, created by `make`)
+  build/    - .mod/.o intermediate build artifacts (gitignored)
+  data/     - unchanged location (still repo-root-adjacent); vertexmain and
+              generate_initial_mesh both still open their input/output files
+              via bare relative paths ('para_Simulation.dat', 'data/...',
+              no directory prefix) -- unchanged, so both binaries MUST still
+              be run with cwd = repo root (./bin/vertexmain), same
+              requirement as before this restructure, just from a different
+              binary location.
+  analysis/ - renamed from Analysis_Codes_matlab/ (matlab toolkit, unchanged
+              content)
+  scripts/  - finaldata_copy.sh, tcsh/ (renamed from TCSH_sripts/, typo
+              fixed) -- updated their `sh compile.sh` -> `make`,
+              `sh clear.sh` -> `make clean`, `./vertexmain.exe` ->
+              `./bin/vertexmain`, and Analysis_Codes_matlab -> analysis
+              references to match; no other content changed.
+  legacy/   - archived, not part of the active build: Main.m (+ autosave,
+              superseded by Generate_Initial_Mesh.f90), compile.sh/clear.sh
+              (superseded by the new Makefile), an early superseded draft of
+              T1_swap.f90 (previously a stray file literally named "\",
+              tracked since the initial commit, never referenced by any
+              build), and old profiler output (perf.data, profile.txt,
+              profile_0.txt).
+
+  Makefile added at repo root:
+    make                  -> bin/vertexmain      (same 10 sources, same
+                                                    order, same flags: -pg
+                                                    -O3 -march=native
+                                                    -fbounds-check
+                                                    -fbacktrace)
+    make initial_config   -> bin/generate_initial_mesh (same flags: -O3
+                                                    -fbounds-check
+                                                    -fbacktrace)
+    make clean            -> removes build/ and bin/
+
+VERIFICATION:
+  - `make` and `make initial_config` both compile cleanly (0 errors/
+    warnings beyond what the original compile.sh already produced).
+  - Full end-to-end smoke test in an isolated scratch copy (never touched
+    the real data/): copied src/, Makefile, and all root-level config/input
+    files into a scratch dir, ran `make && make initial_config` there,
+    then ran ./bin/vertexmain for a short 20-step test (totT/it_dump
+    temporarily lowered in the SCRATCH COPY's para_Simulation.dat only) --
+    completed cleanly, wrote all expected per-snapshot dump files (v/inn/
+    num/force/Myosin/cell_identity/motility) plus the whole-run summary
+    files (Energy/ShearStress/T1_count/T2_count/T1_events/T2_events/
+    Division_events) into data/, confirming bare relative-path file I/O
+    still resolves correctly when the binary lives in bin/ but is invoked
+    from the repo root. Then ran ./bin/generate_initial_mesh in the same
+    scratch dir -- wrote a fresh v_in.dat/inn_in.dat/num_in.dat/
+    para_MeshDims.dat exactly as before.
+  - README.md and PARAMETERS.md updated to reflect the new paths
+    (Analysis_Codes_matlab -> analysis, compile.sh -> make, vertexmain.exe
+    -> bin/vertexmain). log.txt itself (this file) is left untouched aside
+    from this new entry -- it's a historical record, not re-narrated.
+================================================================================
+
+--------------------------------------------------------------------------------
+4) mesh/ directory for initial-mesh-state files (code changes, unlike #3)
+--------------------------------------------------------------------------------
+WHAT: v_in.dat, inn_in.dat, num_in.dat, and para_MeshDims.dat moved out of
+the repo root into a new mesh/ directory. Unlike the pure file-move
+restructure above, this one DOES touch source code -- these paths are
+opened with bare relative filenames (no directory prefix), so the
+'mesh/' prefix had to be added at every open() site:
+
+  src/Generate_Initial_Mesh.f90 (writes, status='replace'):
+    'v_in.dat' -> 'mesh/v_in.dat'
+    'inn_in.dat' -> 'mesh/inn_in.dat'
+    'num_in.dat' -> 'mesh/num_in.dat'
+    'para_MeshDims.dat' -> 'mesh/para_MeshDims.dat'
+
+  src/allocation.f90 (reads, status='old'):
+    read_input: 'para_MeshDims.dat' -> 'mesh/para_MeshDims.dat'
+    read_data:  'num_in.dat'/'v_in.dat'/'inn_in.dat' -> 'mesh/num_in.dat'/
+                'mesh/v_in.dat'/'mesh/inn_in.dat'
+
+  Note: para_Simulation.dat and para_MeshGen.dat stay at the repo root --
+  these are user-edited run-control files (edited per run by the tcsh
+  batch scripts), conceptually distinct from the generated/consumed
+  initial mesh STATE. mesh/ must exist before generate_initial_mesh is
+  run (Fortran's open() does not create directories, same pre-existing
+  requirement data/ already has) -- satisfied here since the directory is
+  created with the moved files already inside it and committed.
+
+  Also archived to legacy/ (dead code, confirmed by grep across all of
+  src/*.f90 -- referenced nowhere, not even commented out except
+  inside.dat which appears once in a commented-out line in Stress.f90):
+  motility_in.dat, inside.dat.
+
+  MATLAB side: 9 analysis/*.m files load para_MeshDims.dat directly
+  (not all go through LoadData.m) -- all updated
+  ('../para_MeshDims.dat' -> '../mesh/para_MeshDims.dat', or
+  'para_MeshDims.dat' -> 'mesh/para_MeshDims.dat' for testPlots.m, which
+  assumes cwd=repo root rather than analysis/): Analysis_COM.m,
+  Analysis_COM_globalmean.m, LoadData.m, Movie_Code.m,
+  Movie_Code_WithMyosin.m, MovieCode_halflatt.m, compute_FTLE.m,
+  Calculate_Total_Stress.m, testPlots.m. (ComputeCellColorData.m and
+  compute_CellStress.m only mention para_MeshDims.dat in a comment, no
+  literal path -- left alone.)
+
+  README.md/PARAMETERS.md/Makefile comments updated to match.
+
+VERIFICATION: rebuilt via `make`/`make initial_config` (clean, no
+warnings). Full round-trip in an isolated scratch copy (never touched the
+real data/): ran ./bin/generate_initial_mesh -- confirmed it wrote
+v_in.dat/inn_in.dat/num_in.dat/para_MeshDims.dat into mesh/ (4096 cells,
+64x64, matches para_MeshGen.dat); ran ./bin/vertexmain (20 short test
+steps) -- confirmed it read the same mesh/ files back and produced normal
+output in data/; ran LoadData.m from analysis/ against that scratch
+run's mesh/para_MeshDims.dat -- loaded successfully (Lx=64, Ly=64,
+Nc=4096), confirming the MATLAB-side path fix too.
+================================================================================
+
+--------------------------------------------------------------------------------
+5) Optional -fbounds-check/-fbacktrace toggle (make / make fbounds)
+--------------------------------------------------------------------------------
+WHAT: `make` (plain/default) now builds bin/vertexmain WITHOUT
+-fbounds-check/-fbacktrace; `make fbounds` builds it WITH them. Previously
+these flags were always on (inherited unchanged from the original
+compile.sh). initial_config (generate_initial_mesh) is unaffected -- it's
+a one-time, non-performance-critical run, left with -fbounds-check/
+-fbacktrace always on as before.
+
+WHY: -fbounds-check adds a real runtime cost (array-bounds checks on
+every access) -- confirmed directly (see VERIFICATION below), not just
+theoretically.
+
+HOW (Makefile): plain `make`/`all` goes through the normal file-target
+rule for bin/vertexmain, keyed on a sentinel file build/.flags-default.
+`make fbounds` is a separate .PHONY recipe building the same
+bin/vertexmain output with -fbounds-check/-fbacktrace added, keyed on
+build/.flags-fbounds. Switching between the two modes must force a
+relink even though no .f90 source changed -- each recipe deletes the
+OTHER variant's sentinel file before/after building, so the next
+`make`/`make fbounds` invocation always sees its own sentinel as
+missing-or-stale and relinks with the right flags. (First attempt: tried
+a single parameterized rule using a target-specific variable
+$(FLAGVARIANT) inside a prerequisite's file name,
+e.g. `all: FLAGVARIANT := default` + `$(BIN_DIR)/vertexmain: ...
+$(BUILD_DIR)/.flags-$(FLAGVARIANT)`. This does NOT work in GNU Make --
+confirmed by testing: FLAGVARIANT was empty when the prerequisite list
+of $(BIN_DIR)/vertexmain was expanded, because target-specific variables
+don't propagate into a prerequisite NAME the way they do into a recipe
+body. Replaced with the two-explicit-recipes version above, which works.)
+Because `fbounds` is .PHONY, it always relinks when invoked (no
+incremental-build caching for that path) -- an accepted, harmless
+tradeoff given the ~0.1s compile time of this codebase; plain `make`
+still correctly no-ops on repeated invocation with no source changes.
+
+VERIFICATION:
+  - Repeated make/make fbounds/make cycles in the real repo confirmed:
+    (1) plain `make` after a previous plain `make` with no source changes
+        is a correct no-op ("Nothing to be done"); (2) `make fbounds`
+        relinks with -fbounds-check -fbacktrace visible in the printed
+        gfortran command; (3) a subsequent plain `make` correctly
+        detects the stale sentinel and relinks WITHOUT the flags -- the
+        printed command no longer shows them.
+  - Real timed comparison in an isolated scratch copy (never touched the
+    real data/): built both variants from the same source, ran the exact
+    same 200-step simulation with each (/usr/bin/time -v):
+      default (no fbounds): 0.32s wall
+      fbounds:               0.46s wall  (~44% slower)
+    matches the expected real cost of array-bounds checking.
+  - Output-equivalence check: naive run-to-run diff of the two variants'
+    dumps showed differences -- ROOT CAUSE INVESTIGATED, not assumed: this
+    codebase seeds no RNG anywhere (Force.f90's own comment, l.184-ish,
+    already flags "no random_seed anywhere, so exact run-to-run [output
+    is not reproducible]" -- Active Brownian motility and T1/T2 event
+    selection both draw random_number every step with the compiler's
+    processor-dependent default seed, so two separate process
+    invocations diverge regardless of compile flags). Re-verified with a
+    temporary, SCRATCH-COPY-ONLY patch (call random_seed(put=...) at the
+    top of vertexmain, NOT applied to the real repo) forcing an identical
+    seed for both variants: the two variants' output still isn't
+    bit-identical, but the divergence is at the ~1e-15 level at step 2
+    (a few ULPs of double precision) growing to ~1e-13 by step 200 (numeric
+    diff via scipy.io.FortranFile) -- the textbook signature of benign
+    floating-point reassociation (different codegen/vectorization with
+    -fbounds-check enabled changes summation order at the ULP level,
+    which then amplifies chaotically over many timesteps in this
+    nonlinear many-body system), not a semantic/algorithmic difference.
+    Confirms -fbounds-check/-fbacktrace only add safety checks and do
+    not change the simulation's behavior.
+================================================================================
+
+--------------------------------------------------------------------------------
+6) docs/ -- theory write-up brought into the repo (tex tracked, rest ignored)
+--------------------------------------------------------------------------------
+WHAT: The theory write-up (previously a separate, non-git directory,
+../Vertex_Model_Theory) is now under docs/ in this repo:
+  docs/vertex_model_theory.tex   - tracked
+  docs/figs/*.png                - copied in (needed by \includegraphics
+                                    references in the .tex), gitignored
+  docs/vertex_model_theory.pdf   - copied in (already-compiled, for
+                                    convenience), gitignored
+  docs/.gitignore                - `*` / `!.gitignore` / `!*.tex` -- only
+                                    the LaTeX source is tracked; PDF,
+                                    figures, and LaTeX build byproducts
+                                    (.aux/.log/.out/.toc, not copied over
+                                    at all -- trivially regenerated) are
+                                    all local-only.
+
+The original ../Vertex_Model_Theory directory was left untouched (copied,
+not moved) -- it wasn't a git repo, so nothing there was under version
+control; left it as-is rather than deleting it without being asked.
+
+VERIFICATION: compiled docs/vertex_model_theory.tex from its new location
+with `pdflatex -interaction=nonstopmode -halt-on-error`, run twice (for
+cross-reference resolution) -- both passes exit 0, zero "undefined"
+warnings, zero errors, confirming the relative `figs/...` image paths
+inside the .tex still resolve correctly now that figs/ sits alongside it
+under docs/ rather than under the old separate directory. Generated
+.aux/.log/.out/.toc byproducts from this verification compile were
+deleted afterward (not needed, regenerate trivially). `git status
+--ignored` confirms exactly the intended tracked set: only
+docs/.gitignore and docs/vertex_model_theory.tex staged;
+docs/figs/ and docs/vertex_model_theory.pdf correctly ignored.
+================================================================================
+
+--------------------------------------------------------------------------------
+7) make dataclean
+--------------------------------------------------------------------------------
+WHAT: added `make dataclean`, which empties data/ of regenerable
+simulation output while preserving the small tracked reference snapshot
+(.gitignore's data/*00050000*/motility_store.dat carve-outs).
+Implementation: `git clean -X -f -d -- data` -- deliberately reuses git's
+own notion of "ignored" rather than hardcoding the same 4 filenames a
+second time in the Makefile, so this stays correct automatically if
+.gitignore's carve-outs ever change, and only ever touches files git
+already considers regenerable/disposable.
+
+VERIFICATION: NOT run against the real repo's data/ (per this repo's
+established rule -- data/ is only ever touched with the user's explicit
+go-ahead). Instead verified in a throwaway scratch git repo: seeded
+data/ with the 4 real anchor filenames (tracked) plus several fake
+regenerable files including a nested subdirectory (all git-ignored, same
+as the real .gitignore's data/* rule), committed the anchors, then ran
+`make dataclean` -- confirmed it removed exactly the ignored files/dirs
+(including the nested one, needs -d) and left the 4 tracked anchors
+untouched, `git status` stayed clean throughout (no tracked file
+disturbed). Ran a second time on the now-clean data/ -- correct no-op,
+exit 0.
+================================================================================
+
+--------------------------------------------------------------------------------
+8) run.sh / run_build_initial.sh
+--------------------------------------------------------------------------------
+WHAT: two convenience wrapper scripts at the repo root:
+  run.sh                - `make` (or `make fbounds` if passed as the
+                          first argument) then launches ./bin/vertexmain
+                          in the background via nohup, logging to
+                          nohup.out, printing its PID. Same
+                          make+nohup+background pattern the
+                          scripts/tcsh/ cluster scripts already used
+                          inline; this is a standalone version for
+                          interactive/manual use.
+  run_build_initial.sh  - `make initial_config` then runs
+                          ./bin/generate_initial_mesh in the FOREGROUND
+                          (not backgrounded -- this is a one-shot,
+                          seconds-scale step, unlike vertexmain which can
+                          run for hours/days, and backgrounding it would
+                          risk run.sh launching vertexmain against a
+                          half-written mesh; said so in the script's own
+                          comment, open to adding nohup here too if
+                          actually wanted).
+  Both cd to their own location (repo root) first via
+  `cd "$(dirname "${BASH_SOURCE[0]}")"`, so they work regardless of the
+  caller's cwd -- both binaries need cwd=repo root for their relative-path
+  file I/O (README.md).
+
+  Both also refuse to run if a vertexmain from THIS SAME repo is already
+  running: run.sh to avoid two concurrent writers into data/,
+  run_build_initial.sh to avoid regenerating the mesh out from under a
+  live run.
+
+BUG FOUND AND FIXED DURING VERIFICATION (not shipped): the duplicate-
+process check was first written as
+`pgrep -f "$(pwd)/bin/vertexmain"` (absolute-path substring match against
+the full command line), on the theory that comparing an absolute path
+would avoid cross-repo false positives. Testing immediately showed this
+never matches at all: vertexmain is always launched with a RELATIVE path
+(./bin/vertexmain), so its actual recorded cmdline never contains the
+repo's absolute path. Switched to matching the exact process name
+(`pgrep -x vertexmain`, i.e. /proc/<pid>/comm) instead, narrowed by
+comparing /proc/<pid>/cwd to the repo root -- verified this correctly
+detects a real running instance AND correctly ignores an unrelated
+vertexmain running from a different clone/copy of the repo (real test:
+a scratch-copy instance and a coincidentally-present separate real-repo
+instance were both live at once during testing; the cwd check correctly
+distinguished them). Also checked whether `pgrep -f` even on a relative
+pattern would be safe: no -- a first draft using `-f 'bin/vertexmain'`
+(no absolute path) false-triggered on unrelated shell commands whose
+command-line TEXT merely mentioned that path (a comment, an echo) with a
+coincidentally-matching cwd. `-x` (exact comm-name match) has no such
+false-positive path since it only matches the actual binary's process
+name, never arbitrary command-line text.
+
+VERIFICATION: full round-trip in an isolated scratch copy (never the
+real repo's data/mesh/): run_build_initial.sh normal case (writes
+mesh/*.dat, exit 0); run.sh normal launch (nohup, prints PID, confirmed
+via `pgrep -x vertexmain`); run.sh a second time while the first is still
+running -- correctly refuses; run_build_initial.sh while vertexmain is
+running -- correctly refuses; killed the test process, confirmed both
+scripts then proceed normally again; run.sh fbounds -- confirmed via the
+printed gfortran command and `strings` on the resulting binary that it
+actually built the -fbounds-check variant.
+================================================================================
+
+--------------------------------------------------------------------------------
+9) run.sh / run_build_initial.sh -- removed the build step (user correction)
+--------------------------------------------------------------------------------
+Per explicit user correction: these scripts no longer call `make` at all
+-- the user builds separately, themselves. Both now just check for the
+already-built binary (bin/vertexmain / bin/generate_initial_mesh) and
+error out cleanly with a one-line message telling you which `make`
+target to run first, instead of silently building it themselves. The
+duplicate-running-process guard (see entry 8) is unchanged. run.sh's
+`fbounds` argument was removed along with the build step (it selected a
+`make` target, which no longer applies here).
+
+VERIFICATION: re-ran the full scratch-copy test sequence from entry 8:
+confirmed both scripts refuse cleanly (exit 1, clear message) when the
+respective binary doesn't exist yet; confirmed both work normally once
+built separately (via a plain `make`/`make initial_config` outside the
+scripts); confirmed the duplicate-process guard still works (second
+run.sh call while the first is live still refuses). Cleaned up the test
+process by its specific PID this time (not a blanket `pkill -x`, per the
+concern raised after entry 8's verification).
+================================================================================
+
+--------------------------------------------------------------------------------
+10) scripts/ renamed to shellscripts/ (user request)
+--------------------------------------------------------------------------------
+Pure rename, no content changes: scripts/ -> shellscripts/ (still holds
+finaldata_copy.sh and tcsh/). Updated the two places that referenced the
+old path: README.md's repository-layout table, and a comment in run.sh.
+================================================================================

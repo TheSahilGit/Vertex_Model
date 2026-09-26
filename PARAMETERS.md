@@ -12,7 +12,7 @@ If you add a parameter complex enough to need more than a few words, give it the
 same treatment: a short pointer in the `.dat` file (`-- see PARAMETERS.md`), the
 real explanation here — and remember both files must stay positionally in sync
 with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
-`Analysis_Codes_matlab/ReadPara1Params.m`).
+`analysis/ReadPara1Params.m`).
 
 ## `para_MeshGen.dat` — read by `Generate_Initial_Mesh.f90`
 
@@ -25,7 +25,7 @@ with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
 | `jitter_interior_y` | Same, y-offset. One random draw per point scales *both* its x and y jitter (correlated direction, not independent noise) — see the module header comment. |
 | `jitter_boundary_x` | Max random x-offset for outer-ring seed points specifically. Normally smaller than the interior jitter to keep a free mesh's edge less ragged. Ignored (every cell uses the interior jitter instead) when `if_periodic=.true.` — see that entry. |
 | `jitter_boundary_y` | Same, y-offset for the outer ring. |
-| `cell_headroom` | Extra cell slots reserved beyond `Lx*Ly`, for cells created later by division. Sets `num_dim = Lx*Ly + cell_headroom` in the written `para_MeshDims.dat`. |
+| `cell_headroom` | Extra cell slots reserved beyond `Lx*Ly`, for cells created later by division. Sets `num_dim = Lx*Ly + cell_headroom` in the written `mesh/para_MeshDims.dat`. |
 | `vertex_slot_headroom` | Extra per-cell vertex-list slots reserved beyond the largest polygon actually generated. Sets `inn_dim1`. |
 | `vertex_pool_headroom` | Extra vertex-array rows reserved beyond the vertex count actually generated (new vertices come from T1 flips and division). Sets `v_dim2`; rule of thumb ~2×N. |
 | `if_periodic` | `.false.` (default) — the ordinary free-boundary mesh every earlier feature assumes: ghost seed copies are used only to clip boundary-cell shapes against something, not to connect them to anything (see the module header — "a boundary-conditioning trick, not true periodic BCs"). `.true.` — a genuinely wrap-connected torus mesh: a post-pass identifies vertices independently computed by cells on opposite edges of the box (their raw positions differ by exactly one lattice period) and unifies their IDs via union-find, so opposite edges share real topology. Verified via Euler characteristic (V−E+F=0, the torus signature), uniform vertex degree 3, and exact area conservation (`log.txt`). Required (and checked at simulation startup, `allocation.f90::read_data`) if you're going to run with `if_PBC=.true.` in `para_Simulation.dat`. |
@@ -36,7 +36,7 @@ with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
 
 | Parameter | Description |
 |---|---|
-| `nrun` | `1` = fresh start from `v_in.dat`/`inn_in.dat`/`num_in.dat`. `2` = restart from a mid-run snapshot at `nrun2_initialTime`; all restart output is written under an `nrun2_` filename prefix so it never overwrites the original run's data. |
+| `nrun` | `1` = fresh start from `mesh/v_in.dat`/`mesh/inn_in.dat`/`mesh/num_in.dat`. `2` = restart from a mid-run snapshot at `nrun2_initialTime`; all restart output is written under an `nrun2_` filename prefix so it never overwrites the original run's data. |
 | `nrun2_initialTime` | The snapshot `it` to resume from when `nrun=2`. Ignored when `nrun=1`. |
 | `Ao` | Target (preferred) cell area in the area-elasticity energy term. |
 | `Co` | Target (preferred) cell perimeter in the perimeter-elasticity energy term. |

@@ -17,7 +17,7 @@ norm_flag = 'data';
 norm_range = [];
 % ===================================================
 
-para2 = load("../para_MeshDims.dat");
+para2 = load("../mesh/para_MeshDims.dat");
 Lx = para2(1);
 Ly = para2(2);
 

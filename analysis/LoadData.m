@@ -2,7 +2,7 @@
 function [Lx, Ly, v,inn,num, forces, biochemdata, cell_identity, all_end_data] = LoadData(it, nrun)
 
 
-para2 = load("../para_MeshDims.dat");
+para2 = load("../mesh/para_MeshDims.dat");
 %etas = load("../motility_in.dat");
 
 

@@ -225,7 +225,7 @@ module allocation
   
 !     open(unit=121, file='para.in', status='old'); 
      open(112, file='para_Simulation.dat', status='old')
-     open(unit=121, file='para_MeshDims.dat', status='old');
+     open(unit=121, file='mesh/para_MeshDims.dat', status='old');
   
      read(121,*) Lx
      read(121,*) Ly
@@ -532,9 +532,9 @@ module allocation
     subroutine read_data
 
       if(nrun.eq.1)then
-       open(1, file='num_in.dat',status='old')
-       open(2, file='v_in.dat', status='old')
-       open(3, file='inn_in.dat', status='old')
+       open(1, file='mesh/num_in.dat',status='old')
+       open(2, file='mesh/v_in.dat', status='old')
+       open(3, file='mesh/inn_in.dat', status='old')
 
        
        

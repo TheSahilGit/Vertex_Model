@@ -1,0 +1,6 @@
+# Only the LaTeX source is tracked here -- the PDF, figures, and LaTeX
+# build byproducts (.aux/.log/.out/.toc) are all regenerable/binary and
+# kept local only (log.txt).
+*
+!.gitignore
+!*.tex

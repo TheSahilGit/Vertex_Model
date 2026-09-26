@@ -587,25 +587,25 @@ program generate_initial_mesh
    end do
 
    ! ---------------- write output files ----------------
-   open(unit=20, file='v_in.dat', status='replace')
+   open(unit=20, file='mesh/v_in.dat', status='replace')
    do j = 1, v_dim2
       write(20,*) v(1, j), v(2, j)
    end do
    close(20)
 
-   open(unit=21, file='inn_in.dat', status='replace')
+   open(unit=21, file='mesh/inn_in.dat', status='replace')
    do k = 1, inn_dim2
       write(21,*) (inn(j, k), j = 1, inn_dim1)
    end do
    close(21)
 
-   open(unit=22, file='num_in.dat', status='replace')
+   open(unit=22, file='mesh/num_in.dat', status='replace')
    do k = 1, num_dim
       write(22,*) num(k)
    end do
    close(22)
 
-   open(unit=23, file='para_MeshDims.dat', status='replace')
+   open(unit=23, file='mesh/para_MeshDims.dat', status='replace')
    write(23,*) Lx
    write(23,*) Ly
    write(23,*) num_dim
