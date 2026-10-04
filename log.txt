@@ -2524,3 +2524,177 @@ alone. Did not add GPL's suggested per-file source-header notices
 out of scope for what was asked; only the three files that actually
 declare the project's license were touched.
 ================================================================================
+
+--------------------------------------------------------------------------------
+12) analysis/ dead-script cleanup
+--------------------------------------------------------------------------------
+Removed 12 .m files confirmed to serve no purpose in the current
+codebase, after building a cross-reference map (which files call which)
+and reading each ambiguous file's actual content/behavior rather than
+guessing from its name:
+
+  Broken -- reference something that no longer exists, would error on
+  the very first line that touches it:
+    AnalysisMSD.m         - calls Calculate_MSD(...), a function that
+                             doesn't exist anywhere in the repo (grepped,
+                             no definition found). Superseded by
+                             Analysis_MSD_cellID.m + compute_MSD_cellID.m.
+    Analysis_FTLE.m        - loads '../para1_in.dat', which only exists
+                             at analysis/para1_in.dat (no such file one
+                             directory up).
+    testPlots.m            - loads 'motility_in.dat' from a bare path;
+                             moved to legacy/motility_in.dat during the
+                             repo restructure.
+    test_tissue_bulk.m     - calls Cells_Within_Radius(...), but the
+                             actual function is Find_Cells_Within_Radius
+                             (name mismatch).
+
+  CORRECTION (next session, see entry 13): the claim below that
+  readtable(...)(7,1)/(8,1) reads the wrong row (gamm/eta instead of
+  Nt/dt) was WRONG -- asserted from naive file-line-counting, never
+  actually tested at the time. Tested afterward: readtable's real
+  behavior on this file silently drops the first 2 data rows (nrun,
+  nrun2_initialTime -- likely confused by nrun2_initialTime's inline
+  comment containing a second '!'), so table row N = file row N+2, which
+  currently lands exactly back on the right parameter (table row 7 =
+  file row 9 = totT; table row 8 = file row 10 = dt) -- a consistent but
+  totally undocumented, fragile offset, not the row-7/8-are-now-wrong
+  story originally told here. StressTensorAnalysis.m's removal is still
+  justified (redundant, not wired into the pipeline, plus the separate
+  confirmed mean(ShearStress_Individual) double-weighting issue below),
+  just not for the specific reason originally given.
+
+  Ran without crashing, but relied on an undocumented/fragile readtable
+  quirk rather than reading by name (confirmed mechanism in entry 13):
+    StressTensorAnalysis.m - see CORRECTION above re: the Nt/dt read.
+                             Separately, computes
+                             mean(ShearStress_Individual), which
+                             double-weights the already area-weighted
+                             per-cell contributions -- not the correct
+                             area-weighted mean formula. Fully superseded
+                             by Calculate_Total_Stress.m +
+                             compute_StressTensor_series.m (uses
+                             ReadPara1Params.m, PBC-aware, bugfixed,
+                             wired into PlotAnalysis.m) -- same
+                             computation, done correctly.
+
+  Superseded duplicates (a better, more complete, actively-used version
+  exists):
+    read_para_1.m          - crude regex line-parser, superseded by
+                             ReadPara1Params.m (README/PARAMETERS.md
+                             explicitly say to use that one instead).
+    Analysis_COM_globalmean.m - superseded by Analysis_COM.m, which adds
+                             PBC-aware unwrapping and an MSD-of-COM
+                             analysis the old one lacked. Note: the two
+                             compute slightly different quantities
+                             (per-vertex global mean vs. per-cell
+                             centroid mean) -- not an exact numerical
+                             match, but the same diagnostic purpose
+                             (track whole-tissue COM drift). Both also
+                             shared the same readtable(...)(8,1) dt-read
+                             as StressTensorAnalysis.m -- see the
+                             CORRECTION above; fixed in Analysis_COM.m
+                             anyway the next session (entry 13), as a
+                             robustness improvement rather than a
+                             value-correctness one.
+    plot2.m                - the exact per-cell polyshape/plot() loop
+                             TisuePlot.m's own header comment says it
+                             replaced. Also not even runnable standalone
+                             (references Ly/Lx/v/inn/num/etas without
+                             ever defining them -- a leftover fragment).
+    msd_compare.m           - loads a 4-column msd.dat for a multi-curve
+                             comparison; the current MSD writer
+                             (Analysis_MSD_cellID.m) only ever writes 2
+                             columns (time, MSD) -- this script's
+                             expected file format doesn't match anything
+                             currently produced, on top of being
+                             redundant with the modern MSD pipeline.
+    test_force.m            - ad hoc max-of-summed-force-components vs.
+                             time; compute_ForceStats.m covers the same
+                             kind of diagnostic (max/mean force vs time,
+                             documented, wired into PlotAnalysis.m) --
+                             deliberately restricted to the deterministic
+                             fxx/fyy terms only (its own header explains
+                             why: the random/active/ABP terms scale with
+                             sqrt(dt), not dt, so summing them with fxx/
+                             fyy the way test_force.m did isn't actually
+                             a principled quantity).
+
+  Unused third-party library:
+    colorcet.m             - a vendored colormap library; verified
+                             nothing calls colorcet(...) anywhere except
+                             its own usage-example comments.
+                             GetFieldColormap.m uses slanCM.m instead.
+
+  Reworked rather than removed (user wanted the capability kept, just
+  generalized):
+    RhoROCK_Area_data.m    - replaced by new analysis/Analysis_Biochem.m:
+                             a general-purpose, standalone Rho/ROCK/
+                             Myosin diagnostic script in the same style
+                             as Analysis_MSD_cellID.m/Analysis_COM.m
+                             (ReadPara1Params + FindLatestAvailableIt +
+                             GetSnapshotItList, thin wrapper around
+                             compute_BiochemMeans.m). Keeps the useful
+                             parts of the old script (mean-field
+                             timeseries, Myosin-vs-Rho phase portrait,
+                             Myosin/Rho cross-correlation vs lag) plus a
+                             PBC-aware mean-area timeseries; drops the
+                             old script's hardcoded it-range
+                             (1000:1000:5700000, a specific historical
+                             run) and its 5-random-individual-cell-area
+                             panel (tangential to "biochem", not kept).
+                             VERIFIED end-to-end in an isolated scratch
+                             copy: built and ran a real short simulation
+                             with if_RhoROCK=.true. enabled, ran
+                             Analysis_Biochem.m against the real output
+                             -- completed with no errors, all values
+                             finite (no NaNs), and all 3 panels (mean-
+                             field timeseries, phase portrait, cross-
+                             correlation) visually inspected and sane.
+
+  NOT removed (user said this one is still needed):
+    RhoROCK_testODE.m      - standalone ODE-prototyping script (no
+                             LoadData call, not part of the data-analysis
+                             pipeline) -- kept as-is, untouched.
+
+Everything here was done on Claude_Testing only, per the user's
+instruction to stop touching master directly going forward.
+================================================================================
+
+--------------------------------------------------------------------------------
+13) Analysis_COM.m dt-read: fixed (as a robustness improvement, not a
+    value-correctness bug -- see the CORRECTION added to entry 12 above)
+--------------------------------------------------------------------------------
+WHAT: Analysis_COM.m's `deltat = table2array(para1(8,1))` (para1 =
+readtable("../para_Simulation.dat")) replaced with
+ReadPara1Params("../para_Simulation.dat").dt, matching the pattern
+already used by Oscillatory_Shear_Analysis.m/Calculate_Total_Stress.m/
+Analysis_MSD_cellID.m/compute_*.m.
+
+ACTUAL MECHANISM (tested directly, not assumed -- see the correction
+added to entry 12): readtable(...) on para_Simulation.dat silently drops
+the first 2 data rows (nrun, nrun2_initialTime), so table row N = file
+row N+2, consistently. Right now that offset happens to land table row 8
+on file row 10 (dt) correctly -- table2array(para1(8,1)) was NOT
+actually returning the wrong value. This is still worth fixing: the
+offset is an undocumented side-effect of nrun2_initialTime's inline
+comment containing a second '!' (confirmed by comparing the full table
+against the file side-by-side), not a stable guarantee -- any future
+edit near the top of para_Simulation.dat could shift or remove that
+quirk and silently desync this read again, exactly the failure mode
+Oscillatory_Shear_Analysis.m's and Calculate_Total_Stress.m's own
+bugfix comments already warn about for this exact pattern.
+
+VERIFICATION: isolated the two read methods side-by-side against the
+real para_Simulation.dat (old readtable magic-row vs. new
+ReadPara1Params) -- both currently return dt=0.001, confirming this
+change is a no-op today, purely a fragility fix. Also ran the fixed
+Analysis_COM.m end-to-end against real simulation output in an isolated
+scratch copy (reusing the data/motility_store.dat anchor file, since
+live runs no longer write that filename -- see allocation.f90's own
+bugfix comment near write_output) to confirm it still loads/runs
+correctly; the full COM-vs-time loop itself wasn't separately
+re-verified this pass (unrelated hardcoded nrun=2 assumption in the
+script, pre-existing, out of scope here), only the specific lines that
+changed.
+================================================================================

@@ -2,10 +2,16 @@ clear; clc;
 % close all;
 
 %% Load parameters
-para2 = load("../mesh/para_MeshDims.dat"); 
-para1 = readtable("../para_Simulation.dat");
+para2 = load("../mesh/para_MeshDims.dat");
 
-deltat = table2array(para1(8,1));
+% BUGFIX (log.txt): was reading dt via readtable(...)(8,1) -- a magic
+% row number that assumed para_Simulation.dat's layout never changes.
+% Row 8 is now `eta`, not `dt` (the file gained rows, e.g. if_PBC, since
+% this was written) -- silently used the wrong value. ReadPara1Params.m
+% reads by NAME instead, so this can't silently desync again (same fix
+% already applied elsewhere -- see Oscillatory_Shear_Analysis.m).
+p1 = ReadPara1Params("../para_Simulation.dat");
+deltat = p1.dt;
 
 fname_etas = sprintf('../data/motility_store.dat');
 fid = fopen(fname_etas);
