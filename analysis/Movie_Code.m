@@ -3,7 +3,7 @@ clear; clc;
 
 % ==================== options ====================
 nrun = 1;
-itList = (10000);              % list of Fortran timesteps to render as frames
+itList = (4000);              % list of Fortran timesteps to render as frames
 outFile = "Movie_test.avi";
 frameRate = 1;
 
@@ -14,7 +14,7 @@ frameRate = 1;
 % -- see ComputeCellColorData.m for what each one computes, except 'FTLE'
 % which is handled separately below (see ftle_lookahead) since it's
 % inherently a two-snapshot quantity, not a single-frame field.
-colorBy = 'Force';
+colorBy = 'Motility';
 
 norm_flag = 'data';   % 'data' | '01' | 'custom'
 norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
@@ -53,6 +53,19 @@ ftle_lookahead = 10000;
 % edges). Switch to 'painters' only if opengl misbehaves on a given
 % machine (e.g. no GPU/driver, headless/software-only display).
 rendererMode = 'opengl';   % 'opengl' (default) | 'painters'
+
+% ---- Partial-lattice crop (log.txt: replaces the old MovieCode_halflatt.m
+% variant, which despite its name never actually did this -- it was a
+% near-duplicate of this script with colorBy/nrun/itList hardcoded and
+% some dead unused trailing code; this crop is a genuinely new capability,
+% not a restoration of one). Cells whose (PBC-unwrapped) centroid has
+% y > plottill are excluded ENTIRELY -- not drawn, and not counted in the
+% colorbar's 'data' min/max -- so the kept region is treated as if it
+% were the whole tissue, exactly like re-running this on a smaller mesh,
+% not like zooming the camera on an unchanged color scale. e.g.
+% plottill = Ly/2 keeps only the bottom half. Leave empty ([]) to keep
+% the whole tissue (default, same as before this option existed).
+plottill = [];
 % ===================================================
 
 para2 = load("../mesh/para_MeshDims.dat");
@@ -144,20 +157,54 @@ for it = itList
             colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
     end
 
+    % Apply plottill (see option above): zero out num for any cell whose
+    % (PBC-unwrapped) centroid falls outside the kept y-range. TisuePlot.m
+    % skips num(i)==0 cells both when building faces (an all-NaN face
+    % row -- not drawn) and, since this change, when computing the 'data'
+    % colorbar range -- so the kept region is treated as if it were the
+    % whole tissue, not just a zoomed-in view of an unchanged scale.
+    num_eff = num;
+    Nc_frame = find(num ~= 0, 1, 'last');
+    if ~isempty(plottill)
+        for ic = 1:Nc_frame
+            vy = v(inn(ic, 1:num(ic)), 2);
+            if numel(vy) > 1
+                dy = vy(2:end) - vy(1); dy = dy - Ly .* round(dy ./ Ly);
+                vy(2:end) = vy(1) + dy;
+            end
+            if mean(vy) > plottill
+                num_eff(ic) = 0;
+            end
+        end
+    end
+
     % Diverging fields (Pressure/ShearStress -- decided by GetFieldColormap.m
     % based on the quantity itself, not a flag threaded through TisuePlot.m)
     % get their colorbar centered symmetrically about zero instead of the
     % field's raw (usually asymmetric) min/max, folded into an ordinary
     % 'custom' norm_flag/norm_range here -- TisuePlot.m never needs to know
-    % "diverging" is a concept (log.txt).
+    % "diverging" is a concept (log.txt). Uses num_eff so an active
+    % plottill excludes hidden cells from this range too, same as
+    % TisuePlot.m's own 'data' case.
     if isDiverging && strcmp(norm_flag, 'data')
-        L = max(abs(colordata(1:find(num ~= 0, 1, 'last'))));
+        live = num_eff(1:Nc_frame) ~= 0;
+        L = max(abs(colordata(live)));
         [frame_norm_flag, frame_norm_range] = deal('custom', [-L L]);
     else
         [frame_norm_flag, frame_norm_range] = deal(norm_flag, norm_range);
     end
 
-    TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, frame_norm_flag, frame_norm_range, cmap, rendererMode);
+    TisuePlot(Lx, Ly, v, inn, num_eff, colordata, colorbar_string, frame_norm_flag, frame_norm_range, cmap, rendererMode);
+
+    % Must come AFTER TisuePlot (which unconditionally sets its own
+    % axis([-4 Lx+4 -4 Ly+4]) and pbaspect([Lx/Ly 1 1]) as its last lines)
+    % -- otherwise this would just get overwritten. pbaspect is
+    % recomputed against plottill (not Ly) so the kept cells still render
+    % at their true aspect ratio instead of looking vertically stretched.
+    if ~isempty(plottill)
+        ylim([-4 plottill+4])
+        pbaspect([Lx/plottill 1 1])
+    end
 
     if show_T1T2_events
         hold on;

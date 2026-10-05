@@ -2698,3 +2698,131 @@ re-verified this pass (unrelated hardcoded nrun=2 assumption in the
 script, pre-existing, out of scope here), only the specific lines that
 changed.
 ================================================================================
+
+--------------------------------------------------------------------------------
+14) Movie_Code.m: add plottill option; remove MovieCode_halflatt.m/Movie_Code_WithMyosin.m
+--------------------------------------------------------------------------------
+INVESTIGATED (user asked what these two were still doing there): both are
+near-duplicates of Movie_Code.m with colorBy/nrun/itList/outFile
+hardcoded (Motility and Myosin respectively) plus some dead trailing code
+(reads Energy/ShearStress/T1_count/T2_count into variables, never used).
+Checked MovieCode_halflatt.m's actual history back to the initial commit
+(48adf6f9) -- despite the name, it never contained any "half lattice"/
+partial-rendering logic at any point; "halflatt" appears to just be a
+naming relic from whatever long-ago experiment this variant was written
+for. Movie_Code.m already supports colorBy='Myosin' directly (listed in
+its own header), so Movie_Code_WithMyosin.m was already 100% redundant
+before this change.
+
+ADDED: a new `plottill` option in Movie_Code.m (genuinely new capability,
+not a restoration of anything -- see above). First draft just cropped the
+rendered VIEW via ylim(...) -- user clarified they want the kept region
+treated as if it WERE the whole tissue, not a zoomed-in view of an
+unchanged color scale. Final design: cells whose PBC-unwrapped centroid
+y > plottill have their num(i) zeroed (num_eff, computed fresh per frame
+right after colordata) before being passed to TisuePlot -- excludes them
+from the drawn faces AND, via a TisuePlot.m fix (see below), from the
+'data' colorbar min/max, and from the diverging-field (Pressure/
+ShearStress) symmetric range in Movie_Code.m itself. ylim/pbaspect are
+still applied after TisuePlot's own call, now just to frame the kept
+region rather than doing any of the actual exclusion. Default [] (no
+crop) is the exact previous behavior.
+
+BUG FOUND AND FIXED while implementing this: TisuePlot.m's main loop
+unconditionally computed `x0 = v(ids(1), 1)` for every i in 1:Nc, with no
+guard for num(i)==0 -- ordinarily impossible (Nc is BY DEFINITION the
+last live index, so no gaps exist in 1:Nc in any other current caller),
+but exactly what plottill's masking creates deliberately. Errored
+immediately ("Index exceeds array bounds", ids(1) on an empty ids) the
+first time this was actually tried. Fixed with a one-line `if n==0;
+continue; end` guard -- F(i,:) was already pre-filled all-NaN (patch
+draws nothing for it) and Vexp's row count already excluded it
+(sum(num(1:Nc)) skips zeros), so nothing else needed to change. Also
+fixed TisuePlot.m's 'data' norm_flag to compute cmin/cmax from only
+num(1:Nc)~=0 cells (previously all of colordata(1:Nc) regardless) --
+a no-op for every existing caller (no gaps elsewhere) but required for
+plottill's "kept region is the whole tissue" semantics.
+
+REMOVED: MovieCode_halflatt.m, Movie_Code_WithMyosin.m -- superseded by
+plottill + colorBy='Myosin', both already in the main script.
+
+VERIFICATION: built and ran a real short simulation (64x64, 4096 cells)
+in an isolated scratch copy. Confirmed via direct computation: plottill
+= Ly/2 excludes exactly 2040 of 4096 cells (those with centroid y > 32);
+full-tissue colordata range was [0.0434, 0.2637], masked (kept-cells-
+only) range was [0.0434, 0.2339] -- visibly narrower, confirming the
+colorbar now reflects only the kept region. Rendered and visually
+inspected three cases: (1) default (plottill=[]) -- pixel-equivalent to
+before any of this change, confirming the TisuePlot.m n==0 guard is a
+true no-op for ordinary full-tissue rendering; (2) plottill=Ly/2 with
+num_eff passed to TisuePlot -- shows exactly the kept half, no cells
+beyond it rendered at all (not just clipped), hexagons correctly
+non-stretched; (3) same case's colorbar confirmed visibly topping out
+lower than the full-tissue case, matching the computed masked range.
+
+README.md updated (dropped the MovieCode_halflatt.m/Movie_Code_WithMyosin.m
+mention, added plottill, and listed the colorBy options that had drifted
+out of sync with ComputeCellColorData.m's actual list -- Pressure/
+ShearStress/FTLE were missing from this README line).
+
+Also found and fixed a real (not just cosmetic) reference: run_matlab.sh
+directly invoked `run('MovieCode_halflatt.m')` -- updated to
+`run('Movie_Code.m')`. ComputeCellColorData.m's header comment mentions
+both old filenames too, but only as historical rationale for why the
+unified colorBy option exists -- left alone, same as log.txt's own
+treatment of deleted files elsewhere.
+================================================================================
+
+--------------------------------------------------------------------------------
+15) New analysisdata/ directory for analysis-toolkit output
+--------------------------------------------------------------------------------
+WHAT: analysis/ had 8 .dat/.mat/.out files mixed in with its .m source,
+in 3 different categories, sorted out by checking who actually
+reads/writes each one (grepped every analysis/*.m for the filename,
+nothing guessed from the name):
+
+  Genuine output, writer updated to analysisdata/ (new directory,
+  sibling of analysis/ and data/ at the repo root):
+    circularity.dat        - Analysis_Circularity.m
+    msd.dat                - Analysis_MSD_cellID.m
+    Qt.dat                 - Analysis_Qt.m (not present on disk, but its
+                              writer found and fixed anyway)
+    PlotAnalysis_cache.mat - PlotAnalysis.m (writes)/RunPlotAnalysis.m
+                              (sets the default path) -- this one was
+                              already gitignored (*.mat) and untracked,
+                              a plain `mv` not `git mv`
+    mat.out                - run_matlab.sh's own stdout redirect
+
+  Unnecessary -- grepped, confirmed nothing currently reads OR writes
+  them, removed:
+    para1_in.dat, cumsumT1_0.01.dat, cumsumT1_0.02.dat,
+    cumsumT1_0.04.dat (the last 3: likely from some long-gone T1-distance-
+    threshold sweep; LoadData.m/LoadGlobalTimeSeries.m/PlotAnalysis.m all
+    compute a cumsum_T1 variable in-memory from data/T1_count.dat, none
+    of them read/write a file by this name)
+
+  Required resource, NOT output -- left exactly where it is:
+    slanCM_Data.mat - loaded by slanCM.m (the colormap library
+                      GetFieldColormap.m uses) as its own bundled lookup
+                      data, not something any analysis script produces.
+
+Writers updated: Analysis_Circularity.m/Analysis_MSD_cellID.m/
+Analysis_Qt.m (writematrix target), PlotAnalysis.m/RunPlotAnalysis.m
+(cacheFile default), run_matlab.sh (stdout redirect) -- all now point at
+../analysisdata/<file> instead of a bare filename.
+
+Also updated shellscripts/tcsh/analysis_runs.tcsh, which manipulates
+these same output files (rm/mv around the matlab invocation) inside each
+cluster run's own copied analysis/ directory -- would otherwise have
+kept looking in the old (now wrong) location. Added a parallel
+`mkdir -p $rundir/analysisdata` alongside its existing
+`mkdir -p $rundir/analysis`.
+
+README.md updated with an analysisdata/ row in the repository layout
+table.
+
+VERIFICATION: ran Analysis_MSD_cellID.m and Analysis_Circularity.m
+against real simulation data in an isolated scratch copy -- both exited
+cleanly and confirmed writing to ../analysisdata/ (msd.dat,
+circularity.dat), not analysis/.
+================================================================================

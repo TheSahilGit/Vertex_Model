@@ -15,7 +15,7 @@ itList = GetSnapshotItList(it_dump, 1, itEnd, []);
 
 [time, circularity] = compute_Circularity(itList, nrun);
 
-writematrix([time' circularity'], "circularity.dat");
+writematrix([time' circularity'], "../analysisdata/circularity.dat");
 
 figure("Position",[100 100 800 800])
 plot(time, circularity, 'o', "LineWidth", 3, 'MarkerSize', 20);

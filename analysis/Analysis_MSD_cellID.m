@@ -16,7 +16,7 @@ itList = GetSnapshotItList(it_dump, it_dump, itEnd, 100000);
 
 [time, MSD] = compute_MSD_cellID(itList, nrun);
 
-writematrix([time' MSD'], "msd.dat");
+writematrix([time' MSD'], "../analysisdata/msd.dat");
 
 figure("Position",[100 100 800 800])
 loglog(time, MSD, 'o', "LineWidth", 3, 'MarkerSize', 20);

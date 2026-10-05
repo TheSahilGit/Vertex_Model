@@ -16,7 +16,7 @@ itList = GetSnapshotItList(it_dump, 1000, itEnd, 1000);
 
 [time, Qt] = compute_Qt(itList, nrun, ac);
 
-writematrix([time' Qt'], 'Qt.dat');
+writematrix([time' Qt'], '../analysisdata/Qt.dat');
 
 figure("Position",[100 100 800 800])
 semilogx(time, Qt, 'o', "LineWidth", 3, 'MarkerSize', 20);

@@ -59,10 +59,19 @@ if nargin < 11 || isempty(renderer_mode)
 end
 
 % ----- normalization -----
+% 'data' only looks at LIVE cells (num(i)~=0) -- normally every cell in
+% 1:Nc is live (Nc is defined as the last live index), so this is a
+% no-op for ordinary callers. A caller that zeroes out num for a SUBSET
+% of cells within 1:Nc (e.g. Movie_Code.m's plottill, to render/scale as
+% if only that subset were the whole tissue) relies on this to exclude
+% the hidden cells from the colorbar range too, not just from the drawn
+% faces (which were already correctly skipped below -- an all-NaN face
+% row for any num(i)==0).
 switch norm_flag
     case 'data'
-        cmin = min(colordata(1:Nc));
-        cmax = max(colordata(1:Nc));
+        live = num(1:Nc) ~= 0;
+        cmin = min(colordata(live));
+        cmax = max(colordata(live));
     case '01'
         cmin = 0;
         cmax = 1;
@@ -102,6 +111,14 @@ Vexp = zeros(sum(num(1:Nc)), 2);
 row = 0;
 for i = 1:Nc
     n = num(i);
+    % A caller that zeroes out num for a subset of cells within 1:Nc
+    % (Movie_Code.m's plottill) leaves a gap TisuePlot never otherwise
+    % sees -- ordinarily Nc IS the last live index, so num(i) is never 0
+    % for i<=Nc. F(i,:) is already all-NaN (patch draws nothing for it)
+    % and no Vexp rows are allocated to it (sum(num(1:Nc)) already
+    % excludes it) -- just skip the vertex math that would otherwise
+    % index inn(i,1:0) with nothing in it.
+    if n == 0; continue; end
     ids = inn(i, 1:n);
     x0 = v(ids(1), 1);
     y0 = v(ids(1), 2);

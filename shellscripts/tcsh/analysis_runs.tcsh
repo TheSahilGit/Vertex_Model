@@ -49,8 +49,11 @@ foreach type ($types)
 
         echo "Processing analysis in: $rundir"
 
-        # Ensure analysis directory exists
+        # Ensure analysis/analysisdata directories exist (log.txt:
+        # Analysis_Circularity.m/Analysis_MSD_cellID.m now write their
+        # output to ../analysisdata/ instead of alongside the scripts)
         mkdir -p $rundir/analysis
+        mkdir -p $rundir/analysisdata
 
         # Copy MATLAB analysis code
         cp $ANALYSIS_SRC $rundir/analysis/
@@ -59,14 +62,14 @@ foreach type ($types)
         cd $rundir/analysis
 
         #pwd
-        if (-e circularity.dat) then
-          rm circularity.dat
+        if (-e ../analysisdata/circularity.dat) then
+          rm ../analysisdata/circularity.dat
         endif
-        if (-e msd.dat) then
-          rm msd.dat
+        if (-e ../analysisdata/msd.dat) then
+          rm ../analysisdata/msd.dat
         endif
-        if (-e Qt.dat) then
-          rm Qt.dat
+        if (-e ../analysisdata/Qt.dat) then
+          rm ../analysisdata/Qt.dat
         endif
 
         matlab -nodisplay -nosplash -nodesktop << EOF > matlab.out
@@ -84,18 +87,18 @@ EOF
 
         # echo $runname
 
-        rm ${ANALYSIS_NAME}_${runname}.dat
+        rm ../analysisdata/${ANALYSIS_NAME}_${runname}.dat
 
-        if (-e circularity.dat) then
-            mv circularity.dat ${ANALYSIS_NAME}_${runname}.dat
+        if (-e ../analysisdata/circularity.dat) then
+            mv ../analysisdata/circularity.dat ../analysisdata/${ANALYSIS_NAME}_${runname}.dat
         endif
 
-        if (-e msd.dat) then
-            mv msd.dat ${ANALYSIS_NAME}_${runname}.dat
+        if (-e ../analysisdata/msd.dat) then
+            mv ../analysisdata/msd.dat ../analysisdata/${ANALYSIS_NAME}_${runname}.dat
         endif
 
-        if (-e Qt.dat) then
-            mv Qt.dat ${ANALYSIS_NAME}_${runname}.dat
+        if (-e ../analysisdata/Qt.dat) then
+            mv ../analysisdata/Qt.dat ../analysisdata/${ANALYSIS_NAME}_${runname}.dat
         endif
 
         cd ../../../

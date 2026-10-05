@@ -80,11 +80,12 @@
 .false.              ! if_free_edge_adhesion (differential line tension: free edges get gamm_free, everything else keeps gamm -- if_PBC must be .false.)
 0.06d0               ! gamm_free
 
+!------------------------------------------------------------------------
+!                             *CAUTION*
 ! -----------------------------------------------------------------------
 ! Everything above this line is read positionally by allocation.f90's
 ! read_input -- do not add/remove/reorder lines above without updating
 ! that subroutine (and ReadPara1Params.m's matching `names` list) at the
-! exact same position. Comments here are deliberately short; parameters
-! whose behavior needs real explanation (if_PBC, if_motility_Eulerian,
-! ...) are documented in PARAMETERS.md instead, to keep this file quick
-! to scan. Nothing below this line is ever read.
+! exact same position.
+!
+! Nothing below this line is ever read.

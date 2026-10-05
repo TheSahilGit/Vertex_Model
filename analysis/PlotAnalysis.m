@@ -68,7 +68,7 @@ function PlotAnalysis(varargin)
 %                         reloading mesh snapshots. A panel that was never
 %                         computed/cached yet is skipped with a warning
 %                         (run once with onlyPlot=false first).
-%   cacheFile    ('PlotAnalysis_cache.mat')
+%   cacheFile    ('../analysisdata/PlotAnalysis_cache.mat')
 %                         where computed panel data is cached. Every
 %                         non-onlyPlot run MERGES its freshly computed
 %                         panels into whatever is already in this file, so
@@ -132,7 +132,7 @@ addParameter(p, 'doCumsumT2', false);
 addParameter(p, 'ac', 1.0);
 addParameter(p, 'radius', 10);
 addParameter(p, 'onlyPlot', false);
-addParameter(p, 'cacheFile', 'PlotAnalysis_cache.mat');
+addParameter(p, 'cacheFile', '../analysisdata/PlotAnalysis_cache.mat');
 addParameter(p, 'fontSize', 14);
 addParameter(p, 'lineWidth', 2);
 addParameter(p, 'markerSize', 6);

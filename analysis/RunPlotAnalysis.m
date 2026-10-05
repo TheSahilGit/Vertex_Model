@@ -40,7 +40,7 @@ radius = 10;    % region (from tissue COM) used by the Pressure panel
 onlyPlot  = false;                        % true = skip all computation, just
                                            % replot from cacheFile (e.g. to
                                            % try different styling below)
-cacheFile = 'PlotAnalysis_cache.mat';     % every non-onlyPlot run merges its
+cacheFile = '../analysisdata/PlotAnalysis_cache.mat';     % every non-onlyPlot run merges its
                                            % freshly computed panels into
                                            % whatever's already in this file
 
