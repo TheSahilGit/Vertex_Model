@@ -214,14 +214,14 @@ program vertexmain
 
 
 
-    v(1,:) = v(1,:) + dt * fxx(:)/eta + sqrt(dt) * fxx_ran(:)/eta + &
-      dt * fxx_ABP(:) / eta + &
-      sqrt(dt) * fxx_Polar(:)/eta
-      
+    v(1,:) = v(1,:) + dt * fxx(:)/eta(:) + sqrt(dt) * fxx_ran(:)/eta(:) + &
+      dt * fxx_ABP(:) / eta(:) + &
+      sqrt(dt) * fxx_Polar(:)/eta(:)
 
-    v(2,:) = v(2,:) + dt * fyy(:)/eta + sqrt(dt) * fyy_ran(:)/eta + &
-      dt * fyy_ABP(:) / eta + &
-      sqrt(dt) * fyy_Polar(:)/eta
+
+    v(2,:) = v(2,:) + dt * fyy(:)/eta(:) + sqrt(dt) * fyy_ran(:)/eta(:) + &
+      dt * fyy_ABP(:) / eta(:) + &
+      sqrt(dt) * fyy_Polar(:)/eta(:)
 
     if(if_ABP)then
       theta_ABP(:)  = theta_ABP(:) + dsqrt(dt) * rot_noise(:)

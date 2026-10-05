@@ -43,7 +43,7 @@ with their readers (`Generate_Initial_Mesh.f90`, `allocation.f90::read_input`,
 | `lambda` | Area-elasticity modulus. |
 | `beta` | Perimeter-elasticity modulus. Non-dimensionalized once at startup (divided by `lambda*Ao`) — the value here is the physical one, not the rescaled internal one. Silently overridden every step if `if_active_contractility` or `if_RhoROCK` is on (the two aren't mutually exclusive in code; if both are on, `if_active_contractility` wins — an unresolved design gap, `log.txt`). |
 | `gamm` | Line-tension modulus (linear-in-perimeter energy term). Non-dimensionalized once at startup like `beta`. |
-| `eta` | Damping/mobility coefficient — the sole friction constant relating force to velocity (`v += dt*F/eta`); uniform across the whole tissue, no per-vertex or per-cell variation exists. |
+| `eta` | Damping/mobility coefficient — the friction constant relating force to velocity (`v += dt*F/eta`). Read into `eta_0`, the uniform baseline every vertex's `eta(:)` (a per-vertex array, `allocation.f90`) is initialized to; currently still spatially uniform in value (no flag varies it yet), but the array exists so a future flag/ODE can (log.txt). |
 | `totT` | Total number of timesteps. |
 | `dt` | Timestep size. |
 

@@ -36,8 +36,19 @@ module allocation
       integer :: boundary_count
    
    
-      real*8 :: eta, lambda, beta, gamm, Ao, Co,  dt
+      real*8 :: lambda, beta, gamm, Ao, Co,  dt
       real*8 :: beta_0
+
+      ! eta: per-vertex Langevin/friction coefficient (log.txt). eta_0 is
+      ! the single scalar read from para_Simulation.dat -- the uniform
+      ! baseline every vertex starts at, and the fixed reference value any
+      ! future spatially-varying eta (under its own flag, likely an ODE
+      ! paralleling Rho/ROCK/Myosin -- see that log.txt entry for the
+      ! normalization recommendation) should read/relax back toward,
+      ! mirroring how beta_0 already serves that exact role for Myosin's
+      ! mean-reversion (Force.f90) and initial condition (vertexmain.f90).
+      ! eta(:) is what every force/noise calculation actually uses.
+      real*8 :: eta_0
 
       real*8, allocatable, dimension(:) :: coefficients
       real*8, dimension(:),  allocatable ::  fxx_temp, fyy_temp
@@ -74,6 +85,7 @@ module allocation
       integer*4 :: summary_dump_interval
 
       real*8, allocatable, dimension(:) ::  mot, mot0
+      real*8, allocatable, dimension(:) :: eta
       real*8 :: etas_max, etas_min, mot_Lc
       real*8, allocatable, dimension(:) :: msdt, cellCentInit
       logical :: if_Shear_tissue
@@ -249,7 +261,7 @@ module allocation
      read(112,*) lambda
      read(112,*) beta
      read(112,*) gamm
-     read(112,*) eta
+     read(112,*) eta_0
      read(112,*) totTr
      read(112,*) dt
      read(112,*) if_Do_T1
@@ -465,6 +477,12 @@ module allocation
      allocate(cellCentInit(Lx*Ly-4*Lx - 4*Ly +16))
      allocate(borderver(v_dim2)) 
      allocate(mot(v_dim2),mot0(v_dim2))
+     ! Uniform baseline -- every vertex starts at the single eta_0 read
+     ! from para_Simulation.dat. A future flag/ODE would evolve eta(:)
+     ! away from this per-vertex, same lifecycle as mot's gradient/hotspot
+     ! setup (vertexmain.f90) relative to mot0.
+     allocate(eta(v_dim2))
+     eta(:) = eta_0
      allocate(coordNum(Lx*Ly))
      allocate(bound(2*Lx + 2*Ly))
      allocate(cellcen(num_dim, 2))
@@ -581,7 +599,7 @@ module allocation
 
      end if
 
-     coefficients = [lambda, beta, gamm, Ao, Co, eta]
+     coefficients = [lambda, beta, gamm, Ao, Co, eta_0]
 
      ! BUGFIX (log.txt, re-review pass): cell_no and vertex_occurance_count
      ! were sized off maxval(inn) -- the largest vertex index present in the

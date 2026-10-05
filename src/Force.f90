@@ -198,7 +198,11 @@ module Force
 
     ! sqrt(2*mot*eta) is identical for both components -- was computed
     ! twice per vertex (once for fxx_ran, once for fyy_ran); now once.
-    sigma_mot(1:nv) = sqrt(2.0d0 * mot(1:nv) * eta)
+    ! Uses the LOCAL per-vertex eta(1:nv), not eta_0 (log.txt) -- the
+    ! fluctuation-dissipation relation this implements requires the noise
+    ! amplitude to match whatever friction actually acts at that vertex,
+    ! not a global baseline, once eta varies in space.
+    sigma_mot(1:nv) = sqrt(2.0d0 * mot(1:nv) * eta(1:nv))
 
     fxx_ran(1:nv) = sigma_mot(1:nv) * (2.0d0 * rann_x(1:nv) - 1.0d0)
     fyy_ran(1:nv) = sigma_mot(1:nv) * (2.0d0 * rann_y(1:nv) - 1.0d0)
@@ -535,11 +539,13 @@ subroutine Apply_Limb_Force
       ! BUGFIX (log.txt): every other force in the code converts to a
       ! displacement via dt*force/eta (see vertexmain.f90); this was missing
       ! the /eta mobility factor, making its effect inconsistent by a factor
-      ! of eta relative to every other named force.
+      ! of eta relative to every other named force. Indexed eta(inn(1:nn,ic))
+      ! (not eta_0), same as every other per-vertex use -- each affected
+      ! vertex's own local mobility, consistent once eta varies in space.
       if(ic .lt. int(Lx*Ly/2))then   ! Cheap way
-        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (-1.0d0) / eta
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (-1.0d0) / eta(inn(1:nn,ic))
       else
-        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (1.0d0) / eta
+        v(1, inn(1:nn,ic)) = v(1, inn(1:nn,ic)) + dt * limb_force_strength * (1.0d0) / eta(inn(1:nn,ic))
       end if
 
     end do

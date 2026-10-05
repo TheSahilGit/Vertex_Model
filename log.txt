@@ -2849,3 +2849,119 @@ simulation data in an isolated scratch copy -- main_MovieCode.m
 completed cleanly; main_PlotTimeSeries.m drew all 4 enabled panels
 (Energy, Force, cumulative T1, cumulative T2) with no errors.
 ================================================================================
+
+--------------------------------------------------------------------------------
+17) eta (Langevin/friction coefficient): scalar -> per-vertex array
+--------------------------------------------------------------------------------
+WHAT (user request: prepare for a future flag/ODE that will make friction
+spatially heterogeneous, like Rho/ROCK/Myosin):
+  - eta_0 (new name for the old scalar `eta`) is still read exactly as
+    before -- same single line, same position, in para_Simulation.dat.
+    No input-file format change; ReadPara1Params.m/PARAMETERS.md need no
+    update.
+  - eta(:) is a new allocatable, v_dim2-sized array, allocated in
+    allocate_arrays right next to mot/mot0, initialized uniformly:
+    eta(:) = eta_0.
+  - Every site that divided a force by the old scalar eta now divides by
+    the per-vertex eta(:) instead: vertexmain.f90's position update
+    (eta(:), elementwise over all vertices), Force.f90's sigma_mot noise
+    term (eta(1:nv), matching mot(1:nv)'s indexing), Force.f90's
+    Apply_Limb_Force (eta(inn(1:nn,ic)), matching the specific vertices
+    being displaced -- previously a single shared scalar for all of
+    them).
+  - coefficients = [...] (allocation.f90, read_data) now logs eta_0 (the
+    baseline), not an attempt to cram an array into a 6-element scalar
+    list. Noted in passing: this `coefficients` array is never actually
+    read back anywhere in the codebase (grepped) -- already-dead code,
+    unrelated to this change, left alone.
+  - Proliferation.f90: the two brand-new vertices created by a division
+    now get eta edge-interpolated from the two mother-cell vertices their
+    split edge connects -- eta(maxinn+1)/eta(maxinn+2) = 0.5*(...) --
+    exactly mirroring the existing mot fix immediately above it in the
+    same file. Without this, new vertices would start with whatever
+    stale/garbage value happened to sit in that array slot (Fortran does
+    not zero-initialize allocated arrays) -- the same bug class
+    FEATURE_IDEAS.txt's B1 already covers for Rho/ROCK/Myosin/
+    cell_identity (since fixed) and the earlier session fixed for mot
+    itself. No-op today (eta is still spatially uniform at this point),
+    but required before any future heterogeneity, not after.
+
+NORMALIZATION RECOMMENDATION (the user's actual question): keep eta_0 as
+a plain scalar (mirroring beta_0's existing role for Myosin, not mot0's
+array -- there is no gradient/hotspot-style spatial setup for eta yet,
+so a scalar baseline is sufficient and simpler) and use it as:
+  1. The uniform initial condition for eta(:) (already implemented here).
+  2. The natural mean-reversion target for whatever future ODE governs
+     eta(:) -- e.g. eta(ic)/vertex equivalent relaxing toward eta_0 with
+     its own rate constant, exactly the pattern Force.f90 already uses
+     for Myosin relaxing toward beta_0. This gives the future flag a
+     well-defined "what does this field settle back to with the ODE/flag
+     off" reference for free, and makes A/B comparisons against
+     eta_0-only (current) behavior meaningful (set the new ODE's forcing
+     term to zero and the array should relax to the old uniform-eta_0
+     baseline).
+  3. EVERY per-vertex force/noise calculation must index the LOCAL
+     eta(iv), never eta_0, once this ships -- already done above. This
+     matters most for the fluctuation-dissipation term in Force.f90
+     (sigma_mot = sqrt(2*mot*eta)): physically, the noise amplitude at a
+     vertex must match the friction actually acting there, or the model
+     would inject/dissipate energy inconsistently from point to point.
+  4. One thing to design for when the real heterogeneity ships (not
+     needed yet, flagging for later): the global dt is fixed and shared
+     by every vertex; explicit-Euler stability is set by the vertex with
+     the SMALLEST eta (highest mobility) in the whole tissue. If a future
+     eta ODE can push some vertices' eta much lower than eta_0, dt may
+     need re-tuning (or an adaptive/local scheme) at that point -- not a
+     normalization issue per se, just a timestep-stability one worth
+     remembering when that flag is designed.
+
+VERIFICATION: rebuilt both the pre-change and post-change code from a
+clean git stash boundary, in two isolated scratch copies. Both patched
+with an identical fixed RNG seed (scratch-only, never applied to the
+real repo). Enabled if_cell_division (area_0 lowered to 0.3 to force
+divisions to actually trigger within the test's short run) so
+Proliferation.f90's new eta-inheritance lines were actually exercised,
+not just compiled. Ran 300 steps (it_dump=50) on both -- both reached
+identical Nc=4391 at the identical step. Diffed all 63 output files
+(v/inn/num/force/Myosin/cell_identity/motility snapshots, Energy,
+ShearStress, T1_count, T2_count) between the two runs: 0 differences,
+byte-for-byte identical. Confirms the whole refactor (including the new
+division-inheritance code path) is an exact no-op today, as it must be
+with eta still spatially uniform.
+================================================================================
+
+--------------------------------------------------------------------------------
+18) Follow-up: verified eta(:) actually handles real heterogeneity, not just uniform
+--------------------------------------------------------------------------------
+Entry 17's verification only proved the refactor is a no-op when eta(:)
+stays uniform (the only thing the committed code itself does today).
+Before trusting it, also checked the array mechanism holds up once eta
+genuinely varies per vertex -- since the real flag/ODE that will do this
+doesn't exist yet, this was done with a temporary SCRATCH-ONLY patch
+(three throwaway copies, never applied to the real repo -- confirmed
+clean afterward, grepped for the test marker string) overriding eta(:)
+right after its uniform initialization in vertexmain.f90, three ways:
+  (a) baseline: unchanged (eta(:) = eta_0 everywhere)
+  (b) noisy: eta(:) = eta_0*(1 +/- 10%), independent uniform noise per
+      vertex, fixed for the run
+  (c) patterned: eta(:) = eta_0*(1 + 0.5*sin(2*pi*y/Ly)) -- a smooth
+      spatial gradient ranging 0.5*eta_0 to 1.5*eta_0
+
+All three: built clean (fbounds too), ran 500 steps (if_ABP on, same
+para_Simulation.dat as the real repo otherwise) to completion with no
+crashes. Checked via LoadData.m against the real toolkit: zero NaN/Inf
+in v or forces for all three; v stayed within/near the box (no blow-up);
+Force colordata range comparable across all three (same order of
+magnitude as baseline, no runaway). Visually inspected all three final
+frames via TisuePlot -- intact, non-degenerate hexagonal tissue in every
+case; the patterned run shows a plausible spatially-correlated
+force-magnitude signature (a visible cluster of elevated-force cells),
+consistent with a real, physically-sensible response to the imposed eta
+gradient rather than noise/artifact.
+
+Confirms eta(:) as implemented is not just a no-op-preserving
+refactor -- the underlying per-vertex mechanism (allocation, indexing in
+vertexmain.f90/Force.f90, division-inheritance in Proliferation.f90)
+correctly handles genuine heterogeneity today, ready for whatever
+flag/ODE eventually drives it.
+================================================================================

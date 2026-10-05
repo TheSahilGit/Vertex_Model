@@ -365,6 +365,14 @@ module Proliferation
       mot(maxinn + 1) = 0.5d0 * (mot(idx_pair(1,1)) + mot(idx_pair(1,2)))
       mot(maxinn + 2) = 0.5d0 * (mot(idx_pair(2,1)) + mot(idx_pair(2,2)))
 
+      ! eta (log.txt): same edge-interpolation as mot just above, same
+      ! reasoning -- a plain copy from one arbitrary existing vertex would
+      ! be wrong once eta varies in space (the whole reason it's a
+      ! per-vertex array now). No-op today (eta is still spatially
+      ! uniform), but must be here before any future flag/ODE makes it not.
+      eta(maxinn + 1) = 0.5d0 * (eta(idx_pair(1,1)) + eta(idx_pair(1,2)))
+      eta(maxinn + 2) = 0.5d0 * (eta(idx_pair(2,1)) + eta(idx_pair(2,2)))
+
       ! BUGFIX (log.txt): Rho/ROCK/Myosin/cell_identity were never assigned
       ! for the new daughter cell (Nc+1) at all -- it silently kept whatever
       ! stale value already sat in that array slot (FEATURE_IDEAS.txt item
