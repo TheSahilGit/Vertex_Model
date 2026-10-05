@@ -768,8 +768,9 @@ module allocation
       integer :: iunit_Myosin
       integer :: iunit_cell_identity
       integer :: iunit_motility
+      integer :: iunit_eta
       character(100) :: fname_Energy, fname_ShearStress, fname_T1count, &
-        fname_T2count, fname_motility
+        fname_T2count, fname_motility, fname_eta
 
 
        iunit_inn = 532
@@ -779,6 +780,12 @@ module allocation
        iunit_Myosin = 966
        iunit_cell_identity = 967
        iunit_motility = 968
+       ! eta (log.txt): same per-frame-dump convention as motility just
+       ! above (not a one-time "write once" file) -- eta(:) is already a
+       ! per-vertex array that can evolve once a future flag/ODE drives
+       ! it, so this needs to be visible per-frame from the start, same
+       ! reasoning as motility's own bugfix comment right above.
+       iunit_eta = 969
 
        if(nrun.eq.1)then
          write(fname_inn, '("data/inn_", I8.8,".dat")')(it)
@@ -803,6 +810,7 @@ module allocation
          ! other per-vertex/per-cell array above -- no more special-cased
          ! "write once" file.
          write(fname_motility, '("data/motility_", I8.8,".dat")')(it)
+         write(fname_eta, '("data/eta_", I8.8,".dat")')(it)
          fname_Energy = 'data/Energy.dat'
          fname_ShearStress = 'data/ShearStress.dat'
          fname_T1count = 'data/T1_count.dat'
@@ -815,6 +823,7 @@ module allocation
          write(fname_Myosin, '("data/nrun2_Myosin_", I8.8,".dat")')(it)
          write(fname_cell_identity, '("data/nrun2_cell_identity_", I8.8,".dat")')(it)
          write(fname_motility, '("data/nrun2_motility_", I8.8,".dat")')(it)
+         write(fname_eta, '("data/nrun2_eta_", I8.8,".dat")')(it)
          ! BUGFIX (log.txt): these 4 were still hardcoded to the same
          ! filenames as nrun=1 regardless of nrun -- unlike every other
          ! output above, an nrun=2 restart run silently overwrote the
@@ -838,6 +847,7 @@ module allocation
        ! open(unit = iunit_force, file=fname_force, status='unknown')
        open(unit = iunit_cell_identity,file=fname_cell_identity, form ='unformatted', status='unknown')
        open(unit = iunit_motility,file=fname_motility, form ='unformatted', status='unknown')
+       open(unit = iunit_eta,file=fname_eta, form ='unformatted', status='unknown')
 
 
        write(iunit_inn)((inn(i,j),i=1,inn_dim1),j=1,inn_dim2)
@@ -849,6 +859,7 @@ module allocation
        write(iunit_Myosin)(Rho(i), ROCK(i), Myosin(i), i = 1, num_dim)
        write(iunit_cell_identity)(cell_identity(i),  i=1,num_dim)
        write(iunit_motility)(mot(i), i = 1, v_dim2)
+       write(iunit_eta)(eta(i), i = 1, v_dim2)
       
       
  
@@ -906,6 +917,7 @@ module allocation
        close(iunit_Myosin)
        close(iunit_cell_identity)
        close(iunit_motility)
+       close(iunit_eta)
 
     end subroutine write_output
 

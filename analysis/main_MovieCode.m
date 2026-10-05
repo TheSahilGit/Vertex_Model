@@ -10,7 +10,7 @@ frameRate = 1;
 % Which per-cell field to color the tissue by. One of:
 %   'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK', 'Area',
 %   'Perimeter', 'ShapeFactor', 'NumVertices', 'Pressure', 'ShearStress',
-%   'FTLE'
+%   'FTLE', 'Eta'
 % -- see ComputeCellColorData.m for what each one computes, except 'FTLE'
 % which is handled separately below (see ftle_lookahead) since it's
 % inherently a two-snapshot quantity, not a single-frame field.
@@ -93,6 +93,13 @@ Ly = para2(2);
 % fix (same staleness limitation those always had).
 etas = [];
 
+% eta (friction/Langevin coefficient, log.txt) -- same lazy/per-frame
+% loading convention as etas above (LoadEta reads data/eta_<it>.dat,
+% written every dump since the array was introduced -- no legacy
+% frozen-snapshot file exists for this one, unlike motility's
+% motility_store.dat, since eta was never written before that change).
+eta_field = [];
+
 % Loaded once, reused every frame -- same pattern as `etas` above. Empty
 % arrays if the flag is off, or if the simulation never had if_Do_T1/
 % if_Do_T2 on (LoadT1T2Events.m returns empty for a missing file).
@@ -145,6 +152,10 @@ for it = itList
         etas = LoadMotility(it, nrun);
     end
 
+    if strcmp(colorBy, 'Eta')
+        eta_field = LoadEta(it, nrun);
+    end
+
     if strcmp(colorBy, 'FTLE')
         % Two-snapshot quantity -- bypasses ComputeCellColorData.m's
         % single-frame dispatch entirely; reuses this frame's
@@ -154,7 +165,7 @@ for it = itList
         colorbar_string = sprintf('FTLE (look-ahead %d)', ftle_lookahead);
     else
         [colordata, colorbar_string] = ComputeCellColorData( ...
-            colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly);
+            colorBy, v, inn, num, forces, biochemdata, etas, eta_field, Lx, Ly);
     end
 
     % Apply plottill (see option above): zero out num for any cell whose
@@ -354,6 +365,31 @@ else
 end
 fread(fid, 1, 'float32');
 etas = fread(fid, Inf, 'float64');
+fclose(fid);
+end
+
+
+function eta_field = LoadEta(it, nrun)
+% LOADETA  Per-vertex Langevin/friction field for frame `it` (log.txt).
+% Reads the per-timestep dump allocation.f90 writes every it_dump, same
+% convention as motility -- but with no legacy frozen-snapshot fallback
+% (unlike LoadMotility's motility_store.dat): eta was never written to
+% data/ before this array existed, so there's no old-format file to fall
+% back to -- a data/ directory from before this change just has no
+% eta_<it>.dat at all, and this returns [] for it.
+if nrun == 1
+    etaFile = sprintf('../data/eta_%08d.dat', it);
+else
+    etaFile = sprintf('../data/nrun2_eta_%08d.dat', it);
+end
+
+if ~isfile(etaFile)
+    eta_field = [];
+    return;
+end
+fid = fopen(etaFile);
+fread(fid, 1, 'float32');
+eta_field = fread(fid, Inf, 'float64');
 fclose(fid);
 end
 

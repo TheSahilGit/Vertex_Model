@@ -2965,3 +2965,56 @@ vertexmain.f90/Force.f90, division-inheritance in Proliferation.f90)
 correctly handles genuine heterogeneity today, ready for whatever
 flag/ODE eventually drives it.
 ================================================================================
+
+--------------------------------------------------------------------------------
+19) eta plotting support: data/eta_<it>.dat output + 'Eta' colorBy option
+--------------------------------------------------------------------------------
+WHAT (user request: add eta to the plotting pipeline "in the same way as
+others" -- which requires actually writing it to data/ first, since
+nothing did before this):
+
+  Fortran (allocation.f90::write_output): eta(:) now written every dump,
+  exactly mirroring motility's per-frame convention (not a one-time
+  snapshot) -- data/eta_<it>.dat for nrun=1, data/nrun2_eta_<it>.dat for
+  nrun=2. New iunit_eta (969), fname_eta, open/write/close added
+  alongside iunit_motility's existing lines at each of the 4 spots that
+  pattern already touches (both nrun branches' filename assignment, the
+  open() call, the write() call, the close() call).
+
+  MATLAB:
+    - ComputeCellColorData.m: new `etaField` parameter (after `etas`,
+      before `Lx`) and a new 'Eta' case, using the same
+      perCellMeanOfVertexField helper Motility already uses (both are
+      per-vertex fields averaged per cell). Both existing callers
+      (main_MovieCode.m, compute_ShapeMetrics.m) updated for the new
+      argument.
+    - main_MovieCode.m: new `eta_field = []` (parallel to `etas = []`),
+      loaded lazily per-frame only when colorBy=='Eta' (parallel to
+      Motility's own lazy-load), via a new local LoadEta function
+      mirroring LoadMotility -- minus the legacy-fallback branch, since
+      no old-format eta file exists to fall back to (eta was never
+      written before this change, unlike motility's motility_store.dat).
+      'Eta' added to the colorBy doc-comment list.
+    - GetFieldColormap.m: 'Eta' -> 'Oranges' (sequential, ColorBrewer,
+      distinct from every other field's colormap).
+
+  README.md: added eta_<it>.dat/motility_<it>.dat to the data/ output
+  list (motility_<it>.dat was missing from this list even though it's
+  been the real per-frame mechanism for a while -- doc was stale,
+  fixed in passing); corrected motility_store.dat's description (no
+  longer described as the primary write-once mechanism, now correctly
+  described as the legacy fallback it actually is); added 'Eta' to
+  main_MovieCode.m's colorBy list.
+
+VERIFICATION: built clean. Ran a real short simulation in an isolated
+scratch copy for BOTH nrun=1 and nrun=2 (nrun=2 restarting from the
+nrun=1 run's it=20 snapshot) -- confirmed eta_00000001.dat through
+eta_00000040.dat (nrun=1) and nrun2_eta_00000001.dat through
+nrun2_eta_00000040.dat (nrun=2) all written. Loaded both back via the
+real ComputeCellColorData('Eta', ...)/GetFieldColormap('Eta') path --
+correct colorbar_string, correct (uniform, =eta_0) values, zero NaN,
+correct sequential (non-diverging) colormap, for both nrun values.
+Also ran the complete main_MovieCode.m script end-to-end with
+colorBy='Eta' -- clean exit, confirming the LoadEta wiring (not just
+the underlying functions in isolation) works.
+================================================================================

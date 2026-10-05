@@ -42,6 +42,7 @@ if isempty(COLORMAP_TABLE)
     COLORMAP_TABLE('ShapeFactor') = 'YlOrBr';    % warm ramp, common in shape-index figures
     COLORMAP_TABLE('NumVertices') = 'PuBuGn';    % discrete count, visually distinct
     COLORMAP_TABLE('FTLE')        = 'YlOrRd';    % literature convention for FTLE fields
+    COLORMAP_TABLE('Eta')         = 'Oranges';   % ColorBrewer, distinct from every field above
 
     % ---- diverging (signed, zero-centered quantities) ----
     COLORMAP_TABLE('Pressure')    = 'RdBu';      % classic compression/tension diverging map

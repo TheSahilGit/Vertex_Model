@@ -41,8 +41,8 @@ for k = 1:n
     it = itList(k);
     [Lx, Ly, v, inn, num] = LoadData(it, nrun);
 
-    cellArea = ComputeCellColorData('Area', v, inn, num, [], [], [], Lx, Ly);
-    cellPerimeter = ComputeCellColorData('Perimeter', v, inn, num, [], [], [], Lx, Ly);
+    cellArea = ComputeCellColorData('Area', v, inn, num, [], [], [], [], Lx, Ly);
+    cellPerimeter = ComputeCellColorData('Perimeter', v, inn, num, [], [], [], [], Lx, Ly);
     cellShapeFactor = cellPerimeter ./ sqrt(cellArea);
 
     meanArea(k) = mean(cellArea);

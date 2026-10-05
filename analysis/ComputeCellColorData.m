@@ -1,20 +1,26 @@
-function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
+function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, etaField, Lx, Ly)
 % COMPUTECELLCOLORDATA  Dispatch: compute a per-cell scalar field to color
 % the tissue by, given a name. Generalizes what used to be three separate,
 % nearly-identical scripts (main_MovieCode.m: Force, MovieCode_halflatt.m:
 % Motility, Movie_Code_WithMyosin.m: Myosin) into one selectable option.
 %
-%   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
+%   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, etaField, Lx, Ly)
 %
 % colorBy : one of 'Force' (default), 'Motility', 'Myosin', 'Rho', 'ROCK',
 %           'Area', 'Perimeter', 'ShapeFactor', 'NumVertices', 'Pressure',
-%           'ShearStress'.
+%           'ShearStress', 'Eta'.
 % forces      : vdim2 x 8 array from LoadData (fxx,fyy,fxx_ran,fyy_ran,
 %               fxx_ABP,fyy_ABP,fxx_Polar,fyy_Polar), or [] if not needed.
 % biochemdata : numdim x 3 array from LoadData (Rho, ROCK, Myosin), or []
 %               if not needed.
 % etas        : per-vertex motility field (from data/motility_store.dat),
 %               or [] if not needed (only 'Motility' uses it).
+% etaField    : per-vertex Langevin/friction coefficient (from
+%               data/eta_<it>.dat, see LoadEta.m in main_MovieCode.m) --
+%               or [] if not needed (only 'Eta' uses it). Currently
+%               uniform (= eta_0) unless a future flag/ODE varies it
+%               (log.txt) -- plotted the same way regardless, so this
+%               option is ready for that without further changes here.
 % Lx, Ly      : mesh box dimensions (from para_MeshDims.dat) -- only
 %               needed by 'Area'/'Perimeter'/'ShapeFactor' (log.txt: a
 %               periodic mesh can have a cell straddling the wrap, which
@@ -32,6 +38,10 @@ switch colorBy
     case 'Motility'
         colordata = perCellMeanOfVertexField(etas, inn, num, Nc);
         colorbar_string = 'Motility';
+
+    case 'Eta'
+        colordata = perCellMeanOfVertexField(etaField, inn, num, Nc);
+        colorbar_string = 'Eta (friction/mobility coefficient)';
 
     case 'Myosin'
         colordata = biochemdata(1:Nc, 3);
@@ -79,7 +89,7 @@ switch colorBy
         error('ComputeCellColorData:unknownField', ...
             ['Unknown colorBy option "%s". Valid options: Force, Motility, ' ...
              'Myosin, Rho, ROCK, Area, Perimeter, ShapeFactor, NumVertices, ' ...
-             'Pressure, ShearStress.'], colorBy);
+             'Pressure, ShearStress, Eta.'], colorBy);
 end
 
 end

@@ -87,13 +87,13 @@ Both binaries must be run **from the repo root** (not from inside `bin/`) — th
 
 ## Output (`data/`)
 
-Per-snapshot dumps (every `it_dump` steps): `v_<it>.dat`, `inn_<it>.dat`, `num_<it>.dat` (mesh state), `force_<it>.dat`, `Myosin_<it>.dat`, `cell_identity_<it>.dat`.
-Whole-run summary series (rewritten periodically, safe to read while a run is in progress): `Energy.dat`, `ShearStress.dat`, `T1_count.dat`, `T2_count.dat`. `motility_store.dat` (written once, at `it=1`) records the initial per-vertex motility field. All of these get an `nrun2_` prefix for a restart run.
+Per-snapshot dumps (every `it_dump` steps): `v_<it>.dat`, `inn_<it>.dat`, `num_<it>.dat` (mesh state), `force_<it>.dat`, `Myosin_<it>.dat`, `cell_identity_<it>.dat`, `motility_<it>.dat`, `eta_<it>.dat` (the last two are per-vertex fields — motility and the Langevin/friction coefficient respectively; `eta_<it>.dat` is currently uniform unless a future flag/ODE varies it, see `log.txt`).
+Whole-run summary series (rewritten periodically, safe to read while a run is in progress): `Energy.dat`, `ShearStress.dat`, `T1_count.dat`, `T2_count.dat`. `motility_store.dat` is a legacy frozen-at-`it=1` fallback, only read by `LoadMotility`/`main_MovieCode.m` for a `data/` directory predating the per-frame `motility_<it>.dat` dump. All of these get an `nrun2_` prefix for a restart run.
 
 ## Analysis toolkit (`analysis/`)
 
 - `main_PlotTimeSeries.m` (renamed from `RunPlotAnalysis.m`) — top-level driver: set `nrun`/`itStart`/`itEnd`/`itInterval` and which panels to enable, calls `PlotAnalysis.m` for a multi-panel timeseries figure (Energy, Pressure, Force, Circularity, Q(t), MSD, cumulative T1/T2 counts, ...).
-- `main_MovieCode.m` (renamed from `Movie_Code.m`) — renders an AVI movie of the tissue, colored by any of `Force`/`Motility`/`Myosin`/`Rho`/`ROCK`/`Area`/`Perimeter`/`ShapeFactor`/`NumVertices`/`Pressure`/`ShearStress`/`FTLE` (see `ComputeCellColorData.m`). `plottill` option excludes cells beyond a y-cutoff entirely (not just a view crop) and rescales the colorbar to the kept region.
+- `main_MovieCode.m` (renamed from `Movie_Code.m`) — renders an AVI movie of the tissue, colored by any of `Force`/`Motility`/`Myosin`/`Rho`/`ROCK`/`Area`/`Perimeter`/`ShapeFactor`/`NumVertices`/`Pressure`/`ShearStress`/`FTLE`/`Eta` (see `ComputeCellColorData.m`). `plottill` option excludes cells beyond a y-cutoff entirely (not just a view crop) and rescales the colorbar to the kept region.
 - `LoadData.m` / `LoadGlobalTimeSeries.m` — read a snapshot's / the whole-run summary data from `data/`.
 - `TisuePlot.m` — draws one tissue snapshot given loaded mesh + color data.
 - `ReadPara1Params.m` — parses `para_Simulation.dat` into a named struct (`p.dt`, `p.totT`, `p.if_motility`, ...) — use this instead of hardcoding row numbers.
