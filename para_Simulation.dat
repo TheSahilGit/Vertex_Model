@@ -77,7 +77,7 @@
 1.0d0               ! coupling_noise_strength
 .false.              ! if_polar_motility
 0.4d0               ! polar_motility_strength
-.false.              ! if_free_edge_adhesion (differential line tension: free edges get gamm_free, everything else keeps gamm -- if_PBC must be .false.)
+.false.              ! if_free_edge_adhesion (differential free-edge linetension. if_PBC must be .false.)
 0.06d0               ! gamm_free
 
 !------------------------------------------------------------------------
