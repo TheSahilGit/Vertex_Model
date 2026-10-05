@@ -3,7 +3,7 @@ clear; clc;
 
 % ==================== options ====================
 nrun = 1;
-itList = (4000);              % list of Fortran timesteps to render as frames
+itList = (1000);              % list of Fortran timesteps to render as frames
 outFile = "Movie_test.avi";
 frameRate = 1;
 
@@ -14,7 +14,7 @@ frameRate = 1;
 % -- see ComputeCellColorData.m for what each one computes, except 'FTLE'
 % which is handled separately below (see ftle_lookahead) since it's
 % inherently a two-snapshot quantity, not a single-frame field.
-colorBy = 'Motility';
+colorBy = 'Force';
 
 norm_flag = 'data';   % 'data' | '01' | 'custom'
 norm_range = [];      % only used when norm_flag == 'custom', e.g. [0 2]
