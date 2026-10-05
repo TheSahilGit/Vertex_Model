@@ -13,7 +13,7 @@ function TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, n
 %                 (getframe: "A valid figure or axes handle must be
 %                 specified"), opengl stayed flat with no crashes, and both
 %                 rendered visually identically (transparency/edges).
-%                 painters is kept as an opt-in fallback (Movie_Code.m's
+%                 painters is kept as an opt-in fallback (main_MovieCode.m's
 %                 rendererMode option) for cases opengl doesn't suit, e.g.
 %                 a headless/software-only display with no GPU/driver.
 %
@@ -23,7 +23,7 @@ function TisuePlot(Lx, Ly, v, inn, num, colordata, colorbar_string, norm_flag, n
 %                doesn't pass this keeps its exact previous look. Whether
 %                a field needs diverging treatment (e.g. Pressure/
 %                ShearStress: a symmetric-about-zero clim, not raw
-%                min/max) is decided by the caller (Movie_Code.m, via
+%                min/max) is decided by the caller (main_MovieCode.m, via
 %                GetFieldColormap.m) and folded into an ordinary
 %                norm_flag/norm_range before it ever reaches here --
 %                TisuePlot itself has no notion of "diverging".
@@ -62,7 +62,7 @@ end
 % 'data' only looks at LIVE cells (num(i)~=0) -- normally every cell in
 % 1:Nc is live (Nc is defined as the last live index), so this is a
 % no-op for ordinary callers. A caller that zeroes out num for a SUBSET
-% of cells within 1:Nc (e.g. Movie_Code.m's plottill, to render/scale as
+% of cells within 1:Nc (e.g. main_MovieCode.m's plottill, to render/scale as
 % if only that subset were the whole tissue) relies on this to exclude
 % the hidden cells from the colorbar range too, not just from the drawn
 % faces (which were already correctly skipped below -- an all-NaN face
@@ -112,7 +112,7 @@ row = 0;
 for i = 1:Nc
     n = num(i);
     % A caller that zeroes out num for a subset of cells within 1:Nc
-    % (Movie_Code.m's plottill) leaves a gap TisuePlot never otherwise
+    % (main_MovieCode.m's plottill) leaves a gap TisuePlot never otherwise
     % sees -- ordinarily Nc IS the last live index, so num(i) is never 0
     % for i<=Nc. F(i,:) is already all-NaN (patch draws nothing for it)
     % and no Vexp rows are allocated to it (sum(num(1:Nc)) already

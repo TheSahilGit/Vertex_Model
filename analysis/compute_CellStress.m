@@ -2,7 +2,7 @@ function [Pressure, ShearStress] = compute_CellStress(v, inn, num, biochemdata, 
 % COMPUTE_CELLSTRESS  Per-cell Pressure/ShearStress, one value per live
 % cell, for EVERY cell in the tissue (no radius restriction, no
 % area-weighted aggregation) -- for coloring a full-tissue snapshot
-% (Movie_Code.m's colorBy = 'Pressure'/'ShearStress'). This is distinct
+% (main_MovieCode.m's colorBy = 'Pressure'/'ShearStress'). This is distinct
 % from Calculate_Total_Stress.m/compute_StressTensor_series.m, which
 % compute a single radius-restricted, area-weighted-average scalar per
 % frame for PlotAnalysis.m's "Pressure"/"ShearStress" time-series panels.

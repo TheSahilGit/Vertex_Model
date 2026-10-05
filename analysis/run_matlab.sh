@@ -1,1 +1,1 @@
-matlab -nodisplay -nosplash -nodesktop -r "run('Movie_Code.m');exit;" > ../analysisdata/mat.out
+matlab -nodisplay -nosplash -nodesktop -r "run('main_MovieCode.m');exit;" > ../analysisdata/mat.out

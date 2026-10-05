@@ -37,7 +37,7 @@ function FTLE = compute_FTLE(it0, it1, nrun, v0, inn0, num0, cell_identity0)
 %            it1 > it0, a forward-time FTLE).
 % nrun     : 1 or 2 (LoadData convention).
 % v0,inn0,num0,cell_identity0 : optional -- if the caller (e.g.
-%            Movie_Code.m's per-frame loop) has already loaded it0's data
+%            main_MovieCode.m's per-frame loop) has already loaded it0's data
 %            for its own rendering, pass it here to skip a redundant
 %            LoadData(it0,nrun) call. If omitted, loaded internally.
 %

@@ -2,7 +2,7 @@ clear; clc; close all;
 % Thin driver script for PlotAnalysis.m -- edit the options below and run
 % this file. PlotAnalysis itself is a function (see PlotAnalysis.m); this
 % script just calls it with whatever you set here, the same pattern
-% Movie_Code.m uses for its own "options" block.
+% main_MovieCode.m uses for its own "options" block.
 
 % ==================== options ====================
 nrun = 1;

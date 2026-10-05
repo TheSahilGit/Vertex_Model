@@ -21,7 +21,7 @@ function [Division_it, Division_x, Division_y, Division_id1, Division_id2] = Loa
 %
 % Division_id1/Division_id2 are Nx1 cell arrays of 'cell_<N>' strings
 % (reconstructed from the numeric IDs here, so the rest of this toolkit --
-% Movie_Code.m's strcmp against cell_identity -- never needs to know about
+% main_MovieCode.m's strcmp against cell_identity -- never needs to know about
 % the binary encoding).
 
 if nrun == 1

@@ -2826,3 +2826,26 @@ against real simulation data in an isolated scratch copy -- both exited
 cleanly and confirmed writing to ../analysisdata/ (msd.dat,
 circularity.dat), not analysis/.
 ================================================================================
+
+--------------------------------------------------------------------------------
+16) Rename Movie_Code.m -> main_MovieCode.m, RunPlotAnalysis.m -> main_PlotTimeSeries.m
+--------------------------------------------------------------------------------
+Pure renames (user request: both top-level entry-point scripts should
+start with main_; RunPlotAnalysis.m's old name didn't reflect what it
+actually does -- user chose "main_PlotTimeSeries.m" after being offered
+name options, since its panels are all timeseries plots -- Energy,
+Force, Circularity, Q(t), MSD, cumulative T1/T2 -- vs. a simulation run).
+
+Updated every reference: run_matlab.sh's `run('Movie_Code.m')` call (a
+real functional dependency, not just a comment), 7 header-comment
+mentions across TisuePlot.m/ComputeCellColorData.m/compute_FTLE.m/
+LoadT1T2Events.m/GetFieldColormap.m/LoadDivisionEvents.m/
+compute_CellStress.m, main_PlotTimeSeries.m's own header comment
+(mentioned Movie_Code.m's options-block pattern), and README.md's
+analysis-toolkit list. log.txt itself left alone (historical record).
+
+VERIFICATION: ran both renamed scripts end-to-end against real
+simulation data in an isolated scratch copy -- main_MovieCode.m
+completed cleanly; main_PlotTimeSeries.m drew all 4 enabled panels
+(Energy, Force, cumulative T1, cumulative T2) with no errors.
+================================================================================

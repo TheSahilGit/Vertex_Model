@@ -1,6 +1,6 @@
 function [cmap, is_diverging] = GetFieldColormap(colorBy)
 % GETFIELDCOLORMAP  Central place to pick which colormap (via slanCM.m)
-% each Movie_Code.m colorBy quantity is rendered with. Movie_Code.m/
+% each main_MovieCode.m colorBy quantity is rendered with. main_MovieCode.m/
 % TisuePlot.m don't hardcode any of this -- they just ask this function
 % for "the right colormap for X" -- so to change a field's colormap later,
 % edit ONE line in the COLORMAP_TABLE/DIVERGING_FIELDS block below; every

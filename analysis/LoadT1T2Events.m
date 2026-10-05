@@ -33,7 +33,7 @@ function [T1_it, T1_x, T1_y, T1_ids, T2_it, T2_x, T2_y, T2_extruded_id, T2_nbr_i
 % neighbors; up to 3 more vertex-only neighbors), 0.0 padded.
 %
 % T1_ids is an Nx4 cell array of 'cell_<N>'/'none' strings (reconstructed
-% from the numeric IDs here, so the rest of this toolkit -- Movie_Code.m's
+% from the numeric IDs here, so the rest of this toolkit -- main_MovieCode.m's
 % strcmp against cell_identity -- never needs to know about the binary
 % encoding); T2_nbr_ids is an Nx6 cell array; T2_extruded_id is an Nx1
 % cell array.

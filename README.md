@@ -92,8 +92,8 @@ Whole-run summary series (rewritten periodically, safe to read while a run is in
 
 ## Analysis toolkit (`analysis/`)
 
-- `RunPlotAnalysis.m` — top-level driver: set `nrun`/`itStart`/`itEnd`/`itInterval` and which panels to enable, calls `PlotAnalysis.m` for a multi-panel figure (Energy, Pressure, Force, Circularity, Q(t), MSD, cumulative T1/T2 counts, ...).
-- `Movie_Code.m` — renders an AVI movie of the tissue, colored by any of `Force`/`Motility`/`Myosin`/`Rho`/`ROCK`/`Area`/`Perimeter`/`ShapeFactor`/`NumVertices`/`Pressure`/`ShearStress`/`FTLE` (see `ComputeCellColorData.m`). `plottill` option crops the rendered view to the bottom half (or any y-range) of the lattice.
+- `main_PlotTimeSeries.m` (renamed from `RunPlotAnalysis.m`) — top-level driver: set `nrun`/`itStart`/`itEnd`/`itInterval` and which panels to enable, calls `PlotAnalysis.m` for a multi-panel timeseries figure (Energy, Pressure, Force, Circularity, Q(t), MSD, cumulative T1/T2 counts, ...).
+- `main_MovieCode.m` (renamed from `Movie_Code.m`) — renders an AVI movie of the tissue, colored by any of `Force`/`Motility`/`Myosin`/`Rho`/`ROCK`/`Area`/`Perimeter`/`ShapeFactor`/`NumVertices`/`Pressure`/`ShearStress`/`FTLE` (see `ComputeCellColorData.m`). `plottill` option excludes cells beyond a y-cutoff entirely (not just a view crop) and rescales the colorbar to the kept region.
 - `LoadData.m` / `LoadGlobalTimeSeries.m` — read a snapshot's / the whole-run summary data from `data/`.
 - `TisuePlot.m` — draws one tissue snapshot given loaded mesh + color data.
 - `ReadPara1Params.m` — parses `para_Simulation.dat` into a named struct (`p.dt`, `p.totT`, `p.if_motility`, ...) — use this instead of hardcoding row numbers.

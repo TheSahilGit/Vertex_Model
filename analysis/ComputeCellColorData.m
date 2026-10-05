@@ -1,7 +1,7 @@
 function [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
 % COMPUTECELLCOLORDATA  Dispatch: compute a per-cell scalar field to color
 % the tissue by, given a name. Generalizes what used to be three separate,
-% nearly-identical scripts (Movie_Code.m: Force, MovieCode_halflatt.m:
+% nearly-identical scripts (main_MovieCode.m: Force, MovieCode_halflatt.m:
 % Motility, Movie_Code_WithMyosin.m: Myosin) into one selectable option.
 %
 %   [colordata, colorbar_string] = ComputeCellColorData(colorBy, v, inn, num, forces, biochemdata, etas, Lx, Ly)
